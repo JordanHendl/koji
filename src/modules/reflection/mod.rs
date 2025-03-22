@@ -57,10 +57,22 @@ impl ShaderInspector {
                 for resource in resources
                     .uniform_buffers
                     .iter()
-                    .chain(&resources.storage_buffers)
-                    .chain(&resources.sampled_images)
-                    .chain(&resources.storage_images)
+                    .map(|r| (r, "uniform"))
+                    .chain(resources.storage_buffers.iter().map(|r| (r, "storage")))
+                    .chain(
+                        resources
+                            .sampled_images
+                            .iter()
+                            .map(|r| (r, "sampled_image")),
+                    )
+                    .chain(
+                        resources
+                            .storage_images
+                            .iter()
+                            .map(|r| (r, "storage_image")),
+                    )
                 {
+                    let (resource, descriptor_type) = resource;
                     let name = compiler.get_name(resource.id).unwrap_or_default();
                     let binding_info = compiler
                         .get_decoration(resource.id, spirv::Decoration::Binding)
@@ -70,12 +82,11 @@ impl ShaderInspector {
                         .get_decoration(resource.id, spirv::Decoration::DescriptorSet)
                         .ok()
                         .unwrap_or_default();
-                    let descriptor_type = format!("{:?}", resource.type_id);
 
                     func(BindingDetails {
                         binding: binding_info,
                         set: set_info,
-                        descriptor_type,
+                        descriptor_type: descriptor_type.to_string(),
                         name,
                     });
                 }

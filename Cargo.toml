@@ -10,7 +10,8 @@ glam = "0.29.0"
 rhai = {git = "https://github.com/rhaiscript/rhai" }
 serde = {version = "1.0.210", features = ["derive"]}
 serde_json = "1.0.128"
-dashi = {path = "/wksp/git/dashi", features = ["dashi-serde"]}
+dashi = {path = "C:/Program Files/Git/wksp/git/dashi", features = ["dashi-serde"]}
+#dashi = {path = "/wksp/git/dashi", features = ["dashi-serde"]}
 inline-spirv = {version = "0.2.1"}
 spirv-reflect = "0.2.2"
 spirv_cross = {version = "0.23.1", features = ["hlsl"]}

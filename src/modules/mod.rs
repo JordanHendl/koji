@@ -1,36 +1,37 @@
 use dashi::{
     utils::Handle, BindGroup, BindGroupInfo, BindGroupLayout, BindGroupLayoutInfo,
-    BindGroupVariable, BindingInfo, Context, ShaderInfo, ShaderResource, ShaderType,
+    BindGroupVariable, BindGroupVariableType, BindingInfo, Context, ShaderInfo, ShaderResource,
+    ShaderType,
 };
+
+mod timedate;
 use reflection::ShaderInspector;
+
+use crate::modules::timedate::TimeDate;
 
 mod reflection;
 pub type ShaderStageCallback = Box<dyn Fn() -> Vec<u32> + 'static>;
 
 pub trait ShaderModule {
     fn resource(&self, name: &str) -> Option<ShaderResource>;
+    fn update(&mut self);
 }
 pub struct GraphicsPipelineInfo {
     pub vertex: ShaderStageCallback,
     pub fragment: ShaderStageCallback,
 }
 
-pub struct PipelineBinding {
+pub struct PipelineModule {
     pub bind_group: Handle<BindGroup>,
 }
 
 pub struct PipelineModuleManager {
+    ctx: *mut Context,
     modules: Vec<Box<dyn ShaderModule>>,
 }
 
 impl PipelineModuleManager {
-    pub fn new(ctx: &mut Context, info: &GraphicsPipelineInfo) -> Self {
-        let mut s = Self {
-            modules: Default::default(),
-        };
-
-        s.make_shader_modules();
-
+    pub fn pipeline_module(&mut self, info: &GraphicsPipelineInfo) -> PipelineModule {
         let loaded_spirvs = vec![(info.vertex)(), (info.fragment)()];
         let spirvs: Vec<&[u32]> = loaded_spirvs.iter().map(|a| a.as_slice()).collect();
         let mut inspector = ShaderInspector::new(&spirvs);
@@ -41,7 +42,18 @@ impl PipelineModuleManager {
         let mut layout_info: [Vec<BindGroupVariable>; 4] = Default::default();
 
         inspector.iter_binding_details(|b| {
-            for m in &s.modules {
+            layout_info[b.set as usize].push(BindGroupVariable {
+                var_type: match b.descriptor_type.as_str() {
+                    "uniform" => BindGroupVariableType::Uniform,
+                    "storage" => BindGroupVariableType::Storage,
+                    "sampled_image" => BindGroupVariableType::SampledImage,
+                    "storage_image" => BindGroupVariableType::StorageImage,
+                    _ => panic!("Unknown Descriptor Type!"),
+                },
+                binding: b.binding,
+            });
+
+            for m in &self.modules {
                 if let Some(res) = m.resource(&b.name) {
                     bindings[b.set as usize].push(BindingInfo {
                         resource: res,
@@ -73,10 +85,21 @@ impl PipelineModuleManager {
                     .unwrap();
 
                 layouts[i] = Some(layout);
-
+                bind_groups[i] = Some(bg);
             }
         }
         todo!()
+    }
+
+    pub fn new(ctx: &mut Context, info: &GraphicsPipelineInfo) -> Self {
+        let mut s = Self {
+            ctx,
+            modules: vec![Box::new(TimeDate::new())],
+        };
+
+        s.make_shader_modules();
+
+        s
     }
 
     fn make_shader_modules(&mut self) {}
