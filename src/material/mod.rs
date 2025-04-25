@@ -263,3 +263,70 @@ material:
         let _ = infer_and_pack_yaml_material_with_padding(&map, LayoutPacking::Std430, &registry);
     }
 }
+
+#[test]
+fn test_multiple_materials_in_yaml() {
+    let yaml = r#"
+gold_material:
+  base_color: [1.0, 0.766, 0.336, 1.0]
+  roughness: 0.2
+  metallic: 1.0
+  albedo: "textures/gold_albedo.png"
+
+wood_material:
+  base_color: [0.5, 0.3, 0.1, 1.0]
+  roughness: 0.6
+  metallic: 0.0
+  albedo: "textures/wood.png"
+  normal_map: "textures/wood_normal.png"
+
+simple_material:
+  color: [0.1, 0.2, 0.3, 1.0]
+  opacity: 0.8
+"#;
+
+    // Parse the whole YAML document
+    let doc: Value = serde_yaml::from_str(yaml).expect("Failed to parse multi-material YAML");
+    let materials_map = doc.as_mapping().unwrap();
+
+    // Setup the registry
+    let mut registry = DataRegistry{};
+    // Parse each material individually
+    for (material_name, material_value) in materials_map {
+        let mat_name = material_name.as_str().unwrap();
+        let material = material_value.as_mapping().unwrap();
+
+        let (buf, fields) = infer_and_pack_yaml_material_with_padding(
+            material,
+            LayoutPacking::Std430,
+            &registry,
+        );
+
+        println!("Material '{}':", mat_name);
+        for f in &fields {
+            println!("  Field: {:?}", f);
+        }
+        println!("  Packed bytes: {:?}", buf);
+
+        // Basic assertions:
+        assert!(buf.len() > 0);
+        assert!(fields.len() > 0);
+
+        // Specific checks
+        match mat_name {
+            "gold_material" => {
+                assert!(fields.iter().any(|f| f.name == "base_color"));
+                assert!(fields.iter().any(|f| f.name == "albedo"));
+            }
+            "wood_material" => {
+                assert!(fields.iter().any(|f| f.name == "normal_map"));
+            }
+            "simple_material" => {
+                assert!(fields.iter().any(|f| f.name == "opacity"));
+                assert!(fields.iter().all(|f| f.ty != MaterialType::TextureHandle));
+            }
+            _ => panic!("Unexpected material {}", mat_name),
+        }
+    }
+}
+
