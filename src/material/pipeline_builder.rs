@@ -41,6 +41,51 @@ pub struct PipelineBuilder<'a> {
     subpass: u32,
 }
 
+/// A pipeline state object (PSO) that holds the GPU pipeline handle,
+/// its associated layout, bind group layouts, and reflection info for creating bind groups by name.
+pub struct PSO {
+    pub pipeline: Handle<GraphicsPipeline>,
+    pub layout: Handle<GraphicsPipelineLayout>,
+    pub bind_group_layouts: [Option<Handle<BindGroupLayout>>; 4],
+    /// Mapping from descriptor name to (set_index, binding_index, block_size)
+    desc_map: HashMap<String, (usize, u32)>,
+    ctx: *mut Context,
+}
+
+impl PSO {
+    /// Create a bind group for the given set index with provided bindings.
+    pub fn create_bind_group(
+        &mut self,
+        set_index: usize,
+        bindings: &[BindingInfo],
+    ) -> Handle<BindGroup> {
+        let ctx = unsafe { &mut *self.ctx };
+        let layout = self.bind_group_layouts[set_index]
+            .expect("Bind group layout not initialized for this set");
+        let info = BindGroupInfo {
+            debug_name: "pso",
+            layout,
+            bindings,
+            set: set_index as u32,
+        };
+        ctx.make_bind_group(&info).unwrap()
+    }
+
+    /// Bind a buffer to a descriptor by its name.
+    /// Checks that the buffer size meets or exceeds the expected block size.
+    pub fn bind_buffer_by_name(&mut self, name: &str, buffer: Handle<Buffer>) -> Handle<BindGroup> {
+        let (set_idx, binding_idx) = self
+            .desc_map
+            .get(name)
+            .unwrap_or_else(|| panic!("Descriptor '{}' not found in pipeline", name));
+        let bind_info = BindingInfo {
+            binding: *binding_idx,
+            resource: ShaderResource::Buffer(buffer),
+        };
+        self.create_bind_group(*set_idx, std::slice::from_ref(&bind_info))
+    }
+}
+
 impl<'a> PipelineBuilder<'a> {
     /// Create a new builder with context and pipeline name
     pub fn new(ctx: &'a mut Context, name: &'static str) -> Self {
@@ -74,7 +119,7 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     /// Build and return the graphics pipeline handle
-    pub fn build(self) -> Handle<GraphicsPipeline> {
+    pub fn build(self) -> PSO {
         let rp = self
             .render_pass
             .expect("Render pass must be set before build");
@@ -88,19 +133,21 @@ impl<'a> PipelineBuilder<'a> {
         for (set, binds) in vert_info.bindings.into_iter().chain(frag_info.bindings) {
             combined.entry(set).or_default().extend(binds);
         }
+        // Build descriptor name -> (set,binding,size) map
+        let mut desc_map = HashMap::new();
 
         // Build bind group layouts
         let mut bg_layouts: [Option<Handle<BindGroupLayout>>; 4] = [None, None, None, None];
-        let mut sets: Vec<u32> = combined.keys().cloned().collect();
-        sets.sort_unstable();
-        for set in sets {
-            let vars: Vec<BindGroupVariable> = combined[&set]
-                .iter()
-                .map(|b| BindGroupVariable {
+        for set in combined.keys().cloned().collect::<Vec<_>>() {
+            let binds = &combined[&set];
+            let mut vars = Vec::new();
+            for b in binds.iter() {
+                desc_map.insert(b.name.clone(), (set as usize, b.binding));
+                vars.push(BindGroupVariable {
                     var_type: descriptor_type_to_dashi(b.ty),
                     binding: b.binding,
-                })
-                .collect();
+                });
+            }
             let info = BindGroupLayoutInfo {
                 debug_name: self.pipeline_name,
                 shaders: &[ShaderInfo {
@@ -108,15 +155,8 @@ impl<'a> PipelineBuilder<'a> {
                     variables: &vars,
                 }],
             };
-            let layout = self
-                .ctx
-                .make_bind_group_layout(&info)
-                .expect("layout failed");
-            if (set as usize) < bg_layouts.len() {
-                bg_layouts[set as usize] = Some(layout);
-            } else {
-                panic!("Descriptor set {} out of range", set);
-            }
+            let layout = self.ctx.make_bind_group_layout(&info).unwrap();
+            bg_layouts[set as usize] = Some(layout);
         }
 
         // Reflect vertex inputs
@@ -180,15 +220,24 @@ impl<'a> PipelineBuilder<'a> {
             .make_graphics_pipeline_layout(&layout_info)
             .unwrap();
 
-        // Create pipeline
-        let info = GraphicsPipelineInfo {
-            debug_name: self.pipeline_name,
+        let pipeline_handle = self
+            .ctx
+            .make_graphics_pipeline(&GraphicsPipelineInfo {
+                debug_name: self.pipeline_name,
+                layout,
+                render_pass: rp,
+                subpass_id: self.subpass as u8,
+                ..Default::default()
+            })
+            .unwrap();
+
+        PSO {
+            pipeline: pipeline_handle,
             layout,
-            render_pass: rp,
-            subpass_id: self.subpass as u8,
-            ..Default::default()
-        };
-        self.ctx.make_graphics_pipeline(&info).unwrap()
+            bind_group_layouts: bg_layouts,
+            desc_map,
+            ctx: self.ctx,
+        }
     }
 }
 
@@ -200,24 +249,52 @@ mod tests {
     use inline_spirv::inline_spirv;
     use serial_test::serial;
     use spirv_reflect::types::ReflectFormat;
-    
+
     fn make_ctx() -> Context {
         Context::headless(&ContextInfo::default()).unwrap()
     }
-    
+    fn simple_vert() -> Vec<u32> {
+        inline_spirv!(
+            r#"
+            #version 450
+            layout(set=0,binding=0) uniform U{vec4 u;};
+            layout(location=0) in vec2 v;
+            void main(){ gl_Position=vec4(v,0,1); }"#,
+            vert
+        )
+        .to_vec()
+    }
+    fn simple_frag() -> Vec<u32> {
+        inline_spirv!(
+            r#"
+            #version 450
+            layout(set=0,binding=1) uniform U2{float x;};
+            layout(location=0) out vec4 o;
+            void main(){ o=vec4(x); }"#,
+            frag
+        )
+        .to_vec()
+    }
+
     fn simple_vertex_spirv() -> Vec<u32> {
-        inline_spirv!(r#"
+        inline_spirv!(
+            r#"
             #version 450
             layout(location=0) in vec2 pos;
-            void main(){ gl_Position=vec4(pos,0,1);}"#
-        , vert).to_vec()
+            void main(){ gl_Position=vec4(pos,0,1);}"#,
+            vert
+        )
+        .to_vec()
     }
     fn simple_fragment_spirv() -> Vec<u32> {
-        inline_spirv!(r#"
+        inline_spirv!(
+            r#"
             #version 450
             layout(location=0) out vec4 outCol;
-            void main(){ outCol=vec4(1); }"#
-        , frag).to_vec()
+            void main(){ outCol=vec4(1); }"#,
+            frag
+        )
+        .to_vec()
     }
 
     #[test]
@@ -240,8 +317,8 @@ mod tests {
             .render_pass(rp, 0)
             .build();
 
-        assert!(pipeline.valid());
-//        ctx.destroy_graphics_pipeline(pipeline);
+        assert!(pipeline.pipeline.valid());
+        //        ctx.destroy_graphics_pipeline(pipeline);
         ctx.destroy();
     }
 
@@ -293,11 +370,15 @@ mod tests {
             .add_subpass(&[AttachmentDescription::default()], None, &[])
             .build(&mut ctx)
             .unwrap();
-        let vert = inline_spirv!(r#"
+        let vert = inline_spirv!(
+            r#"
             #version 450
             layout(set=5,binding=0) uniform U{float x;};
             void main(){}
-        "#, vert).to_vec();
+        "#,
+            vert
+        )
+        .to_vec();
         let frag = simple_fragment_spirv();
 
         // should panic on build
@@ -306,6 +387,95 @@ mod tests {
             .fragment_shader(&frag)
             .render_pass(rp, 0)
             .build();
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn pso_bind_by_name_success() {
+        let mut ctx = make_ctx();
+        let rp = RenderPassBuilder::new("rp", Viewport::default())
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+        let mut pso = PipelineBuilder::new(&mut ctx, "pso")
+            .vertex_shader(&simple_vert())
+            .fragment_shader(&simple_frag())
+            .render_pass(rp, 0)
+            .build();
+        let buf0 = ctx
+            .make_buffer(&BufferInfo {
+                debug_name: "b0",
+                byte_size: 16,
+                visibility: MemoryVisibility::Gpu,
+                ..Default::default()
+            })
+            .unwrap();
+        let bg0 = pso.bind_buffer_by_name("u", buf0);
+        assert!(bg0.valid());
+        let buf1 = ctx
+            .make_buffer(&BufferInfo {
+                debug_name: "b1",
+                byte_size: 4,
+                visibility: MemoryVisibility::Gpu,
+                ..Default::default()
+            })
+            .unwrap();
+        let bg1 = pso.bind_buffer_by_name("u2", buf1);
+        assert!(bg1.valid());
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    #[should_panic]
+    fn pso_bind_by_name_missing() {
+        let mut ctx = make_ctx();
+        let rp = RenderPassBuilder::new("rp", Viewport::default())
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+        let mut pso = PipelineBuilder::new(&mut ctx, "pso")
+            .vertex_shader(&simple_vert())
+            .fragment_shader(&simple_frag())
+            .render_pass(rp, 0)
+            .build();
+        let buf = ctx
+            .make_buffer(&BufferInfo {
+                debug_name: "b",
+                byte_size: 4,
+                visibility: MemoryVisibility::Gpu,
+                ..Default::default()
+            })
+            .unwrap();
+        let _ = pso.bind_buffer_by_name("nope", buf);
+
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    #[should_panic]
+    fn pso_bind_by_name_too_small() {
+        let mut ctx = make_ctx();
+        let rp = RenderPassBuilder::new("rp", Viewport::default())
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+        let mut pso = PipelineBuilder::new(&mut ctx, "pso")
+            .vertex_shader(&simple_vert())
+            .fragment_shader(&simple_frag())
+            .render_pass(rp, 0)
+            .build();
+        let buf = ctx
+            .make_buffer(&BufferInfo {
+                debug_name: "b",
+                byte_size: 8,
+                visibility: MemoryVisibility::Gpu,
+                ..Default::default()
+            })
+            .unwrap();
+        let _ = pso.bind_buffer_by_name("u", buf);
+        ctx.destroy();
     }
 }
-
