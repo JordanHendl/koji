@@ -469,7 +469,7 @@ void main() {
                 })
                 .unwrap();
 
-                cmd.draw_indexed(&DrawIndexed {
+                cmd.draw_indexed(DrawIndexed {
                     vertices: vertex_buffer,
                     indices: index_buffer,
                     index_count: CUBE_INDICES.len() as u32,
@@ -483,7 +483,7 @@ void main() {
             }
 
             cmd.end_drawing().unwrap();
-            cmd.blit(ImageBlit {
+            cmd.blit_image(ImageBlit {
                 src: target_main.colors[0].attachment.img,
                 dst: image,
                 filter: Filter::Nearest,

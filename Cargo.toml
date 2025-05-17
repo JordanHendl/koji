@@ -12,8 +12,7 @@ rhai = {git = "https://github.com/rhaiscript/rhai" }
 dashi = {path = "C:/Program Files/Git/wksp/git/dashi", features = ["dashi-serde"]}
 #dashi = {path = "/wksp/git/dashi", features = ["dashi-serde"]}
 inline-spirv = {version = "0.2.1"}
-spirv-reflect = "0.2.2"
-spirv_cross = {version = "0.23.1", features = ["hlsl"]}
+spirv-reflect = { git = "https://github.com/gfxstrand/spirv-reflect-rs.git" }
 sdl2 = {version = "0.37.0", features = ["bundled", "static-link", "raw-window-handle"]}
 serde = { version = "1.0", features = ["derive"] }
 indexmap = "2"

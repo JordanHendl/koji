@@ -50,6 +50,12 @@ pub struct ShaderPushConstant {
 }
 
 pub fn reflect_shader(spirv: &[u32]) -> ShaderReflectionInfo {
+    if spirv.is_empty() {
+        return ShaderReflectionInfo {
+            bindings: Default::default(),
+            push_constants: Default::default(),
+        }
+    }
   let module = ShaderModule::load_u32_data(spirv).expect("Failed to parse SPIR-V");
 
   let mut bindings: HashMap<u32, Vec<ShaderDescriptorBinding>> = HashMap::new();

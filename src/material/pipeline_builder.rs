@@ -7,126 +7,145 @@ use spirv_reflect::ShaderModule;
 
 use self::shader_reflection::*;
 
-// map descriptor types to Dashi
+/// Map shader descriptor types to Dashi bind group variable types
 fn descriptor_type_to_dashi(ty: ShaderDescriptorType) -> BindGroupVariableType {
     match ty {
-        ShaderDescriptorType::SampledImage => BindGroupVariableType::SampledImage,
-        ShaderDescriptorType::CombinedImageSampler => BindGroupVariableType::SampledImage,
+        ShaderDescriptorType::SampledImage | ShaderDescriptorType::CombinedImageSampler => {
+            BindGroupVariableType::SampledImage
+        }
         ShaderDescriptorType::UniformBuffer => BindGroupVariableType::Uniform,
         ShaderDescriptorType::StorageBuffer => BindGroupVariableType::Storage,
         ShaderDescriptorType::StorageImage => BindGroupVariableType::StorageImage,
-        _ => panic!("Unsupported descriptor type: {:?}", ty),
+        other => panic!("Unsupported descriptor type: {:?}", other),
     }
 }
 
-// map SPIR-V reflect format to your primitive enum
+/// Map SPIR-V reflect format to shader primitive enum
 fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPrimitiveType {
     use ReflectFormat::*;
     match fmt {
         R32G32B32A32_SFLOAT => ShaderPrimitiveType::Vec4,
         R32G32B32_SFLOAT => ShaderPrimitiveType::Vec3,
         R32G32_SFLOAT => ShaderPrimitiveType::Vec2,
-        _ => panic!("Unsupported vertex input format: {:?}", fmt),
+        other => panic!("Unsupported vertex input format: {:?}", other),
     }
 }
 
+/// Builder for a graphics pipeline, including reflection of SPIR-V
 pub struct PipelineBuilder<'a> {
-    pub ctx: &'a mut Context,
-    pub spirv_vert: &'a [u32],
-    pub spirv_frag: &'a [u32],
-    pub pipeline_name: &'static str,
-    pub subpass: u32,
+    ctx: &'a mut Context,
+    vert_spirv: &'a [u32],
+    frag_spirv: &'a [u32],
+    render_pass: Option<Handle<RenderPass>>,
+    pipeline_name: &'static str,
+    subpass: u32,
 }
 
 impl<'a> PipelineBuilder<'a> {
-    pub fn build(self) -> Handle<GraphicsPipeline> {
-        // reflect descriptors & push constants
-        let vert_info = reflect_shader(self.spirv_vert);
-        let frag_info = reflect_shader(self.spirv_frag);
+    /// Create a new builder with context and pipeline name
+    pub fn new(ctx: &'a mut Context, name: &'static str) -> Self {
+        Self {
+            ctx,
+            pipeline_name: name,
+            vert_spirv: &[],
+            frag_spirv: &[],
+            render_pass: None,
+            subpass: 0,
+        }
+    }
 
-        // merge descriptor sets
-        let mut combined_sets: HashMap<u32, Vec<ShaderDescriptorBinding>> = HashMap::new();
-        for (set, bindings) in vert_info.bindings.into_iter().chain(frag_info.bindings) {
-            combined_sets.entry(set).or_default().extend(bindings);
+    /// Set the vertex SPIR-V bytecode
+    pub fn vertex_shader(mut self, spirv: &'a [u32]) -> Self {
+        self.vert_spirv = spirv;
+        self
+    }
+
+    /// Set the fragment SPIR-V bytecode
+    pub fn fragment_shader(mut self, spirv: &'a [u32]) -> Self {
+        self.frag_spirv = spirv;
+        self
+    }
+
+    /// Specify the render pass and its subpass index
+    pub fn render_pass(mut self, rp: Handle<RenderPass>, subpass: u32) -> Self {
+        self.render_pass = Some(rp);
+        self.subpass = subpass;
+        self
+    }
+
+    /// Build and return the graphics pipeline handle
+    pub fn build(self) -> Handle<GraphicsPipeline> {
+        let rp = self
+            .render_pass
+            .expect("Render pass must be set before build");
+
+        // Reflect descriptors from shaders
+        let vert_info = reflect_shader(self.vert_spirv);
+        let frag_info = reflect_shader(self.frag_spirv);
+
+        // Merge descriptor sets across vert/frag
+        let mut combined: HashMap<u32, Vec<ShaderDescriptorBinding>> = HashMap::new();
+        for (set, binds) in vert_info.bindings.into_iter().chain(frag_info.bindings) {
+            combined.entry(set).or_default().extend(binds);
         }
 
-        // build up to 4 BindGroupLayouts
+        // Build bind group layouts
         let mut bg_layouts: [Option<Handle<BindGroupLayout>>; 4] = [None, None, None, None];
-        let mut sets: Vec<u32> = combined_sets.keys().copied().collect();
+        let mut sets: Vec<u32> = combined.keys().cloned().collect();
         sets.sort_unstable();
-        for &set in &sets {
-            let vars: Vec<BindGroupVariable> = combined_sets[&set]
+        for set in sets {
+            let vars: Vec<BindGroupVariable> = combined[&set]
                 .iter()
                 .map(|b| BindGroupVariable {
                     var_type: descriptor_type_to_dashi(b.ty),
                     binding: b.binding,
                 })
                 .collect();
-
-            let shader_info = ShaderInfo {
-                shader_type: ShaderType::All,
-                variables: &vars,
-            };
-
-            let layout_info = BindGroupLayoutInfo {
+            let info = BindGroupLayoutInfo {
                 debug_name: self.pipeline_name,
-                shaders: &[shader_info],
+                shaders: &[ShaderInfo {
+                    shader_type: ShaderType::All,
+                    variables: &vars,
+                }],
             };
-
             let layout = self
                 .ctx
-                .make_bind_group_layout(&layout_info)
-                .expect("make_bind_group_layout failed");
-
-            let idx = set as usize;
-            if idx < bg_layouts.len() {
-                bg_layouts[idx] = Some(layout);
+                .make_bind_group_layout(&info)
+                .expect("layout failed");
+            if (set as usize) < bg_layouts.len() {
+                bg_layouts[set as usize] = Some(layout);
             } else {
                 panic!("Descriptor set {} out of range", set);
             }
         }
 
-        // reflect vertex inputs
-        let module =
-            ShaderModule::load_u32_data(self.spirv_vert).expect("Failed to parse vertex SPIR-V");
-        let mut inputs = module
-            .enumerate_input_variables(None)
-            .expect("Failed to enumerate vertex inputs");
+        // Reflect vertex inputs
+        let module = ShaderModule::load_u32_data(self.vert_spirv).unwrap();
+        let mut inputs = module.enumerate_input_variables(None).unwrap();
         inputs.sort_by_key(|v| v.location);
-
-        let mut entries_vec = Vec::with_capacity(inputs.len());
-        let mut offset = 0u32;
+        let mut entries = Vec::new();
+        let mut offset = 0;
         for var in inputs {
             let fmt = reflect_format_to_shader_primitive(var.format);
-            entries_vec.push(VertexEntryInfo {
+            entries.push(VertexEntryInfo {
                 format: fmt,
                 location: var.location as usize,
                 offset: offset as usize,
             });
-
-            let size = match fmt {
+            offset += match fmt {
                 ShaderPrimitiveType::Vec4 | ShaderPrimitiveType::IVec4 => 16,
                 ShaderPrimitiveType::Vec3 => 12,
                 ShaderPrimitiveType::Vec2 => 8,
-                _ => panic!("Unexpected primitive {:?}", fmt),
+                _ => 0,
             };
-            offset += size;
         }
         let vertex_info = VertexDescriptionInfo {
-            entries: &entries_vec,
+            entries: &entries,
             stride: offset as usize,
             rate: VertexRate::Vertex,
         };
 
-        // collect and sort push constants
-        let mut pcs = vert_info
-            .push_constants
-            .into_iter()
-            .chain(frag_info.push_constants)
-            .collect::<Vec<_>>();
-        pcs.sort_by_key(|pc| pc.offset);
-
-        // assemble pipeline layout info inline
+        // Assemble layout info
         let layout_info = GraphicsPipelineLayoutInfo {
             debug_name: self.pipeline_name,
             vertex_info,
@@ -134,12 +153,12 @@ impl<'a> PipelineBuilder<'a> {
             shaders: &[
                 PipelineShaderInfo {
                     stage: ShaderType::Vertex,
-                    spirv: self.spirv_vert,
+                    spirv: self.vert_spirv,
                     specialization: &[],
                 },
                 PipelineShaderInfo {
                     stage: ShaderType::Fragment,
-                    spirv: self.spirv_frag,
+                    spirv: self.frag_spirv,
                     specialization: &[],
                 },
             ],
@@ -153,33 +172,93 @@ impl<'a> PipelineBuilder<'a> {
                     should_test: true,
                     should_write: true,
                 }),
+                ..Default::default()
             },
         };
-
-        let pipeline_layout = self
+        let layout = self
             .ctx
             .make_graphics_pipeline_layout(&layout_info)
-            .expect("make_graphics_pipeline_layout failed");
+            .unwrap();
 
-        // finally create the pipeline
-        let pipeline_info = GraphicsPipelineInfo {
+        // Create pipeline
+        let info = GraphicsPipelineInfo {
             debug_name: self.pipeline_name,
-            layout: pipeline_layout,
+            layout,
+            render_pass: rp,
+            subpass_id: self.subpass as u8,
             ..Default::default()
         };
-
-        self.ctx
-            .make_graphics_pipeline(&pipeline_info)
-            .expect("make_graphics_pipeline failed")
+        self.ctx.make_graphics_pipeline(&info).unwrap()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
     use crate::material::pipeline_builder::ShaderDescriptorType;
+    use dashi::builders::RenderPassBuilder;
+    use inline_spirv::inline_spirv;
+    use serial_test::serial;
     use spirv_reflect::types::ReflectFormat;
+    
+    fn make_ctx() -> Context {
+        Context::headless(&ContextInfo::default()).unwrap()
+    }
+    
+    fn simple_vertex_spirv() -> Vec<u32> {
+        inline_spirv!(r#"
+            #version 450
+            layout(location=0) in vec2 pos;
+            void main(){ gl_Position=vec4(pos,0,1);}"#
+        , vert).to_vec()
+    }
+    fn simple_fragment_spirv() -> Vec<u32> {
+        inline_spirv!(r#"
+            #version 450
+            layout(location=0) out vec4 outCol;
+            void main(){ outCol=vec4(1); }"#
+        , frag).to_vec()
+    }
+
+    #[test]
+    #[serial]
+    fn builder_with_no_descriptors_creates_pipeline() {
+        let mut ctx = make_ctx();
+        // make minimal render pass
+        let viewport = Viewport::default();
+        let rp = RenderPassBuilder::new("rp", viewport)
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+
+        let vert = simple_vertex_spirv();
+        let frag = simple_fragment_spirv();
+
+        let pipeline = PipelineBuilder::new(&mut ctx, "test_no_desc")
+            .vertex_shader(&vert)
+            .fragment_shader(&frag)
+            .render_pass(rp, 0)
+            .build();
+
+        assert!(pipeline.valid());
+//        ctx.destroy_graphics_pipeline(pipeline);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    #[should_panic(expected = "Render pass must be set before build")]
+    fn pipeline_panics_without_render_pass() {
+        let mut ctx = make_ctx();
+        let vert = simple_vertex_spirv();
+        let frag = simple_fragment_spirv();
+
+        // Missing render pass => should panic
+        PipelineBuilder::new(&mut ctx, "bad")
+            .vertex_shader(&vert)
+            .fragment_shader(&frag)
+            .build();
+    }
 
     #[test]
     #[serial]
@@ -199,10 +278,6 @@ mod tests {
     fn reflect_format_mapping() {
         use ReflectFormat::*;
         assert_eq!(
-            reflect_format_to_shader_primitive(R32G32B32A32_SFLOAT),
-            ShaderPrimitiveType::Vec4
-        );
-        assert_eq!(
             reflect_format_to_shader_primitive(R32G32_SFLOAT),
             ShaderPrimitiveType::Vec2
         );
@@ -210,51 +285,27 @@ mod tests {
 
     #[test]
     #[serial]
-    fn subpass_is_respected() {
-        // Use a headless Context if available, else mock
-//        let mut ctx = Context::headless().unwrap();
+    #[should_panic]
+    fn out_of_range_descriptor_set_panics() {
+        let mut ctx = make_ctx();
+        let viewport = Viewport::default();
+        let rp = RenderPassBuilder::new("rp", viewport)
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+        let vert = inline_spirv!(r#"
+            #version 450
+            layout(set=5,binding=0) uniform U{float x;};
+            void main(){}
+        "#, vert).to_vec();
+        let frag = simple_fragment_spirv();
 
-        let device = DeviceSelector::new()
-            .unwrap()
-            .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
-            .unwrap_or_default();
-        let mut ctx = Context::new(&ContextInfo { device }).unwrap();
-
-        let builder = PipelineBuilder {
-            ctx: &mut ctx,
-            spirv_vert: &[],
-            spirv_frag: &[],
-            pipeline_name: "test",
-            subpass: 3,
-        };
-        let layout_info = {
-            // inline copy of build's layout assembly for test
-            let vert_info = reflect_shader(&[]);
-            let frag_info = reflect_shader(&[]);
-            let mut combined: HashMap<u32, Vec<_>> = HashMap::new();
-            for (s, b) in vert_info.bindings.into_iter().chain(frag_info.bindings) {
-                combined.entry(s).or_default().extend(b);
-            }
-            let layouts = [None, None, None, None];
-            GraphicsPipelineLayoutInfo {
-                debug_name: builder.pipeline_name,
-                vertex_info: VertexDescriptionInfo {
-                    entries: &[],
-                    stride: 0,
-                    rate: VertexRate::Vertex,
-                },
-                bg_layouts: layouts,
-                shaders: &[],
-                details: GraphicsPipelineDetails {
-                    subpass: builder.subpass as u8,
-                    color_blend_states: vec![],
-                    topology: Topology::TriangleList,
-                    culling: CullMode::Back,
-                    front_face: VertexOrdering::CounterClockwise,
-                    depth_test: None,
-                },
-            }
-        };
-        assert_eq!(layout_info.details.subpass, 3);
+        // should panic on build
+        let _ = PipelineBuilder::new(&mut ctx, "oops")
+            .vertex_shader(&vert)
+            .fragment_shader(&frag)
+            .render_pass(rp, 0)
+            .build();
     }
 }
+

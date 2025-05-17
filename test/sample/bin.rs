@@ -157,7 +157,7 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
                 })
                 .unwrap();
 
-                list.append(Command::DrawCommand(Draw {
+                list.append(Command::Draw(Draw {
                     vertices: vertex_buffer,
                     count: 3,
                     instance_count: 1,
@@ -166,7 +166,7 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
 
                 list.end_drawing().unwrap();
 
-                list.blit(ImageBlit {
+                list.blit_image(ImageBlit {
                     src: target.colors[0].attachment.img,
                     dst: img,
                     filter: Filter::Nearest,

@@ -207,12 +207,12 @@ pub fn run(ctx: &mut Context) {
                 })
                 .unwrap();
 
-                cmd.append(Command::DrawCommand(Draw {
+                cmd.draw(Draw {
                     vertices: vertex_buffer,
                     count: 3,
                     instance_count: 1,
                     ..Default::default()
-                }));
+                });
 
                 if target.name != "lighting" {
                     cmd.next_subpass().unwrap();
@@ -220,7 +220,7 @@ pub fn run(ctx: &mut Context) {
             }
 
             cmd.end_drawing().unwrap();
-            cmd.blit(ImageBlit {
+            cmd.blit_image(ImageBlit {
                 src: lighting_target.colors[0].attachment.img,
                 dst: img,
                 filter: Filter::Nearest,
