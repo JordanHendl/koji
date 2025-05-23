@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use dashi::*;
 use utils::Handle;
 
-mod allocator;
-mod resource_list;
+pub mod allocator;
+pub mod resource_list;
 use allocator::*;
 use resource_list::*;
 
