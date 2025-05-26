@@ -79,4 +79,10 @@ impl<T> ResourceList<T> {
             func(r);
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.entries
+            .iter()
+            .map(move |h| self.pool.get_ref(*h).unwrap())
+    }
 }

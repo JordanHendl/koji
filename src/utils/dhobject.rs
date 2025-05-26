@@ -8,6 +8,8 @@ use std::ptr::NonNull;
 
 use super::allocator::{Allocation, GpuAllocator};
 
+
+#[derive(Clone, Copy)]
 pub struct DHObject<T> {
     pub allocation: Allocation,
     ctx: *mut Context,

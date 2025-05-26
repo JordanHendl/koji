@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
+use bytemuck::NoUninit;
 use dashi::*;
 use utils::Handle;
 
@@ -15,14 +16,6 @@ pub struct TextureInfo {
     pub dim: [u32; 2],
 }
 
-#[allow(dead_code)]
-pub struct Texture {
-    pub(crate) handle: Handle<Image>,
-    pub(crate) view: Handle<ImageView>,
-    pub(crate) sampler: Handle<Sampler>,
-    pub(crate) dim: [u32; 2],
-}
-
 #[derive(Debug)]
 pub struct DHObject {
     pub handle: Handle<Buffer>,
@@ -36,29 +29,93 @@ impl DHObject {
         allocator: &mut GpuAllocator,
         value: T,
     ) -> Result<Self, GPUError> {
-        let size = std::mem::size_of::<T>() as u64;
+        const MIN_BYTES: u64 = 32;
+        let mut size = std::mem::size_of::<T>() as u64;
+        size = size.max(MIN_BYTES);
         let alloc = allocator.allocate(size).ok_or(GPUError::LibraryError())?;
-        let mut slice = unsafe { ctx.map_buffer_mut(alloc.buffer)? };
+        let slice = ctx.map_buffer_mut(alloc.buffer)?;
         let bytes = unsafe {
             std::slice::from_raw_parts(&value as *const T as *const u8, std::mem::size_of::<T>())
         };
         slice[(alloc.offset as usize)..(alloc.offset as usize + bytes.len())]
             .copy_from_slice(bytes);
+
+        ctx.unmap_buffer(alloc.buffer);
         Ok(Self {
             handle: alloc.buffer,
             offset: alloc.offset,
             size: alloc.size,
         })
     }
+
+    pub fn new_from_bytes(
+        ctx: &mut Context,
+        allocator: &mut GpuAllocator,
+        value: &[u8],
+    ) -> Result<Self, GPUError> {
+        let size = value.len();
+        let alloc = allocator.allocate(size as u64).ok_or(GPUError::LibraryError())?;
+        let slice =  ctx.map_buffer_mut(alloc.buffer)?;
+        slice[(alloc.offset as usize)..(alloc.offset as usize + value.len())]
+            .copy_from_slice(value);
+
+        ctx.unmap_buffer(alloc.buffer).expect("Error unmapping memory!");
+        Ok(Self {
+            handle: alloc.buffer,
+            offset: alloc.offset,
+            size: alloc.size,
+        })
+    }
+
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Texture {
+    pub handle: Handle<Image>,
+    pub view: Handle<ImageView>,
+    pub dim: [u32; 2],
+}
+
+#[derive(Clone)]
+pub struct CombinedTextureSampler {
+    pub texture: Texture,
+    pub sampler: Handle<Sampler>,
+}
+
+#[derive(Clone)]
+pub struct ResourceBuffer {
+    pub handle: Handle<Buffer>,
+    pub offset: u64,
+}
+
+impl From<DHObject> for ResourceBuffer {
+    fn from(obj: DHObject) -> Self {
+        Self {
+            handle: obj.handle,
+            offset: obj.offset,
+        }
+    }
+}
+
+pub enum ResourceBinding {
+    Texture(Texture),
+    Uniform(Handle<Buffer>),
+    Storage(Handle<Buffer>),
+    TextureArray(Arc<ResourceList<Texture>>),
+    CombinedTextureArray(Arc<ResourceList<CombinedTextureSampler>>),
+    BufferArray(Arc<ResourceList<ResourceBuffer>>),
+    CombinedImageSampler {
+        texture: Texture,
+        sampler: Handle<Sampler>,
+    },
 }
 
 #[derive(Default)]
 pub struct ResourceManager {
     pub allocator: GpuAllocator,
     pub textures: ResourceList<Texture>,
-    pub buffers: ResourceList<DHObject>,
-    texture_keys: HashMap<String, Handle<Texture>>,
-    buffer_keys: HashMap<String, Handle<DHObject>>,
+    pub buffers: ResourceList<ResourceBuffer>,
+    bindings: HashMap<String, ResourceBinding>,
 }
 
 impl ResourceManager {
@@ -68,57 +125,109 @@ impl ResourceManager {
             allocator,
             textures: Default::default(),
             buffers: Default::default(),
-            texture_keys: Default::default(),
-            buffer_keys: Default::default(),
+            bindings: Default::default(),
         })
     }
-
+        
+    pub fn destroy(mut self, ctx: &mut Context) {
+        self.allocator.reset();
+        self.allocator.destroy(ctx);
+    }
     pub fn register_texture(
         &mut self,
         key: impl Into<String>,
-        info: &TextureInfo,
-    ) -> Handle<Texture> {
+        image: Handle<Image>,
+        view: Handle<ImageView>,
+        dim: [u32; 2],
+    ) {
         let tex = Texture {
-            handle: info.image,
-            sampler: info.sampler,
-            dim: info.dim,
-            view: info.view,
+            handle: image,
+            view,
+            dim,
         };
-        let handle = self.textures.push(tex);
-        self.texture_keys.insert(key.into(), handle);
-        handle
+        self.bindings
+            .insert(key.into(), ResourceBinding::Texture(tex));
     }
 
-    pub fn unregister_texture(&mut self, key: &str) {
-        if let Some(handle) = self.texture_keys.remove(key) {
-            self.textures.release(handle);
-        }
-    }
-
-    pub fn register_buffer<T: Copy>(
+    pub fn register_combined(
         &mut self,
         key: impl Into<String>,
-        ctx: &mut Context,
-        data: T,
-    ) -> Handle<DHObject> {
+        image: Handle<Image>,
+        view: Handle<ImageView>,
+        dim: [u32; 2],
+        sampler: Handle<Sampler>,
+    ) {
+        let tex = Texture {
+            handle: image,
+            view,
+            dim,
+        };
+        self.bindings.insert(
+            key.into(),
+            ResourceBinding::CombinedImageSampler {
+                texture: tex,
+                sampler,
+            },
+        );
+    }
+
+    pub fn register_variable_bytes(&mut self, key: impl Into<String>, ctx: &mut Context, data: &[u8]) {
+        let dh = DHObject::new_from_bytes(ctx, &mut self.allocator, data).unwrap();
+        let buf = ResourceBuffer::from(dh);
+        self.buffers.push(buf.clone());
+        self.bindings
+            .insert(key.into(), ResourceBinding::Uniform(buf.handle));
+    }
+
+    pub fn register_variable<T: Copy>(&mut self, key: impl Into<String>, ctx: &mut Context, data: T) {
         let dh = DHObject::new(ctx, &mut self.allocator, data).unwrap();
-        let handle = self.buffers.push(dh);
-        self.buffer_keys.insert(key.into(), handle);
-        handle
+        let buf = ResourceBuffer::from(dh);
+        self.buffers.push(buf.clone());
+        self.bindings
+            .insert(key.into(), ResourceBinding::Uniform(buf.handle));
     }
 
-    pub fn get_texture(&self, key: &str) -> Option<&Texture> {
-        self.texture_keys
-            .get(key)
-            .map(|h| self.textures.get_ref(*h))
+      pub fn register_ubo(&mut self, key: impl Into<String>, handle: Handle<Buffer>) {
+        self.bindings.insert(key.into(), ResourceBinding::Uniform(handle));
     }
 
-    pub fn allocator(&self) -> &GpuAllocator {
-        &self.allocator
+    // Register an existing storage buffer
+    pub fn register_storage(&mut self, key: impl Into<String>, handle: Handle<Buffer>) {
+        self.bindings.insert(key.into(), ResourceBinding::Storage(handle));
     }
 
-    pub fn get_buffer(&self, key: &str) -> Option<&DHObject> {
-        self.buffer_keys.get(key).map(|h| self.buffers.get_ref(*h))
+    pub fn register_texture_array(
+        &mut self,
+        key: impl Into<String>,
+        array: Arc<ResourceList<Texture>>,
+    ) {
+        self.bindings
+            .insert(key.into(), ResourceBinding::TextureArray(array));
+    }
+
+    pub fn register_combined_texture_array(
+        &mut self,
+        key: impl Into<String>,
+        array: Arc<ResourceList<CombinedTextureSampler>>,
+    ) {
+        self.bindings
+            .insert(key.into(), ResourceBinding::CombinedTextureArray(array));
+    }
+
+    pub fn register_buffer_array(
+        &mut self,
+        key: impl Into<String>,
+        array: Arc<ResourceList<ResourceBuffer>>,
+    ) {
+        self.bindings
+            .insert(key.into(), ResourceBinding::BufferArray(array));
+    }
+
+    // pub fn register_sampler_array(&mut self, _key: impl Into<String>, _array: Arc<ResourceList<Handle<Sampler>>>) {
+    //     unimplemented!("Sampler array binding not implemented yet.");
+    // }
+    pub fn get(&self, key: &str) -> Option<&ResourceBinding> {
+        self.bindings.get(key)
     }
 }
 
@@ -127,8 +236,9 @@ mod tests {
     use super::*;
     use dashi::{gpu, DeviceFilter, DeviceSelector};
     use serial_test::serial;
+    use std::sync::Arc;
 
-    fn init_ctx() -> gpu::Context {
+    fn setup_ctx() -> gpu::Context {
         let device = DeviceSelector::new()
             .unwrap()
             .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
@@ -138,44 +248,88 @@ mod tests {
 
     #[test]
     #[serial]
-    fn register_and_lookup_texture() {
-        let mut ctx = init_ctx();
+    fn register_texture_binding() {
+        let mut ctx = setup_ctx();
         let mut manager = ResourceManager::new(&mut ctx, 1024 * 1024).unwrap();
 
-        let texture = TextureInfo {
-            image: Handle::default(),
-            view: Handle::default(),
-            sampler: Handle::default(),
-            dim: [128, 128],
-        };
+        let image = ctx.make_image(&ImageInfo::default()).unwrap();
+        let view = ctx
+            .make_image_view(&ImageViewInfo {
+                img: image,
+                ..Default::default()
+            })
+            .unwrap();
 
-        let handle = manager.register_texture("my_tex", &texture);
-        let found = manager.get_texture("my_tex");
-
-        assert!(found.is_some());
-        assert_eq!(found.unwrap().dim, [128, 128]);
+        manager.register_texture("tex", image, view, [64, 64]);
+        match manager.get("tex") {
+            Some(ResourceBinding::Texture(tex)) => {
+                assert_eq!(tex.dim, [64, 64]);
+                assert_eq!(tex.handle, image);
+                assert_eq!(tex.view, view);
+            }
+            _ => panic!("Expected texture binding"),
+        }
         ctx.destroy();
     }
 
     #[test]
     #[serial]
-    fn unregister_resources() {
-        let mut ctx = init_ctx();
-        let mut manager = ResourceManager::new(&mut ctx, 1024 * 1024).unwrap();
+    fn register_combined_binding() {
+        let mut ctx = setup_ctx();
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
 
-        let texture = TextureInfo {
-            image: Handle::default(),
-            view: Handle::default(),
-            sampler: Handle::default(),
-            dim: [256, 256],
-        };
+        let image = ctx.make_image(&ImageInfo::default()).unwrap();
+        let view = ctx
+            .make_image_view(&ImageViewInfo {
+                img: image,
+                ..Default::default()
+            })
+            .unwrap();
+        let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
 
-        manager.register_texture("my_tex", &texture);
-        assert!(manager.get_texture("my_tex").is_some());
-
-        manager.unregister_texture("my_tex");
-        assert!(manager.get_texture("my_tex").is_none());
-
+        manager.register_combined("combo", image, view, [32, 32], sampler);
+        match manager.get("combo") {
+            Some(ResourceBinding::CombinedImageSampler {
+                texture,
+                sampler: s,
+            }) => {
+                assert_eq!(texture.handle, image);
+                assert_eq!(texture.view, view);
+                assert_eq!(texture.dim, [32, 32]);
+                assert_eq!(*s, sampler);
+            }
+            _ => panic!("Expected combined sampler"),
+        }
         ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn register_texture_array_binding() {
+        let manager = &mut ResourceManager::default();
+        let array = Arc::new(ResourceList::<Texture>::default());
+        manager.register_texture_array("array_tex", array.clone());
+
+        match manager.get("array_tex") {
+            Some(ResourceBinding::TextureArray(arr)) => {
+                assert!(Arc::ptr_eq(arr, &array));
+            }
+            _ => panic!("Expected texture array binding"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn register_buffer_array_binding() {
+        let manager = &mut ResourceManager::default();
+        let array = Arc::new(ResourceList::<ResourceBuffer>::default());
+        manager.register_buffer_array("array_buf", array.clone());
+
+        match manager.get("array_buf") {
+            Some(ResourceBinding::BufferArray(arr)) => {
+                assert!(Arc::ptr_eq(arr, &array));
+            }
+            _ => panic!("Expected buffer array binding"),
+        }
     }
 }

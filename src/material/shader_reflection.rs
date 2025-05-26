@@ -41,6 +41,7 @@ pub struct ShaderDescriptorBinding {
     pub binding: u32,
     pub set: u32,
     pub ty: ShaderDescriptorType,
+    pub count: u32,
     /// total size of the block in bytes
     pub block_size: u32,
     /// for a struct: a list of (field_name, byte_offset, field_size)
@@ -89,6 +90,7 @@ pub fn reflect_shader(spirv: &[u32]) -> ShaderReflectionInfo {
                 ty: map_descriptor_type(desc.descriptor_type),
                 block_size,
                 members,
+                count: desc.count,
             });
         }
     }

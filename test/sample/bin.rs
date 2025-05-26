@@ -2,6 +2,7 @@ use dashi::utils::*;
 use dashi::*;
 use koji::*;
 use sdl2::{event::Event, keyboard::Keycode};
+use std::sync::Arc;
 
 pub fn main() {
     let device = DeviceSelector::new()
@@ -12,7 +13,7 @@ pub fn main() {
     let mut ctx = Context::new(&ContextInfo { device }).unwrap();
 
     // Generate a basic render pass with 1 color attachment
-    let (rp, targets, attachments) = RenderPassBuilder::new()
+    let (rp, targets, _attachments) = RenderPassBuilder::new()
         .debug_name("Sample Render Pass")
         .extent([640, 480])
         .viewport(Viewport {
@@ -38,9 +39,8 @@ pub fn main() {
 }
 
 pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &[RenderTarget]) {
-    // Create vertex buffer for a triangle
+    // Vertex buffer for a triangle
     const VERTICES: [[f32; 2]; 3] = [[0.0, -0.5], [0.5, 0.5], [-0.5, 0.5]];
-
     let vertex_buffer = ctx
         .make_buffer(&BufferInfo {
             debug_name: "triangle_vertices",
@@ -51,68 +51,69 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
         })
         .unwrap();
 
-    // Create graphics pipeline layout
-    let pipeline_layout = ctx
-        .make_graphics_pipeline_layout(&GraphicsPipelineLayoutInfo {
-            debug_name: "SamplePipelineLayout",
-            vertex_info: VertexDescriptionInfo {
-                entries: &[VertexEntryInfo {
-                    format: ShaderPrimitiveType::Vec2,
-                    location: 0,
-                    offset: 0,
-                }],
-                stride: 8,
-                rate: VertexRate::Vertex,
-            },
-            bg_layouts: [None, None, None, None],
-            shaders: &[
-                PipelineShaderInfo {
-                    stage: ShaderType::Vertex,
-                    spirv: inline_spirv::inline_spirv!(
-                        r#"
-                    #version 450
-                    layout(location = 0) in vec2 inPosition;
-                    layout(location = 0) out vec3 inColor;
-                    void main() {
-                        inColor = vec3(inPosition.x, inPosition.y, 0.0);
-                        gl_Position = vec4(inPosition, 0.0, 1.0);
-                    }
-                "#,
-                        vert
-                    ),
-                    specialization: &[],
-                },
-                PipelineShaderInfo {
-                    stage: ShaderType::Fragment,
-                    spirv: inline_spirv::inline_spirv!(
-                        r#"
-                    #version 450
-                    layout(location = 0) in vec3 inColor;
-                    layout(location = 0) out vec4 outColor;
-                    void main() {
-                        outColor = vec4(inColor.x, inColor.y, inColor.z, 1.0);
-                    }
-                "#,
-                        frag
-                    ),
-                    specialization: &[],
-                },
-            ],
-            details: Default::default(),
-        })
-        .unwrap();
+    // ==== NEW: Create texture and upload a single-pixel image ====
+    let tex_data: [u8; 4] = [255, 0, 0, 255];
+    let img = ctx.make_image(&ImageInfo {
+        debug_name: "sample_tex",
+        dim: [1, 1, 1],
+        format: Format::RGBA8,
+        mip_levels: 1,
+        layers: 1,
+        initial_data: Some(&tex_data),
+    }).unwrap();
+    let view = ctx.make_image_view(&ImageViewInfo {
+        img,
+        debug_name: "sample_tex_view",
+        ..Default::default()
+    }).unwrap();
+    let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
 
-    // Create graphics pipeline
-    let pipeline = ctx
-        .make_graphics_pipeline(&GraphicsPipelineInfo {
-            debug_name: "SamplePipeline",
-            layout: pipeline_layout,
-            render_pass: rp,
-            subpass_id: 0,
-        })
-        .unwrap();
+    // ==== NEW: Create uniform buffer ====
+    let uniform_value: f32 = 0.7;
 
-    // Setup SDL2 display
+    // ==== NEW: Set up PipelineBuilder shaders ====
+    let vert_spirv = inline_spirv::inline_spirv!(
+        r#"
+        #version 450
+        layout(location = 0) in vec2 inPosition;
+        layout(location = 0) out vec2 uv;
+        void main() {
+            uv = inPosition * 0.5 + vec2(0.5, 0.5);
+            gl_Position = vec4(inPosition, 0.0, 1.0);
+        }
+        "#,
+        vert
+    ).to_vec();
+
+    let frag_spirv = inline_spirv::inline_spirv!(
+        r#"
+        #version 450
+        layout(set = 0, binding = 0) uniform sampler2D tex;
+        layout(set = 0, binding = 1) uniform UBO { float v; } ubo;
+        layout(location = 0) in vec2 uv;
+        layout(location = 0) out vec4 outColor;
+        void main() {
+            vec4 color = texture(tex, uv);
+            outColor = mix(color, vec4(0.0, 1.0, 0.0, 1.0), ubo.v);
+        }
+        "#,
+        frag
+    ).to_vec();
+
+    let mut pso = PipelineBuilder::new(ctx, "sample_pso")
+        .vertex_shader(&vert_spirv)
+        .fragment_shader(&frag_spirv)
+        .render_pass(rp, 0)
+        .build();
+
+    // ==== NEW: Use ResourceManager to bind resources by shader name ====
+    let mut resources = ResourceManager::new(ctx, 4096).unwrap();
+    resources.register_combined("tex", img, view, [1, 1], sampler);
+    resources.register_variable("ubo", ctx, uniform_value);
+
+    let bind_group = pso.create_bind_group(0, &resources);
+
+    // ==== The rest: draw with pipeline ====
     let mut display = ctx.make_display(&Default::default()).unwrap();
     let mut event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
     let mut framed_list = FramedCommandList::new(ctx, "SampleRenderList", 2);
@@ -130,7 +131,7 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
             }
         }
 
-        let (img, acquire_sem, _img_idx, _ok) = ctx.acquire_new_image(&mut display).unwrap();
+        let (img, acquire_sem, img_idx, _ok) = ctx.acquire_new_image(&mut display).unwrap();
 
         framed_list.record(|list| {
             for target in targets {
@@ -148,7 +149,7 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
                         },
                         ..Default::default()
                     },
-                    pipeline,
+                    pipeline: pso.pipeline,
                     attachments: &target
                         .colors
                         .iter()
@@ -158,9 +159,10 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
                 .unwrap();
 
                 list.append(Command::Draw(Draw {
-                    vertices: vertex_buffer,
                     count: 3,
                     instance_count: 1,
+                    vertices: vertex_buffer,
+                    bind_groups: [Some(bind_group.bind_group), None, None, None],
                     ..Default::default()
                 }));
 
@@ -184,3 +186,4 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
             .unwrap();
     }
 }
+

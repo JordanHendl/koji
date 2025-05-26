@@ -1,7 +1,9 @@
 use dashi::{utils::Handle, *};
 use std::collections::HashMap;
-mod shader_reflection;
-mod pipeline_builder;
+pub mod shader_reflection;
+pub mod pipeline_builder;
+pub use pipeline_builder::*;
+pub use shader_reflection::*;
 use crate::utils::ResourceManager;
 
 pub struct MaterialPipeline {

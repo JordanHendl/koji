@@ -1,6 +1,9 @@
 // src/render_pass_wrapper.rs
-mod material;
-mod utils;
+pub mod material;
+pub mod utils;
+
+pub use utils::*;
+pub use material::*;
 use dashi::utils::*;
 use dashi::*;
 use indexmap::IndexMap;

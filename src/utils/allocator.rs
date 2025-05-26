@@ -3,15 +3,15 @@
 use dashi::utils::*;
 use dashi::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Allocation {
     pub buffer: Handle<Buffer>,
     pub offset: u64,
     pub size: u64,
 }
 
-#[derive(Default)]
 pub struct GpuAllocator {
+    ctx: *mut Context,
     pub buffer: Handle<Buffer>,
     pub capacity: u64,
     pub alignment: u64,
@@ -19,6 +19,18 @@ pub struct GpuAllocator {
     pub free_list: Vec<(u64, u64)>,
 }
 
+impl Default for GpuAllocator {
+    fn default() -> Self {
+        Self {
+            ctx: std::ptr::null_mut(),
+            buffer: Default::default(),
+            capacity: Default::default(),
+            alignment: Default::default(),
+            current_offset: Default::default(),
+            free_list: Default::default(),
+        }
+    }
+}
 impl GpuAllocator {
     pub fn new(
         ctx: &mut Context,
@@ -40,6 +52,7 @@ impl GpuAllocator {
             alignment,
             current_offset: 0,
             free_list: Vec::new(),
+            ctx,
         })
     }
 
@@ -95,7 +108,7 @@ impl GpuAllocator {
         }
 
         let alloc = Allocation {
-            buffer: self.buffer,
+            buffer: unsafe { &mut *(self.ctx) }.suballoc_from(self.buffer, aligned_offset as u32, size as u32)?,
             offset: aligned_offset,
             size,
         };
@@ -103,7 +116,10 @@ impl GpuAllocator {
         self.current_offset = end;
         Some(alloc)
     }
-
+    
+    pub fn destroy(self, ctx: &mut Context) {
+        ctx.destroy_buffer(self.buffer);
+    }
     pub fn reset(&mut self) {
         self.current_offset = 0;
         self.free_list.clear();

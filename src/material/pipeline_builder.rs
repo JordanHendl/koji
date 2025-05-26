@@ -1,4 +1,5 @@
 use crate::material::*;
+use crate::utils::{DHObject, ResourceBinding, ResourceBuffer, Texture};
 use bytemuck::Pod;
 use dashi::*;
 use std::collections::HashMap;
@@ -32,19 +33,105 @@ fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPrimitiveType
     }
 }
 
-pub struct PSOResource {
-    allocation: crate::utils::allocator::Allocation,
+pub struct ShaderVariable {
+    allocation: crate::utils::DHObject,
     members: Vec<(String, u32, u32)>,
     ctx: *mut Context,
     set: usize,
     binding: u32,
 }
 
-impl PSOResource {
-    pub fn write<T: Pod>(&self, field: &str, value: T) {
-        // look up in `self.members` to find (offset, size),
-        // map the buffer and write `value` at buffer.ptr + allocation.offset + member_offset.
+impl ShaderVariable {
+    // Writes to a specific member of this object.
+    pub fn write_member<T: Pod>(&self, field: &str, value: T) {
+        let ctx = unsafe { &mut *self.ctx };
+        let (_, offset, size) = self
+            .members
+            .iter()
+            .find(|(name, _, _)| name == field)
+            .expect("Field not found");
+        assert!(std::mem::size_of::<T>() <= *size as usize, "Size mismatch");
+
+        let slice = unsafe { ctx.map_buffer_mut(self.allocation.handle).unwrap() };
+        let bytes = bytemuck::bytes_of(&value);
+        slice[(self.allocation.offset + *offset as u64) as usize..][..bytes.len()]
+            .copy_from_slice(bytes);
+
+        ctx.unmap_buffer(self.allocation.handle).unwrap();
     }
+
+    // Writes to the whole field. size of<T> must equal the size of the underlying shader variable.
+    pub fn write<T: Pod>(&self, value: T) {
+        let ctx = unsafe { &mut *self.ctx };
+        assert!(
+            std::mem::size_of::<T>() <= self.allocation.size as usize,
+            "Size mismatch"
+        );
+
+        let slice = unsafe { ctx.map_buffer_mut(self.allocation.handle).unwrap() };
+        let bytes = bytemuck::bytes_of(&value);
+        slice[self.allocation.offset as usize..][..bytes.len()].copy_from_slice(bytes);
+
+        ctx.unmap_buffer(self.allocation.handle).unwrap();
+    }
+
+    pub fn read_member<T: Pod>(&self, field: &str) -> T {
+        let ctx = unsafe { &mut *self.ctx };
+        let (_, offset, size) = self
+            .members
+            .iter()
+            .find(|(name, _, _)| name == field)
+            .expect("Field not found");
+        assert!(std::mem::size_of::<T>() <= *size as usize, "Size mismatch");
+
+        let slice = unsafe { ctx.map_buffer::<u8>(self.allocation.handle).unwrap() };
+        let data_slice = &slice[(self.allocation.offset + *offset as u64) as usize..];
+        let value = bytemuck::from_bytes::<T>(&data_slice[..std::mem::size_of::<T>()]);
+
+        let cln = unsafe { std::mem::transmute_copy(value) };
+        ctx.unmap_buffer(self.allocation.handle).unwrap();
+        cln
+    }
+
+    pub fn read<T: Pod>(&self) -> T {
+        let ctx = unsafe { &mut *self.ctx };
+        assert!(
+            std::mem::size_of::<T>() <= self.allocation.size as usize,
+            "Size mismatch"
+        );
+
+        let slice = unsafe { ctx.map_buffer::<u8>(self.allocation.handle).unwrap() };
+        let data_slice = &slice[self.allocation.offset as usize..];
+        let value = bytemuck::from_bytes::<T>(&data_slice[..std::mem::size_of::<T>()]);
+
+        let cln = unsafe { std::mem::transmute_copy(value) };
+        ctx.unmap_buffer(self.allocation.handle).unwrap();
+        cln
+    }
+}
+
+pub struct PSOResource {
+    binding: u32,
+    variables: Vec<(String, ShaderVariable)>,
+}
+
+impl PSOResource {
+    pub fn binding(&self) -> u32 {
+        self.binding
+    }
+
+    pub fn variable(&mut self, name: &str) -> Option<&ShaderVariable> {
+        self.variables
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, var)| var)
+    }
+}
+
+pub struct PSOBindGroupResources {
+    pub bind_group: Handle<BindGroup>,
+    pub buffers: HashMap<String, Handle<Buffer>>,
+    pub textures: HashMap<String, Texture>,
 }
 
 /// Builder for a graphics pipeline, including reflection of SPIR-V
@@ -54,6 +141,8 @@ pub struct PipelineBuilder<'a> {
     frag_spirv: &'a [u32],
     render_pass: Option<Handle<RenderPass>>,
     pipeline_name: &'static str,
+    depth_enable: bool,
+    cull_mode: CullMode,
     subpass: u32,
 }
 
@@ -64,7 +153,7 @@ pub struct PSO {
     pub layout: Handle<GraphicsPipelineLayout>,
     pub bind_group_layouts: [Option<Handle<BindGroupLayout>>; 4],
     /// Mapping from descriptor name to (set_index, binding_index, block_size)
-    desc_map: HashMap<String, (usize, u32)>,
+    desc_map: HashMap<String, (usize, u32, u32)>,
     ctx: *mut Context,
 }
 
@@ -73,33 +162,141 @@ impl PSO {
     pub fn create_bind_group(
         &mut self,
         set_index: usize,
-        bindings: &[BindingInfo],
-    ) -> Handle<BindGroup> {
+        resources: &ResourceManager,
+    ) -> PSOBindGroupResources {
         let ctx = unsafe { &mut *self.ctx };
-        let layout = self.bind_group_layouts[set_index]
-            .expect("Bind group layout not initialized for this set");
-        let info = BindGroupInfo {
-            debug_name: "pso",
-            layout,
-            bindings,
-            set: set_index as u32,
-        };
-        ctx.make_bind_group(&info).unwrap()
-    }
+        let layout = self.bind_group_layouts[set_index].expect("Bind group layout not initialized");
 
-    /// Bind a buffer to a descriptor by its name.
-    /// Checks that the buffer size meets or exceeds the expected block size.
-    pub fn bind_buffer_by_name(&mut self, name: &str, buffer: Handle<Buffer>) -> Handle<BindGroup> {
-//        let (set_idx, binding_idx) = self
-//            .desc_map
-//            .get(name)
-//            .unwrap_or_else(|| panic!("Descriptor '{}' not found in pipeline", name));
-//        let bind_info = BindingInfo {
-//            binding: *binding_idx,
-//            resource: ShaderResource::Buffer(buffer),
-//        };
-        Default::default()
-//        self.create_bind_group(*set_idx, std::slice::from_ref(&bind_info))
+        let mut bindings = Vec::new();
+        let mut buffers = HashMap::new();
+        let mut textures = HashMap::new();
+
+        // This holds the real data for all indexed arrays!
+        let mut all_indexed_data: Vec<Vec<IndexedResource>> = Vec::new();
+        let mut which_binding: Vec<(usize, usize)> = Vec::new(); // (vec_idx, binding)
+        for (name, (set, binding, count)) in self.desc_map.iter() {
+            if *set != set_index {
+                continue;
+            }
+            if let Some(binding_entry) = resources.get(name) {
+                match binding_entry {
+                    ResourceBinding::Uniform(b) => {
+                        buffers.insert(name.clone(), b.clone());
+                        bindings.push(BindingInfo {
+                            resource: ShaderResource::Buffer(*b),
+                            binding: *binding,
+                        });
+                    }
+                    ResourceBinding::Storage(b) => {
+                        buffers.insert(name.clone(), b.clone());
+                        bindings.push(BindingInfo {
+                            resource: ShaderResource::StorageBuffer(*b),
+                            binding: *binding,
+                        });
+                    }
+                    ResourceBinding::Texture(t) => {
+                        textures.insert(name.clone(), t.clone());
+                        bindings.push(BindingInfo {
+                            resource: ShaderResource::SampledImage(t.view, Handle::default()),
+                            binding: *binding,
+                        });
+                    }
+                    ResourceBinding::CombinedImageSampler { texture, sampler } => {
+                        textures.insert(name.clone(), texture.clone());
+                        bindings.push(BindingInfo {
+                            resource: ShaderResource::SampledImage(texture.view, *sampler),
+                            binding: *binding,
+                        });
+                    }
+                    ResourceBinding::TextureArray(array) => {
+                        let mut data: Vec<IndexedResource> = array
+                            .as_ref()
+                            .iter()
+                            .enumerate()
+                            .map(|(i, t)| IndexedResource {
+                                resource: ShaderResource::SampledImage(t.view, Handle::default()),
+                                slot: i as u32,
+                            })
+                            .collect();
+                        if *count > 1 {
+                            data.truncate(*count as usize);
+                        }
+                        all_indexed_data.push(data);
+                        which_binding.push((all_indexed_data.len() - 1, *binding as usize));
+                    }
+                    ResourceBinding::CombinedTextureArray(array) => {
+                        let mut data: Vec<IndexedResource> = array
+                            .as_ref()
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ts)| IndexedResource {
+                                resource: ShaderResource::SampledImage(ts.texture.view, ts.sampler),
+                                slot: i as u32,
+                            })
+                            .collect();
+                        if *count > 1 {
+                            data.truncate(*count as usize);
+                        }
+
+                        all_indexed_data.push(data);
+                        which_binding.push((all_indexed_data.len() - 1, *binding as usize));
+                    }
+                    ResourceBinding::BufferArray(array) => {
+                        let mut data: Vec<IndexedResource> = array
+                            .as_ref()
+                            .iter()
+                            .enumerate()
+                            .map(|(i, b)| IndexedResource {
+                                resource: ShaderResource::StorageBuffer(b.handle),
+                                slot: i as u32,
+                            })
+                            .collect();
+                        if *count > 1 {
+                            data.truncate(*count as usize);
+                        }
+
+                        all_indexed_data.push(data);
+
+                        which_binding.push((all_indexed_data.len() - 1, *binding as usize));
+                    }
+                }
+            } else {
+                panic!("Resource not found: {}", name);
+            }
+        }
+        // Now build all references in a *second pass*
+        let indexed_bindings: Vec<IndexedBindingInfo> = which_binding
+            .iter()
+            .map(|(vec_idx, binding)| IndexedBindingInfo {
+                resources: &all_indexed_data[*vec_idx],
+                binding: *binding as u32,
+            })
+            .collect();
+        let bind_group = if !indexed_bindings.is_empty() {
+            ctx.make_indexed_bind_group(&IndexedBindGroupInfo {
+                debug_name: "Bindless PSO bind group",
+                layout,
+                bindings: &indexed_bindings,
+                set: set_index as u32,
+                ..Default::default()
+            })
+            .unwrap()
+        } else {
+            ctx.make_bind_group(&BindGroupInfo {
+                debug_name: "Auto-generated PSO bind group",
+                layout,
+                set: set_index as u32,
+                bindings: &bindings,
+                ..Default::default()
+            })
+            .unwrap()
+        };
+
+        PSOBindGroupResources {
+            bind_group,
+            buffers,
+            textures,
+        }
     }
 }
 
@@ -113,9 +310,20 @@ impl<'a> PipelineBuilder<'a> {
             frag_spirv: &[],
             render_pass: None,
             subpass: 0,
+            depth_enable: false,
+            cull_mode: CullMode::None,
         }
     }
 
+    pub fn depth_enable(mut self, enable: bool) -> Self {
+        self.depth_enable = enable;
+        self
+    }
+
+    pub fn cull_mode(mut self, mode: CullMode) -> Self {
+        self.cull_mode = mode;
+        self
+    }
     /// Set the vertex SPIR-V bytecode
     pub fn vertex_shader(mut self, spirv: &'a [u32]) -> Self {
         self.vert_spirv = spirv;
@@ -141,30 +349,31 @@ impl<'a> PipelineBuilder<'a> {
             .render_pass
             .expect("Render pass must be set before build");
 
-        // Reflect descriptors from shaders
         let vert_info = reflect_shader(self.vert_spirv);
         let frag_info = reflect_shader(self.frag_spirv);
 
-        // Merge descriptor sets across vert/frag
         let mut combined: HashMap<u32, Vec<ShaderDescriptorBinding>> = HashMap::new();
         for (set, binds) in vert_info.bindings.into_iter().chain(frag_info.bindings) {
             combined.entry(set).or_default().extend(binds);
         }
-        // Build descriptor name -> (set,binding,size) map
-        let mut desc_map = HashMap::new();
 
-        // Build bind group layouts
+        let mut desc_map = HashMap::new();
         let mut bg_layouts: [Option<Handle<BindGroupLayout>>; 4] = [None, None, None, None];
+
         for set in combined.keys().cloned().collect::<Vec<_>>() {
             let binds = &combined[&set];
             let mut vars = Vec::new();
+
             for b in binds.iter() {
-                desc_map.insert(b.name.clone(), (set as usize, b.binding));
+                let var_type = descriptor_type_to_dashi(b.ty);
                 vars.push(BindGroupVariable {
-                    var_type: descriptor_type_to_dashi(b.ty),
+                    var_type,
                     binding: b.binding,
+                    count: b.count,
                 });
+                desc_map.insert(b.name.clone(), (set as usize, b.binding, b.count));
             }
+
             let info = BindGroupLayoutInfo {
                 debug_name: self.pipeline_name,
                 shaders: &[ShaderInfo {
@@ -176,10 +385,10 @@ impl<'a> PipelineBuilder<'a> {
             bg_layouts[set as usize] = Some(layout);
         }
 
-        // Reflect vertex inputs
         let module = ShaderModule::load_u32_data(self.vert_spirv).unwrap();
         let mut inputs = module.enumerate_input_variables(None).unwrap();
         inputs.sort_by_key(|v| v.location);
+
         let mut entries = Vec::new();
         let mut offset = 0;
         for var in inputs {
@@ -196,13 +405,13 @@ impl<'a> PipelineBuilder<'a> {
                 _ => 0,
             };
         }
+
         let vertex_info = VertexDescriptionInfo {
             entries: &entries,
             stride: offset as usize,
             rate: VertexRate::Vertex,
         };
 
-        // Assemble layout info
         let layout_info = GraphicsPipelineLayoutInfo {
             debug_name: self.pipeline_name,
             vertex_info,
@@ -223,15 +432,20 @@ impl<'a> PipelineBuilder<'a> {
                 subpass: self.subpass as u8,
                 color_blend_states: vec![ColorBlendState::default()],
                 topology: Topology::TriangleList,
-                culling: CullMode::Back,
+                culling: self.cull_mode,
                 front_face: VertexOrdering::CounterClockwise,
-                depth_test: Some(DepthInfo {
-                    should_test: true,
-                    should_write: true,
-                }),
+                depth_test: if self.depth_enable {
+                    Some(DepthInfo {
+                        should_test: true,
+                        should_write: true,
+                    })
+                } else {
+                    None
+                },
                 ..Default::default()
             },
         };
+
         let layout = self
             .ctx
             .make_graphics_pipeline_layout(&layout_info)
@@ -260,8 +474,16 @@ impl<'a> PipelineBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
-    use crate::material::pipeline_builder::ShaderDescriptorType;
+    use crate::{
+        material::pipeline_builder::ShaderDescriptorType,
+        utils::{
+            allocator::GpuAllocator, resource_list::ResourceList, CombinedTextureSampler,
+            TextureInfo,
+        },
+    };
     use dashi::builders::RenderPassBuilder;
     use inline_spirv::inline_spirv;
     use serial_test::serial;
@@ -407,92 +629,313 @@ mod tests {
         ctx.destroy();
     }
 
-    #[test]
-    #[serial]
-    fn pso_bind_by_name_success() {
-//        let mut ctx = make_ctx();
-//        let rp = RenderPassBuilder::new("rp", Viewport::default())
-//            .add_subpass(&[AttachmentDescription::default()], None, &[])
-//            .build(&mut ctx)
-//            .unwrap();
-//        let mut pso = PipelineBuilder::new(&mut ctx, "pso")
-//            .vertex_shader(&simple_vert())
-//            .fragment_shader(&simple_frag())
-//            .render_pass(rp, 0)
-//            .build();
-//        let buf0 = ctx
-//            .make_buffer(&BufferInfo {
-//                debug_name: "b0",
-//                byte_size: 16,
-//                visibility: MemoryVisibility::Gpu,
-//                ..Default::default()
-//            })
-//            .unwrap();
-//        let bg0 = pso.bind_buffer_by_name("u", buf0);
-//        assert!(bg0.valid());
-//        let buf1 = ctx
-//            .make_buffer(&BufferInfo {
-//                debug_name: "b1",
-//                byte_size: 4,
-//                visibility: MemoryVisibility::Gpu,
-//                ..Default::default()
-//            })
-//            .unwrap();
-//        let bg1 = pso.bind_buffer_by_name("u2", buf1);
-//        assert!(bg1.valid());
-//        ctx.destroy();
+    fn setup_ctx() -> gpu::Context {
+        let device = DeviceSelector::new()
+            .unwrap()
+            .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
+            .unwrap_or_default();
+        gpu::Context::new(&ContextInfo { device }).unwrap()
     }
 
     #[test]
     #[serial]
-    #[should_panic]
-    fn pso_bind_by_name_missing() {
-        let mut ctx = make_ctx();
-        let rp = RenderPassBuilder::new("rp", Viewport::default())
-            .add_subpass(&[AttachmentDescription::default()], None, &[])
-            .build(&mut ctx)
-            .unwrap();
-        let mut pso = PipelineBuilder::new(&mut ctx, "pso")
-            .vertex_shader(&simple_vert())
-            .fragment_shader(&simple_frag())
-            .render_pass(rp, 0)
-            .build();
-        let buf = ctx
+    fn shader_variable_write() {
+        let mut ctx = setup_ctx();
+        let buffer_handle = ctx
             .make_buffer(&BufferInfo {
-                debug_name: "b",
+                debug_name: "test_buffer",
                 byte_size: 4,
-                visibility: MemoryVisibility::Gpu,
-                ..Default::default()
+                visibility: MemoryVisibility::CpuAndGpu,
+                usage: BufferUsage::STORAGE,
+                initial_data: None,
             })
             .unwrap();
-        let _ = pso.bind_buffer_by_name("nope", buf);
-        ctx.destroy_buffer(buf);
+
+        let allocation = DHObject {
+            handle: buffer_handle,
+            offset: 0,
+            size: 4,
+        };
+
+        let variable = ShaderVariable {
+            allocation,
+            members: vec![("data".into(), 0, 4)],
+            ctx: &mut ctx,
+            set: 0,
+            binding: 0,
+        };
+
+        variable.write(100u32);
+        let read_back: u32 = variable.read();
+        assert_eq!(read_back, 100);
+
+        variable.write_member("data", 200u32);
+        let read_member_back: u32 = variable.read_member("data");
+        assert_eq!(read_member_back, 200);
+
+        ctx.destroy_buffer(buffer_handle);
         ctx.destroy();
     }
 
     #[test]
     #[serial]
-    #[should_panic]
-    fn pso_bind_by_name_too_small() {
-//        let mut ctx = make_ctx();
-//        let rp = RenderPassBuilder::new("rp", Viewport::default())
-//            .add_subpass(&[AttachmentDescription::default()], None, &[])
-//            .build(&mut ctx)
-//            .unwrap();
-//        let mut pso = PipelineBuilder::new(&mut ctx, "pso")
-//            .vertex_shader(&simple_vert())
-//            .fragment_shader(&simple_frag())
-//            .render_pass(rp, 0)
-//            .build();
-//        let buf = ctx
-//            .make_buffer(&BufferInfo {
-//                debug_name: "b",
-//                byte_size: 8,
-//                visibility: MemoryVisibility::Gpu,
-//                ..Default::default()
-//            })
-//            .unwrap();
-//        let _ = pso.bind_buffer_by_name("u", buf);
-//        ctx.destroy();
+    fn pso_resource_variable_lookup() {
+        let variable = ShaderVariable {
+            allocation: DHObject {
+                handle: Handle::default(),
+                offset: 0,
+                size: 4,
+            },
+            members: vec![],
+            ctx: std::ptr::null_mut(),
+            set: 0,
+            binding: 0,
+        };
+
+        let mut resource = PSOResource {
+            binding: 0,
+            variables: vec![("var1".into(), variable)],
+        };
+
+        assert!(resource.variable("var1").is_some());
+        assert!(resource.variable("nonexistent").is_none());
+    }
+
+    fn simple_vert2() -> Vec<u32> {
+        inline_spirv!(
+            r#"
+            #version 450
+            layout(location=0) in vec2 pos;
+            layout(set=0, binding=0) uniform B0 { uint x; } b0;
+            void main() {
+                gl_Position = vec4(pos, 0.0, 1.0);
+            }
+            "#,
+            vert
+        )
+        .to_vec()
+    }
+
+    fn simple_frag2() -> Vec<u32> {
+        inline_spirv!(
+            r#"
+            #version 450
+            layout(set=0, binding=1) uniform sampler2D tex;
+            layout(location=0) out vec4 o;
+            void main() {
+                o = texture(tex, vec2(0.5));
+            }
+            "#,
+            frag
+        )
+        .to_vec()
+    }
+
+    #[test]
+    #[serial]
+    fn pipeline_builder_and_bind_group() {
+        let mut ctx = make_ctx();
+
+        let rp = RenderPassBuilder::new("rp", Viewport::default())
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+
+        let mut pso = PipelineBuilder::new(&mut ctx, "pso_test")
+            .vertex_shader(&simple_vert2())
+            .fragment_shader(&simple_frag2())
+            .render_pass(rp, 0)
+            .build();
+
+        let mut resources = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+        resources.register_variable("b0", &mut ctx, 1234u32);
+
+        let img = ctx.make_image(&ImageInfo::default()).unwrap();
+        let view = ctx
+            .make_image_view(&ImageViewInfo {
+                img,
+                ..Default::default()
+            })
+            .unwrap();
+        let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+
+        resources.register_combined("tex", img, view, [1, 1], sampler);
+
+        let group = pso.create_bind_group(0, &resources);
+
+        assert!(group.bind_group.valid());
+        assert!(group.buffers.contains_key("b0"));
+        assert!(group.textures.contains_key("tex"));
+
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn bindless_texture_array_in_shader() {
+        let mut ctx = make_ctx();
+        let rp = RenderPassBuilder::new("rp", Viewport::default())
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+
+        // Vertex shader (minimal, no array)
+        let vert_spirv = inline_spirv!(
+            r#"
+            #version 450
+            layout(location=0) in vec2 pos;
+            void main() {
+                gl_Position = vec4(pos, 0.0, 1.0);
+            }
+            "#,
+            vert
+        )
+        .to_vec();
+
+        // Fragment shader with bindless texture array
+        let frag_spirv = inline_spirv!(
+            r#"
+            #version 450
+            layout(set=0, binding=0) uniform sampler2D bless_textures[];
+            layout(location=0) out vec4 o;
+            void main() {
+                // Index 2 for test, would be dynamic in real shaders
+                o = texture(bless_textures[2], vec2(0.5));
+            }
+            "#,
+            frag
+        )
+        .to_vec();
+
+        let mut pso = PipelineBuilder::new(&mut ctx, "pso_bindless_test")
+            .vertex_shader(&vert_spirv)
+            .fragment_shader(&frag_spirv)
+            .render_pass(rp, 0)
+            .build();
+
+        let sampler = ctx.make_sampler(&Default::default()).unwrap();
+        // Register a texture array (bindless)
+        let mut tex_array = ResourceList::<CombinedTextureSampler>::default();
+        for _ in 0..4 {
+            let img = ctx.make_image(&ImageInfo::default()).unwrap();
+            let view = ctx
+                .make_image_view(&ImageViewInfo {
+                    img,
+                    ..Default::default()
+                })
+                .unwrap();
+            tex_array.push(CombinedTextureSampler {
+                texture: Texture {
+                    handle: img,
+                    view,
+                    dim: [32, 32],
+                },
+                sampler,
+            });
+        }
+        let tex_array = Arc::new(tex_array);
+        let mut resources = ResourceManager::new(&mut ctx, 1024).unwrap();
+        resources.register_combined_texture_array("bless_textures", tex_array.clone());
+
+        // The pipeline should reflect the unsized array and request the bindless resource
+        let group = pso.create_bind_group(0, &resources);
+
+        // Expect a valid bind group, and that "bless_textures" is registered as a texture array
+        assert!(group.bind_group.valid());
+        assert!(resources.get("bless_textures").is_some());
+
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn multiple_bindless_bindings_in_shader() {
+        let mut ctx = make_ctx();
+        let rp = RenderPassBuilder::new("rp", Viewport::default())
+            .add_subpass(&[AttachmentDescription::default()], None, &[])
+            .build(&mut ctx)
+            .unwrap();
+
+        // Vertex shader: pass through
+        let vert_spirv = inline_spirv!(
+            r#"
+            #version 450
+            layout(location=0) in vec2 pos;
+            void main() { gl_Position = vec4(pos, 0.0, 1.0); }
+            "#,
+            vert
+        )
+        .to_vec();
+
+        // Fragment shader: bindless combined sampler2D array at binding=0, buffer array at binding=1
+        let frag_spirv = inline_spirv!(
+            r#"
+            #version 450
+            layout(set=0, binding=0) uniform sampler2D tex_array[];
+            layout(set=0, binding=1) buffer Bufs { uint val[]; } buf_array[];
+            layout(location=0) out vec4 o;
+            void main() {
+                // Sample from tex_array[2] and read from buf_array[2].val[0]
+                vec4 c = texture(tex_array[2], vec2(0.5));
+                float v = buf_array[2].val[0];
+                o = c + vec4(v);
+            }
+            "#,
+            frag
+        )
+        .to_vec();
+
+        let mut pso = PipelineBuilder::new(&mut ctx, "bindless_combined_and_buffer_array_test")
+            .vertex_shader(&vert_spirv)
+            .fragment_shader(&frag_spirv)
+            .render_pass(rp, 0)
+            .build();
+
+        let mut combined_array = ResourceList::<CombinedTextureSampler>::default();
+        let mut buf_array = ResourceList::<ResourceBuffer>::default();
+
+        for _ in 0..4 {
+            let img = ctx.make_image(&ImageInfo::default()).unwrap();
+            let view = ctx
+                .make_image_view(&ImageViewInfo {
+                    img,
+                    ..Default::default()
+                })
+                .unwrap();
+            let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+            let c = CombinedTextureSampler {
+                texture: Texture {
+                    handle: img,
+                    view,
+                    dim: [32, 32],
+                },
+                sampler,
+            };
+            combined_array.push(c);
+
+            let mut allocator =
+                GpuAllocator::new(&mut ctx, 1024, BufferUsage::STORAGE, 256).unwrap();
+            let dh = DHObject::new(&mut ctx, &mut allocator, 123u32).unwrap();
+            buf_array.push(ResourceBuffer::from(dh));
+        }
+
+        let mut resources = ResourceManager::new(&mut ctx, 4096).unwrap();
+        resources.register_combined_texture_array("tex_array", Arc::new(combined_array));
+        resources.register_buffer_array("buf_array", Arc::new(buf_array));
+
+        let group = pso.create_bind_group(0, &resources);
+
+        assert!(group.bind_group.valid());
+        assert!(matches!(
+            resources.get("tex_array"),
+            Some(ResourceBinding::CombinedTextureArray(_))
+        ));
+        assert!(matches!(
+            resources.get("buf_array"),
+            Some(ResourceBinding::BufferArray(_))
+        ));
+
+        ctx.destroy();
     }
 }

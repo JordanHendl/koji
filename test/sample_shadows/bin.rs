@@ -324,6 +324,7 @@ void main() {
                     variables: &[BindGroupVariable {
                         var_type: BindGroupVariableType::Uniform,
                         binding: 0,
+                        count: 1,
                     }],
                 },
                 ShaderInfo {
@@ -331,6 +332,7 @@ void main() {
                     variables: &[BindGroupVariable {
                         var_type: BindGroupVariableType::SampledImage,
                         binding: 1,
+                        count: 1,
                     }],
                 },
             ],
