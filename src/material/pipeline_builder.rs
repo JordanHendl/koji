@@ -298,6 +298,19 @@ impl PSO {
             textures,
         }
     }
+
+    pub fn create_bind_groups(
+        &mut self,
+        res: &ResourceManager,
+    ) -> [Option<PSOBindGroupResources>; 4] {
+        let mut sets: [Option<PSOBindGroupResources>; 4] = [None, None, None, None];
+        for set_idx in 0..4 {
+            if self.bind_group_layouts[set_idx].is_some() {
+                sets[set_idx] = Some(self.create_bind_group(set_idx, res));
+            }
+        }
+        sets
+    }
 }
 
 impl<'a> PipelineBuilder<'a> {

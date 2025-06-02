@@ -1,7 +1,7 @@
 // src/render_pass_wrapper.rs
 pub mod material;
 pub mod utils;
-
+pub mod renderer;
 pub use utils::*;
 pub use material::*;
 use dashi::utils::*;
