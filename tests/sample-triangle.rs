@@ -4,8 +4,9 @@ use koji::renderer::*;
 use koji::utils::*;
 use dashi::*;
 use bytemuck::{Pod, Zeroable};
-use inline_spirv::inline_spirv;
+use inline_spirv::include_spirv;
 use serial_test::serial;
+// External shader files are loaded from `shaders/` using `include_spirv!`.
 
 fn make_color_vertex(position: [f32; 3], color: [f32; 4]) -> Vertex {
     Vertex {
@@ -58,36 +59,19 @@ fn cube_indices() -> Vec<u32> {
 }
 
 fn make_shader_vert() -> Vec<u32> {
-    inline_spirv!(
-        r#"
-        #version 450
-        layout(location = 0) in vec3 inPos;
-        layout(location = 1) in vec3 inNormal;
-        layout(location = 2) in vec4 inTangent;
-        layout(location = 3) in vec2 inUV;
-        layout(location = 4) in vec4 inColor;
-        layout(location = 0) out vec4 vColor;
-        void main() {
-            vColor = inColor;
-            gl_Position = vec4(inPos, 1.0);
-        }
-        "#,
+    include_spirv!(
+        "shaders/test_triangle.vert",
         vert
-    ).to_vec()
+    )
+    .to_vec()
 }
 
 fn make_shader_frag() -> Vec<u32> {
-    inline_spirv!(
-        r#"
-        #version 450
-        layout(location = 0) in vec4 vColor;
-        layout(location = 0) out vec4 outColor;
-        void main() {
-            outColor = vColor;
-        }
-        "#,
+    include_spirv!(
+        "shaders/test_triangle.frag",
         frag
-    ).to_vec()
+    )
+    .to_vec()
 }
 
 #[test]

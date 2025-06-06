@@ -3,6 +3,7 @@ use dashi::*;
 use koji::*;
 use sdl2::{event::Event, keyboard::Keycode};
 use std::sync::Arc;
+// Shaders are stored under `shaders/` and compiled at build time using `include_spirv!`.
 
 pub fn main() {
     let device = DeviceSelector::new()
@@ -72,33 +73,17 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
     let uniform_value: f32 = 0.7;
 
     // ==== NEW: Set up PipelineBuilder shaders ====
-    let vert_spirv = inline_spirv::inline_spirv!(
-        r#"
-        #version 450
-        layout(location = 0) in vec2 inPosition;
-        layout(location = 0) out vec2 uv;
-        void main() {
-            uv = inPosition * 0.5 + vec2(0.5, 0.5);
-            gl_Position = vec4(inPosition, 0.0, 1.0);
-        }
-        "#,
+    let vert_spirv = inline_spirv::include_spirv!(
+        "shaders/sample.vert",
         vert
-    ).to_vec();
+    )
+    .to_vec();
 
-    let frag_spirv = inline_spirv::inline_spirv!(
-        r#"
-        #version 450
-        layout(set = 0, binding = 0) uniform sampler2D tex;
-        layout(set = 0, binding = 1) uniform UBO { float v; } ubo;
-        layout(location = 0) in vec2 uv;
-        layout(location = 0) out vec4 outColor;
-        void main() {
-            vec4 color = texture(tex, uv);
-            outColor = mix(color, vec4(0.0, 1.0, 0.0, 1.0), ubo.v);
-        }
-        "#,
+    let frag_spirv = inline_spirv::include_spirv!(
+        "shaders/sample.frag",
         frag
-    ).to_vec();
+    )
+    .to_vec();
 
     let mut pso = PipelineBuilder::new(ctx, "sample_pso")
         .vertex_shader(&vert_spirv)

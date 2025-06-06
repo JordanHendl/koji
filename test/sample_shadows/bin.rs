@@ -2,10 +2,11 @@ use bytemuck::*;
 use dashi::utils::*;
 use dashi::*;
 use glam::*;
-use inline_spirv::inline_spirv;
+use inline_spirv::include_spirv;
 use koji::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+// Shader code is located in `shaders/` and included via `include_spirv!`.
 use std::f32::consts::PI;
 use std::time::Instant;
 
@@ -231,27 +232,8 @@ pub fn run(ctx: &mut Context) {
     // -- Shader Stubs --
     let vert_shader = PipelineShaderInfo {
         stage: ShaderType::Vertex,
-        spirv: inline_spirv!(
-            r#"
-#version 450
-layout(set = 0, binding = 0) uniform Camera {
-    mat4 view_proj;
-};
-
-layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inNormal;
-
-layout(location = 0) out vec3 worldPos;
-layout(location = 1) out vec3 normal;
-
-void main() {
-    mat4 model = mat4(1.0);
-    vec4 world = model * vec4(inPosition, 1.0);
-    worldPos = world.xyz;
-    normal = mat3(model) * inNormal;
-    gl_Position = view_proj * world;
-}
-            "#,
+        spirv: include_spirv!(
+            "shaders/shadows.vert",
             vert
         ),
         specialization: &[],
@@ -259,9 +241,8 @@ void main() {
 
     let frag_shadow = PipelineShaderInfo {
         stage: ShaderType::Fragment,
-        spirv: inline_spirv!(
-            r#"#version 450
-            void main() {}"#,
+        spirv: include_spirv!(
+            "shaders/shadow_pass.frag",
             frag
         ),
         specialization: &[],
@@ -270,28 +251,8 @@ void main() {
     // Replace frag_lit with this updated shader
     let frag_lit = PipelineShaderInfo {
         stage: ShaderType::Fragment,
-        spirv: inline_spirv!(
-            r#"#version 450
-        layout(location = 0) in vec3 vWorldPos;
-        layout(location = 1) in vec3 vNormal;
-
-        layout(set = 0, binding = 1) uniform sampler2DShadow shadowMap;
-
-        layout(location = 0) out vec4 outColor;
-
-        void main() {
-            vec3 lightDir = normalize(vec3(-0.5, -1.0, -0.3));
-            vec3 normal = normalize(vNormal);
-            float NdotL = max(dot(normal, -lightDir), 0.0);
-
-            // Sample the shadow map
-            float shadow = texture(shadowMap, vec3(vWorldPos.xy * 0.5 + 0.5, vWorldPos.z));
-
-            // Combine lighting with shadow factor
-            vec3 litColor = vec3(1.0, 1.0, 0.8) * NdotL * shadow;
-            outColor = vec4(litColor, 1.0);
-        }
-        "#,
+        spirv: include_spirv!(
+            "shaders/shadows_lit.frag",
             frag
         ),
         specialization: &[],
