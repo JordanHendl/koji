@@ -1,13 +1,13 @@
 use glam::Mat4;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Bone {
     pub name: String,
     pub parent: Option<usize>,
     pub inverse_bind: Mat4,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Skeleton {
     pub bones: Vec<Bone>,
 }

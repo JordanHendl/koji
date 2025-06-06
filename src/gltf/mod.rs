@@ -1,6 +1,6 @@
 use crate::renderer::{SkeletalMesh, SkeletalVertex, StaticMesh, Vertex};
-use gltf::{self};
 use glam::{Mat4, Quat, Vec3};
+use gltf::{self};
 
 pub enum MeshData {
     Static(StaticMesh),
@@ -33,7 +33,12 @@ pub fn load_scene(path: &str) -> Result<Scene, gltf::Error> {
     Ok(Scene { meshes })
 }
 
-fn load_node(node: &gltf::Node, parent: Mat4, buffers: &[gltf::buffer::Data], meshes: &mut Vec<SceneMesh>) {
+fn load_node(
+    node: &gltf::Node,
+    parent: Mat4,
+    buffers: &[gltf::buffer::Data],
+    meshes: &mut Vec<SceneMesh>,
+) {
     let transform = parent * mat4_from_node(node);
     if let Some(mesh) = node.mesh() {
         for prim in mesh.primitives() {
@@ -51,8 +56,12 @@ fn load_node(node: &gltf::Node, parent: Mat4, buffers: &[gltf::buffer::Data], me
                 .map(|i| i.into_f32().collect())
                 .unwrap_or_else(|| vec![[0.0, 0.0]; positions.len()]);
             let indices = reader.read_indices().map(|i| i.into_u32().collect());
-            let joints = reader.read_joints(0).map(|i| i.into_u16().collect::<Vec<_>>());
-            let weights = reader.read_weights(0).map(|i| i.into_f32().collect::<Vec<_>>());
+            let joints = reader
+                .read_joints(0)
+                .map(|i| i.into_u16().collect::<Vec<_>>());
+            let weights = reader
+                .read_weights(0)
+                .map(|i| i.into_f32().collect::<Vec<_>>());
             let mesh = if let (Some(j), Some(w)) = (joints, weights) {
                 let verts = positions
                     .into_iter()
@@ -70,7 +79,15 @@ fn load_node(node: &gltf::Node, parent: Mat4, buffers: &[gltf::buffer::Data], me
                         joint_weights: w,
                     })
                     .collect();
-                MeshData::Skeletal(SkeletalMesh { vertices: verts, indices, vertex_buffer: None, index_buffer: None, index_count: 0 })
+                MeshData::Skeletal(SkeletalMesh {
+                    vertices: verts,
+                    indices,
+                    vertex_buffer: None,
+                    index_buffer: None,
+                    index_count: 0,
+                    skeleton: Default::default(),
+                    bone_buffer: None,
+                })
             } else {
                 let verts = positions
                     .into_iter()
@@ -84,7 +101,13 @@ fn load_node(node: &gltf::Node, parent: Mat4, buffers: &[gltf::buffer::Data], me
                         color: [1.0, 1.0, 1.0, 1.0],
                     })
                     .collect();
-                MeshData::Static(StaticMesh { vertices: verts, indices, vertex_buffer: None, index_buffer: None, index_count: 0 })
+                MeshData::Static(StaticMesh {
+                    vertices: verts,
+                    indices,
+                    vertex_buffer: None,
+                    index_buffer: None,
+                    index_count: 0,
+                })
             };
             meshes.push(SceneMesh { mesh, transform });
         }
