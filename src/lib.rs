@@ -2,6 +2,7 @@
 pub mod material;
 pub mod utils;
 pub mod renderer;
+pub mod gltf;
 pub use utils::*;
 pub use material::*;
 use dashi::utils::*;

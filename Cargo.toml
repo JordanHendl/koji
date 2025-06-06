@@ -19,6 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 indexmap = "2"
 serde_yaml = "0.9"
 bytemuck = { version = "1.22.0", features = ["derive"] }
+gltf = "1.4"
 
 [dev-dependencies]
 serial_test = "2.0"
