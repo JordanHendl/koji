@@ -9,7 +9,8 @@ edition = "2021"
 [dependencies]
 glam = "0.29.0" 
 rhai = {git = "https://github.com/rhaiscript/rhai" }
-dashi = {path = "C:/Program Files/Git/wksp/git/dashi", features = ["dashi-serde"]}
+dashi = {git = "https://github.com/JordanHendl/dashi", features = ["dashi-serde"]}
+#dashi = {path = "C:/Program Files/Git/wksp/git/dashi", features = ["dashi-serde"]}
 #dashi = {path = "/wksp/git/dashi", features = ["dashi-serde"]}
 inline-spirv = {version = "0.2.1"}
 spirv-reflect = { git = "https://github.com/gfxstrand/spirv-reflect-rs.git" }

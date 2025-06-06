@@ -122,6 +122,7 @@ checksum = "43da5946c66ffcc7745f48db692ffbb10a83bfe0afd96235c5c2a4fb23994929"
 [[package]]
 name = "dashi"
 version = "0.1.0"
+source = "git+https://github.com/JordanHendl/dashi#1d4a62c36e1a1eb7a44d21b8745960e4f5862ffb"
 dependencies = [
  "ash",
  "inline-spirv",
