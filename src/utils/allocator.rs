@@ -101,16 +101,17 @@ impl GpuAllocator {
             return Some(alloc);
         }
         let aligned_offset = Self::align_up(self.current_offset, self.alignment);
-        let end = aligned_offset + size;
+        let end = aligned_offset + aligned_size;
 
         if end > self.capacity {
             return None;
         }
 
         let alloc = Allocation {
-            buffer: unsafe { &mut *(self.ctx) }.suballoc_from(self.buffer, aligned_offset as u32, size as u32)?,
+            buffer: unsafe { &mut *(self.ctx) }
+                .suballoc_from(self.buffer, aligned_offset as u32, aligned_size as u32)?,
             offset: aligned_offset,
-            size,
+            size: aligned_size,
         };
 
         self.current_offset = end;
