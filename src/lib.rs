@@ -2,6 +2,7 @@
 pub mod material;
 pub mod utils;
 pub mod renderer;
+pub mod gltf;
 pub mod animation;
 pub use utils::*;
 pub use material::*;
