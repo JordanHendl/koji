@@ -1,10 +1,11 @@
 // src/deferred_render.rs
 use dashi::utils::*;
 use dashi::*;
-use inline_spirv::inline_spirv;
+use inline_spirv::include_spirv;
 use koji::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+// Shader sources live in `shaders/` and are included with `include_spirv!`.
 use std::time::Instant;
 
 pub fn run(ctx: &mut Context) {
@@ -57,12 +58,8 @@ pub fn run(ctx: &mut Context) {
 
     let vert = PipelineShaderInfo {
         stage: ShaderType::Vertex,
-        spirv: inline_spirv!(
-            r#"#version 450
-            layout(location = 0) in vec2 inPosition;
-            void main() {
-                gl_Position = vec4(inPosition, 0.0, 1.0);
-            }"#,
+        spirv: include_spirv!(
+            "shaders/deferred.vert",
             vert
         ),
         specialization: &[],
@@ -70,14 +67,8 @@ pub fn run(ctx: &mut Context) {
 
     let frag_gbuffer = PipelineShaderInfo {
         stage: ShaderType::Fragment,
-        spirv: inline_spirv!(
-            r#"#version 450
-            layout(location = 0) out vec4 outAlbedo;
-            layout(location = 1) out vec4 outNormal;
-            void main() {
-                outAlbedo = vec4(1.0, 0.0, 0.0, 1.0);
-                outNormal = vec4(0.0, 0.0, 1.0, 1.0);
-            }"#,
+        spirv: include_spirv!(
+            "shaders/gbuffer.frag",
             frag
         ),
         specialization: &[],
@@ -85,12 +76,8 @@ pub fn run(ctx: &mut Context) {
 
     let frag_lighting = PipelineShaderInfo {
         stage: ShaderType::Fragment,
-        spirv: inline_spirv!(
-            r#"#version 450
-            layout(location = 0) out vec4 outColor;
-            void main() {
-                outColor = vec4(1.0); // White lighting for now
-            }"#,
+        spirv: include_spirv!(
+            "shaders/lighting.frag",
             frag
         ),
         specialization: &[],
