@@ -1,5 +1,6 @@
 use crate::utils::{CombinedTextureSampler, ResourceBuffer, ResourceList, ResourceManager, Texture, DHObject};
-use dashi::{Context, Handle, Image, ImageView, Sampler};
+use dashi::{Context, Image, ImageView, Sampler};
+use dashi::utils::Handle;
 use std::sync::Arc;
 
 /// Container for textures and material buffers used with bindless descriptors.

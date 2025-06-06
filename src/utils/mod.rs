@@ -6,8 +6,8 @@ use utils::Handle;
 
 pub mod allocator;
 pub mod resource_list;
-use allocator::*;
-use resource_list::*;
+pub use allocator::*;
+pub use resource_list::*;
 
 pub struct TextureInfo {
     pub image: Handle<Image>,
