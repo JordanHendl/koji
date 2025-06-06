@@ -2,6 +2,8 @@
 //! These may expand to support more mesh/material types and instancing.
 use dashi::*;
 use dashi::{utils::Handle, *};
+use glam::Mat4;
+use crate::animation::Skeleton;
 
 use bytemuck::{Pod, Zeroable};
 
@@ -87,6 +89,13 @@ impl SkeletalMesh {
         } else {
             self.index_count = self.vertices.len();
         }
+        self.bone_buffer = Some(ctx.make_buffer(&BufferInfo {
+            debug_name: "skel_bone_buffer",
+            byte_size: (self.skeleton.bone_count() * std::mem::size_of::<Mat4>()) as u32,
+            visibility: MemoryVisibility::Gpu,
+            usage: BufferUsage::STORAGE,
+            initial_data: None,
+        })?);
         Ok(())
     }
 }
@@ -99,4 +108,6 @@ pub struct SkeletalMesh {
     pub vertex_buffer: Option<Handle<Buffer>>,
     pub index_buffer: Option<Handle<Buffer>>,
     pub index_count: usize,
+    pub skeleton: Skeleton,
+    pub bone_buffer: Option<Handle<Buffer>>,
 }

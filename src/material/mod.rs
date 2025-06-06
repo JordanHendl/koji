@@ -3,10 +3,12 @@ use std::collections::HashMap;
 pub mod shader_reflection;
 pub mod pipeline_builder;
 pub mod bindless;
+pub mod bindless_lighting;
 
 pub use pipeline_builder::*;
 pub use shader_reflection::*;
 pub use bindless::*;
+pub use bindless_lighting::*;
 use crate::utils::ResourceManager;
 
 pub struct MaterialPipeline {
