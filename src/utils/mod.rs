@@ -37,8 +37,7 @@ impl DHObject {
         let bytes = unsafe {
             std::slice::from_raw_parts(&value as *const T as *const u8, std::mem::size_of::<T>())
         };
-        slice[(alloc.offset as usize)..(alloc.offset as usize + bytes.len())]
-            .copy_from_slice(bytes);
+        slice[..bytes.len()].copy_from_slice(bytes);
 
         ctx.unmap_buffer(alloc.buffer);
         Ok(Self {
@@ -56,8 +55,7 @@ impl DHObject {
         let size = value.len();
         let alloc = allocator.allocate(size as u64).ok_or(GPUError::LibraryError())?;
         let slice =  ctx.map_buffer_mut(alloc.buffer)?;
-        slice[(alloc.offset as usize)..(alloc.offset as usize + value.len())]
-            .copy_from_slice(value);
+        slice[..value.len()].copy_from_slice(value);
 
         ctx.unmap_buffer(alloc.buffer).expect("Error unmapping memory!");
         Ok(Self {
