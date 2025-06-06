@@ -134,15 +134,11 @@ impl GpuAllocator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use dashi::{gpu, DeviceFilter, DeviceSelector};
+    use dashi::gpu;
     use serial_test::serial;
 
     fn init_ctx() -> gpu::Context {
-        let device = DeviceSelector::new()
-            .unwrap()
-            .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
-            .unwrap_or_default();
-        gpu::Context::new(&crate::ContextInfo { device }).unwrap()
+        gpu::Context::headless(&Default::default()).unwrap()
     }
 
     #[test]
