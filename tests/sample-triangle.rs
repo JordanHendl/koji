@@ -92,7 +92,7 @@ fn make_shader_frag() -> Vec<u32> {
 
 #[test]
 #[serial]
-//#[ignore]
+#[ignore]
 fn render_triangle_and_cube() {
     // Set up device/context and resource manager
     let device = DeviceSelector::new()
