@@ -233,6 +233,7 @@ mod test {
         let mut alloc = GpuAllocator::new(&mut ctx, 1024, BufferUsage::STORAGE, 64).unwrap();
         let a = alloc.allocate(1).unwrap();
         assert_eq!(a.offset % 64, 0);
+        assert_eq!(a.size, 64);
         ctx.destroy();
     }
 
