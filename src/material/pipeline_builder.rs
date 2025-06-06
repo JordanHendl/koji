@@ -810,11 +810,11 @@ mod tests {
         let frag_spirv = inline_spirv!(
             r#"
             #version 450
-            layout(set=0, binding=0) uniform sampler2D bless_textures[];
+            layout(set=0, binding=0) uniform sampler2D bindless_textures[];
             layout(location=0) out vec4 o;
             void main() {
                 // Index 2 for test, would be dynamic in real shaders
-                o = texture(bless_textures[2], vec2(0.5));
+                o = texture(bindless_textures[2], vec2(0.5));
             }
             "#,
             frag
@@ -849,14 +849,14 @@ mod tests {
         }
         let tex_array = Arc::new(tex_array);
         let mut resources = ResourceManager::new(&mut ctx, 1024).unwrap();
-        resources.register_combined_texture_array("bless_textures", tex_array.clone());
+        resources.register_combined_texture_array("bindless_textures", tex_array.clone());
 
         // The pipeline should reflect the unsized array and request the bindless resource
         let group = pso.create_bind_group(0, &resources);
 
-        // Expect a valid bind group, and that "bless_textures" is registered as a texture array
+        // Expect a valid bind group, and that "bindless_textures" is registered as a texture array
         assert!(group.bind_group.valid());
-        assert!(resources.get("bless_textures").is_some());
+        assert!(resources.get("bindless_textures").is_some());
 
         ctx.destroy();
     }
