@@ -643,11 +643,7 @@ mod tests {
     }
 
     fn setup_ctx() -> gpu::Context {
-        let device = DeviceSelector::new()
-            .unwrap()
-            .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
-            .unwrap_or_default();
-        gpu::Context::new(&ContextInfo { device }).unwrap()
+        gpu::Context::headless(&Default::default()).unwrap()
     }
 
     #[test]

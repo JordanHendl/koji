@@ -86,11 +86,7 @@ mod test {
     #[test]
     #[serial]
     fn test_dhobject_allocation_and_write() {
-        let device = DeviceSelector::new()
-            .unwrap()
-            .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
-            .unwrap_or_default();
-        let mut ctx = Context::new(&ContextInfo { device }).unwrap();
+        let mut ctx = Context::headless(&Default::default()).unwrap();
 
         let mut allocator = GpuAllocator::new(&mut ctx, 1024, BufferUsage::UNIFORM, 16).unwrap();
 
@@ -114,11 +110,7 @@ mod test {
     #[test]
     #[serial]
     fn multiple_dh_objects_and_drop() {
-        let device = DeviceSelector::new()
-            .unwrap()
-            .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
-            .unwrap_or_default();
-        let mut ctx = Context::new(&ContextInfo { device }).unwrap();
+        let mut ctx = Context::headless(&Default::default()).unwrap();
 
         let mut allocator = GpuAllocator::new(&mut ctx, 1024, BufferUsage::UNIFORM, 16).unwrap();
 
