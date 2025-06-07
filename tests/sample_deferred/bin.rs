@@ -1,5 +1,6 @@
-#[path = "../../test/sample_deferred/bin.rs"]
-mod bin;
+mod bin {
+    include!("../../examples/sample_deferred/bin.rs");
+}
 
 
 pub use bin::run;

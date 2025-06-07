@@ -1,5 +1,6 @@
-#[path = "../../test/sample/bin.rs"]
-mod bin;
+mod bin {
+    include!("../../examples/sample/bin.rs");
+}
 
 
 pub use bin::render_sample_model;
