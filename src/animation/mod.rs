@@ -1,5 +1,7 @@
 use glam::Mat4;
 
+pub mod clip;
+
 #[derive(Clone, Debug, Default)]
 pub struct Bone {
     pub name: String,
