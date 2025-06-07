@@ -1,9 +1,6 @@
 use koji::*;
-use koji::material::*;
 use koji::renderer::*;
-use koji::utils::*;
 use dashi::*;
-use bytemuck::{Pod, Zeroable};
 use inline_spirv::include_spirv;
 use serial_test::serial;
 // External shader files are loaded from `shaders/` using `include_spirv!`.

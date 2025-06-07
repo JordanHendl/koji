@@ -1,7 +1,6 @@
 use crate::material::*;
-use crate::utils::{DHObject, ResourceBinding, ResourceBuffer, Texture};
+use crate::utils::{ResourceBinding, Texture};
 use bytemuck::Pod;
-use dashi::*;
 use std::collections::HashMap;
 
 use spirv_reflect::types::ReflectFormat;
@@ -24,8 +23,6 @@ pub struct ShaderVariable {
     allocation: crate::utils::DHObject,
     members: Vec<(String, u32, u32)>,
     ctx: *mut Context,
-    set: usize,
-    binding: u32,
 }
 
 impl ShaderVariable {
@@ -39,7 +36,7 @@ impl ShaderVariable {
             .expect("Field not found");
         assert!(std::mem::size_of::<T>() <= *size as usize, "Size mismatch");
 
-        let slice = unsafe { ctx.map_buffer_mut(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer_mut(self.allocation.handle).unwrap();
         let bytes = bytemuck::bytes_of(&value);
         slice[(self.allocation.offset + *offset as u64) as usize..][..bytes.len()]
             .copy_from_slice(bytes);
@@ -55,7 +52,7 @@ impl ShaderVariable {
             "Size mismatch"
         );
 
-        let slice = unsafe { ctx.map_buffer_mut(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer_mut(self.allocation.handle).unwrap();
         let bytes = bytemuck::bytes_of(&value);
         slice[self.allocation.offset as usize..][..bytes.len()].copy_from_slice(bytes);
 
@@ -71,7 +68,7 @@ impl ShaderVariable {
             .expect("Field not found");
         assert!(std::mem::size_of::<T>() <= *size as usize, "Size mismatch");
 
-        let slice = unsafe { ctx.map_buffer::<u8>(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer::<u8>(self.allocation.handle).unwrap();
         let data_slice = &slice[(self.allocation.offset + *offset as u64) as usize..];
         let value = bytemuck::from_bytes::<T>(&data_slice[..std::mem::size_of::<T>()]);
 
@@ -87,7 +84,7 @@ impl ShaderVariable {
             "Size mismatch"
         );
 
-        let slice = unsafe { ctx.map_buffer::<u8>(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer::<u8>(self.allocation.handle).unwrap();
         let data_slice = &slice[self.allocation.offset as usize..];
         let value = bytemuck::from_bytes::<T>(&data_slice[..std::mem::size_of::<T>()]);
 
@@ -103,15 +100,11 @@ impl ShaderVariable {
         allocation: crate::utils::DHObject,
         members: Vec<(String, u32, u32)>,
         ctx: *mut Context,
-        set: usize,
-        binding: u32,
     ) -> Self {
         Self {
             allocation,
             members,
             ctx,
-            set,
-            binding,
         }
     }
 }
@@ -428,7 +421,6 @@ impl<'a> PipelineBuilder<'a> {
                 ShaderPrimitiveType::Vec4 | ShaderPrimitiveType::IVec4 => 16,
                 ShaderPrimitiveType::Vec3 => 12,
                 ShaderPrimitiveType::Vec2 => 8,
-                _ => 0,
             };
         }
 

@@ -4,7 +4,6 @@ use dashi::*;
 use inline_spirv::include_spirv;
 use koji::render_pass::*;
 use koji::*;
-use koji::material::bindless_lighting::*;
 use koji::utils::ResourceManager;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -86,7 +85,7 @@ pub fn run(ctx: &mut Context) {
         specialization: &[],
     };
 
-    let mut pso_gbuffer = PipelineBuilder::new(ctx, "gbuffer")
+    let pso_gbuffer = PipelineBuilder::new(ctx, "gbuffer")
         .vertex_shader(vert.spirv)
         .fragment_shader(frag_gbuffer.spirv)
         .render_pass(render_pass, 0)
@@ -99,7 +98,7 @@ pub fn run(ctx: &mut Context) {
         .build();
 
     let pipeline_gbuffer = pso_gbuffer.pipeline;
-    let pipeline_lighting = pso_lighting.pipeline;
+    let _pipeline_lighting = pso_lighting.pipeline;
 
     let sampler = ctx.make_sampler(&Default::default()).unwrap();
     let mut resources = ResourceManager::new(ctx, 4096).unwrap();

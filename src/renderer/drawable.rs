@@ -1,5 +1,6 @@
 //! Types of drawables that can be registered with the renderer.
 //! These may expand to support more mesh/material types and instancing.
+
 //!
 //! Skeletal meshes expose [`SkeletalMesh::update_bones`] to upload
 //! bone matrices each frame. The [`Renderer`](crate::renderer::Renderer)

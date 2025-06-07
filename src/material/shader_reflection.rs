@@ -1,8 +1,7 @@
 use crate::material::*;
-use dashi::*;
-use spirv_reflect::types::{ReflectDescriptorType, ReflectTypeDescription};
+use spirv_reflect::types::ReflectDescriptorType;
 use spirv_reflect::ShaderModule;
-use std::{collections::HashMap, fs};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderDescriptorType {
@@ -127,25 +126,6 @@ fn map_descriptor_type(ty: ReflectDescriptorType) -> ShaderDescriptorType {
         ReflectDescriptorType::StorageBufferDynamic => StorageBufferDynamic,
         ReflectDescriptorType::InputAttachment => InputAttachment,
         _ => Unknown,
-    }
-}
-
-fn descriptor_type_to_string(ty: ReflectDescriptorType) -> String {
-    use ReflectDescriptorType::*;
-    match ty {
-        Sampler => "sampler".to_string(),
-        CombinedImageSampler => "combined_image_sampler".to_string(),
-        SampledImage => "sampled_image".to_string(),
-        StorageImage => "storage_image".to_string(),
-        UniformTexelBuffer => "uniform_texel_buffer".to_string(),
-        StorageTexelBuffer => "storage_texel_buffer".to_string(),
-        UniformBuffer => "uniform_buffer".to_string(),
-        StorageBuffer => "storage_buffer".to_string(),
-        UniformBufferDynamic => "uniform_buffer_dynamic".to_string(),
-        StorageBufferDynamic => "storage_buffer_dynamic".to_string(),
-        InputAttachment => "input_attachment".to_string(),
-        AccelerationStructureKHR => "acceleration_structure_khr".to_string(),
-        _ => format!("unknown({:?})", ty),
     }
 }
 
