@@ -1,7 +1,7 @@
 mod drawable;
 pub use drawable::*;
 
-use crate::material::{PSOBindGroupResources, PSO};
+use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO};
 use crate::utils::ResourceManager;
 use dashi::utils::*;
 use crate::render_pass::*;
@@ -29,6 +29,7 @@ pub struct Renderer {
     targets: Vec<RenderTarget>,
     pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
     resource_manager: ResourceManager,
+    lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
@@ -78,7 +79,9 @@ impl Renderer {
         let command_list = FramedCommandList::new(&mut ctx, "RendererCmdList", 2);
         let semaphores = ctx.make_semaphores(2)?;
 
-        let resource_manager = ResourceManager::new(&mut ctx, 4096)?;
+        let mut resource_manager = ResourceManager::new(&mut ctx, 4096)?;
+        let lights = BindlessLights::new();
+        lights.register(&mut resource_manager);
 
         Ok(Self {
             ctx,
@@ -89,6 +92,7 @@ impl Renderer {
             pipelines: HashMap::new(),
             drawables: Vec::new(),
             resource_manager,
+            lights,
             command_list,
             semaphores,
             width,
@@ -123,6 +127,17 @@ impl Renderer {
         self.drawables.push((mesh, dynamic_buffers));
     }
 
+    pub fn add_light(&mut self, light: LightDesc) -> u32 {
+        let ctx = self.get_ctx();
+        let res = &mut self.resource_manager;
+        self.lights.add_light(ctx, res, light)
+    }
+
+    pub fn update_light(&mut self, index: usize, light: LightDesc) {
+        let ctx = self.get_ctx();
+        self.lights.update_light(ctx, index, light);
+    }
+
     pub fn resources(&mut self) -> &mut ResourceManager {
         &mut self.resource_manager
     }
@@ -155,7 +170,9 @@ impl Renderer {
 
     /// Present one frame to display (for tests or non-interactive draw)
     pub fn present_frame(&mut self) -> Result<(), GPUError> {
-        let (img, acquire_sem, _img_idx, _) = self.get_ctx().acquire_new_image(&mut self.display)?;
+        let ctx = self.get_ctx();
+        self.lights.upload_all(ctx);
+        let (img, acquire_sem, _img_idx, _) = ctx.acquire_new_image(&mut self.display)?;
 
         self.command_list.record(|list| {
             for target in &self.targets {
