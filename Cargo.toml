@@ -7,7 +7,7 @@ edition = "2021"
 
 
 [dependencies]
-glam = "0.29.0" 
+glam = { version = "0.29.0", features = ["bytemuck"] }
 rhai = {git = "https://github.com/rhaiscript/rhai" }
 dashi = {git = "https://github.com/JordanHendl/dashi", features = ["dashi-serde"]}
 #dashi = {path = "C:/Program Files/Git/wksp/git/dashi", features = ["dashi-serde"]}
@@ -20,6 +20,7 @@ indexmap = "2"
 serde_yaml = "0.9"
 bytemuck = { version = "1.22.0", features = ["derive"] }
 gltf = "1.4"
+rusttype = "0.9"
 
 [dev-dependencies]
 serial_test = "2.0"

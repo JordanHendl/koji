@@ -6,6 +6,7 @@ use crate::utils::ResourceManager;
 use dashi::utils::*;
 use crate::render_pass::*;
 use dashi::*;
+use glam::Mat4;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::collections::HashMap;
@@ -13,6 +14,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RenderStage {
     Opaque,
+    Text,
     // Extend as needed...
 }
 
@@ -31,6 +33,8 @@ pub struct Renderer {
     resource_manager: ResourceManager,
     lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
+    text_drawables: Vec<StaticMesh>,
+    skeletal_meshes: Vec<SkeletalMesh>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
     clear_color: [f32; 4],
@@ -91,6 +95,8 @@ impl Renderer {
             targets,
             pipelines: HashMap::new(),
             drawables: Vec::new(),
+            text_drawables: Vec::new(),
+            skeletal_meshes: Vec::new(),
             resource_manager,
             lights,
             command_list,
@@ -127,6 +133,19 @@ impl Renderer {
         self.drawables.push((mesh, dynamic_buffers));
     }
 
+    pub fn register_text_mesh(&mut self, mut mesh: StaticMesh) {
+        mesh.upload(self.get_ctx())
+            .expect("Failed to upload text mesh to GPU");
+        self.text_drawables.push(mesh);
+   }
+
+    /// Upload a skeletal mesh and track it for later updates.
+    pub fn register_skeletal_mesh(&mut self, mut mesh: SkeletalMesh) {
+        mesh.upload(self.get_ctx())
+            .expect("Failed to upload skeletal mesh to GPU");
+        self.skeletal_meshes.push(mesh);
+    }
+  
     pub fn add_light(&mut self, light: LightDesc) -> u32 {
         let ctx = self.get_ctx();
         let res = &mut self.resource_manager;
@@ -165,6 +184,15 @@ impl Renderer {
             mesh.0
                 .upload(unsafe{&mut *self.ctx})
                 .expect("Failed to update mesh to GPU");
+        }
+    }
+
+    /// Update bone matrices for a registered skeletal mesh.
+    pub fn update_skeletal_bones(&mut self, idx: usize, matrices: &[Mat4]) {
+        if let Some(mesh) = self.skeletal_meshes.get(idx).cloned() {
+            mesh
+                .update_bones(self.get_ctx(), matrices)
+                .expect("Failed to update bone matrices");
         }
     }
 
@@ -234,6 +262,66 @@ impl Renderer {
                 }
 
                 list.end_drawing().unwrap();
+
+                if let Some((pso, bind_groups)) = self.pipelines.get(&RenderStage::Text) {
+                    list.begin_drawing(&DrawBegin {
+                        viewport: Viewport {
+                            area: FRect2D {
+                                w: self.width as f32,
+                                h: self.height as f32,
+                                ..Default::default()
+                            },
+                            scissor: Rect2D {
+                                w: self.width,
+                                h: self.height,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        pipeline: pso.pipeline,
+                        attachments: &target
+                            .colors
+                            .iter()
+                            .map(|a| a.attachment)
+                            .collect::<Vec<_>>(),
+                    }).unwrap();
+
+                    for mesh in &self.text_drawables {
+                        let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                        let ib = mesh.index_buffer;
+                        let draw = if let Some(ib) = ib {
+                            Command::DrawIndexed(DrawIndexed {
+                                index_count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                indices: ib,
+                                bind_groups: [
+                                    bind_groups[0].as_ref().map(|b| b.bind_group),
+                                    bind_groups[1].as_ref().map(|b| b.bind_group),
+                                    bind_groups[2].as_ref().map(|b| b.bind_group),
+                                    bind_groups[3].as_ref().map(|b| b.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        } else {
+                            Command::Draw(Draw {
+                                count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                bind_groups: [
+                                    bind_groups[0].as_ref().map(|b| b.bind_group),
+                                    bind_groups[1].as_ref().map(|b| b.bind_group),
+                                    bind_groups[2].as_ref().map(|b| b.bind_group),
+                                    bind_groups[3].as_ref().map(|b| b.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        };
+                        list.append(draw);
+                    }
+
+                    list.end_drawing().unwrap();
+                }
 
                 list.blit_image(ImageBlit {
                     src: target.colors[0].attachment.img,
