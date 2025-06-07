@@ -18,7 +18,9 @@ jobs:
           profile: minimal
           cache: true
       - name: Run tests
-        run: cargo test --all --locked | tee test-results.txt
+        run: |
+          set -euo pipefail
+          cargo test --all --locked | tee test-results.txt
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
