@@ -1,4 +1,4 @@
-// src/render_pass_wrapper.rs
+// Render pass utilities and core modules
 pub mod material;
 pub mod utils;
 pub mod renderer;
