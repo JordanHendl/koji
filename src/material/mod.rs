@@ -22,7 +22,7 @@ pub struct MaterialPipeline {
 impl MaterialPipeline {
     pub fn from_yaml(
         ctx: &mut Context,
-        res: &mut ResourceManager,
+        _res: &mut ResourceManager,
         yaml: &serde_yaml::Mapping,
         render_pass: Handle<RenderPass>,
         subpass_id: u32,

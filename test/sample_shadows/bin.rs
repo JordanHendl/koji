@@ -258,7 +258,7 @@ pub fn run(ctx: &mut Context) {
         ),
         specialization: &[],
     };
-    let vertex_info = VertexDescriptionInfo {
+    let _vertex_info = VertexDescriptionInfo {
         entries: &[VertexEntryInfo {
             format: ShaderPrimitiveType::Vec3,
             location: 0,

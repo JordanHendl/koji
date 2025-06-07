@@ -287,7 +287,7 @@ impl RenderPassBuilder {
             });
         }
         let mut all_colors = Vec::new();
-        let mut depth_attachment = None;
+        let mut _depth_attachment = None;
 
         for (name, att) in &name_to_render_attachment {
             if self
@@ -295,7 +295,7 @@ impl RenderPassBuilder {
                 .iter()
                 .any(|sp| sp.depth_stencil_attachment.as_ref() == Some(name))
             {
-                depth_attachment = Some(att.clone());
+                _depth_attachment = Some(att.clone());
             } else {
                 all_colors.push(att.clone());
             }
