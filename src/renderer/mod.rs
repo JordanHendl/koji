@@ -13,6 +13,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RenderStage {
     Opaque,
+    Skinned,
     // Extend as needed...
 }
 
@@ -30,6 +31,7 @@ pub struct Renderer {
     pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
     resource_manager: ResourceManager,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
+    skeletal_drawables: Vec<SkeletalMesh>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
     clear_color: [f32; 4],
@@ -88,6 +90,7 @@ impl Renderer {
             targets,
             pipelines: HashMap::new(),
             drawables: Vec::new(),
+            skeletal_drawables: Vec::new(),
             resource_manager,
             command_list,
             semaphores,
@@ -121,6 +124,13 @@ impl Renderer {
         mesh.upload(self.get_ctx())
             .expect("Failed to upload mesh to GPU");
         self.drawables.push((mesh, dynamic_buffers));
+    }
+
+    pub fn register_skeletal_mesh(&mut self, mut mesh: SkeletalMesh) {
+        mesh
+            .upload(self.get_ctx())
+            .expect("Failed to upload skeletal mesh to GPU");
+        self.skeletal_drawables.push(mesh);
     }
 
     pub fn resources(&mut self) -> &mut ResourceManager {
@@ -217,6 +227,66 @@ impl Renderer {
                 }
 
                 list.end_drawing().unwrap();
+
+                if let Some((pso, bind_groups)) = self.pipelines.get(&RenderStage::Skinned) {
+                    list.begin_drawing(&DrawBegin {
+                        viewport: Viewport {
+                            area: FRect2D {
+                                w: self.width as f32,
+                                h: self.height as f32,
+                                ..Default::default()
+                            },
+                            scissor: Rect2D {
+                                w: self.width,
+                                h: self.height,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        pipeline: pso.pipeline,
+                        attachments: &target
+                            .colors
+                            .iter()
+                            .map(|a| a.attachment)
+                            .collect::<Vec<_>>(),
+                    }).unwrap();
+
+                    for mesh in &self.skeletal_drawables {
+                        let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                        let ib = mesh.index_buffer;
+                        let cmd: dashi::Command = if let Some(ib) = ib {
+                            Command::DrawIndexed(DrawIndexed {
+                                index_count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                indices: ib,
+                                bind_groups: [
+                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        } else {
+                            Command::Draw(Draw {
+                                count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                bind_groups: [
+                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        };
+                        list.append(cmd);
+                    }
+
+                    list.end_drawing().unwrap();
+                }
 
                 list.blit_image(ImageBlit {
                     src: target.colors[0].attachment.img,

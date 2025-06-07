@@ -4,6 +4,7 @@ pub mod shader_reflection;
 pub mod pipeline_builder;
 pub mod bindless;
 pub mod bindless_lighting;
+pub mod skinning;
 
 #[cfg(test)]
 mod pipeline_builder_tests;
@@ -12,6 +13,7 @@ pub use pipeline_builder::*;
 pub use shader_reflection::*;
 pub use bindless::*;
 pub use bindless_lighting::*;
+pub use skinning::*;
 use crate::utils::ResourceManager;
 
 pub struct MaterialPipeline {
