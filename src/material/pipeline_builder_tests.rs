@@ -259,7 +259,7 @@ fn pipeline_builder_and_bind_group() {
 
     resources.register_combined("tex", img, view, [1, 1], sampler);
 
-    let group = pso.create_bind_group(0, &resources);
+    let group = pso.create_bind_group(0, &resources).unwrap();
 
     assert!(group.bind_group.valid());
     assert!(group.buffers.contains_key("b0"));
@@ -336,7 +336,7 @@ fn bindless_texture_array_in_shader() {
     resources.register_combined_texture_array("bindless_textures", tex_array.clone());
 
     // The pipeline should reflect the unsized array and request the bindless resource
-    let group = pso.create_bind_group(0, &resources);
+    let group = pso.create_bind_group(0, &resources).unwrap();
 
     // Expect a valid bind group, and that "bindless_textures" is registered as a texture array
     assert!(group.bind_group.valid());
@@ -421,7 +421,7 @@ fn multiple_bindless_bindings_in_shader() {
     resources.register_combined_texture_array("tex_array", Arc::new(combined_array));
     resources.register_buffer_array("buf_array", Arc::new(Mutex::new(buf_array)));
 
-    let group = pso.create_bind_group(0, &resources);
+    let group = pso.create_bind_group(0, &resources).unwrap();
 
     assert!(group.bind_group.valid());
     assert!(matches!(

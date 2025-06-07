@@ -3,9 +3,6 @@ name = "koji"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-
-
 [dependencies]
 glam = { version = "0.29.0", features = ["bytemuck"] }
 rhai = {git = "https://github.com/rhaiscript/rhai" }

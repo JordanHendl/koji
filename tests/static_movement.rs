@@ -1,6 +1,5 @@
 use koji::material::*;
 use koji::renderer::*;
-use koji::utils::*;
 use dashi::*;
 use serial_test::serial;
 use inline_spirv::inline_spirv;
@@ -41,10 +40,10 @@ fn static_mesh_with_movement() {
         .fragment_shader(&frag())
         .render_pass(renderer.render_pass(),0)
         .build();
-    let bgr = pso.create_bind_groups(&renderer.resources());
+    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Opaque,pso,bgr);
 
-    let mut mesh = StaticMesh {
+    let mesh = StaticMesh {
         vertices: vec![
             Vertex{position:[-0.5,-0.5,0.0],normal:[0.0,0.0,1.0],tangent:[1.0,0.0,0.0,1.0],uv:[0.0,0.0],color:[1.0,1.0,1.0,1.0]},
             Vertex{position:[0.5,-0.5,0.0],normal:[0.0,0.0,1.0],tangent:[1.0,0.0,0.0,1.0],uv:[1.0,0.0],color:[1.0,1.0,1.0,1.0]},

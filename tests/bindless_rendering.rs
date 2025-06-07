@@ -1,6 +1,5 @@
 use koji::material::*;
 use koji::renderer::*;
-use koji::utils::*;
 use dashi::*;
 use serial_test::serial;
 use inline_spirv::inline_spirv;
@@ -40,7 +39,7 @@ fn bindless_rendering_sample() {
         .fragment_shader(&frag)
         .render_pass(renderer.render_pass(),0)
         .build();
-    let bgr = pso.create_bind_groups(&renderer.resources());
+    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Opaque, pso, bgr);
 
     let mut bindless = BindlessData::new();
