@@ -5,8 +5,8 @@ use koji::material::*;
 use koji::renderer::*;
 
 fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
-    let vert: &[u32] = include_spirv!("src/material/pbr.vert", vert, glsl);
-    let frag: &[u32] = include_spirv!("src/material/pbr.frag", frag, glsl);
+    let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
+    let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr")
         .vertex_shader(vert)
         .fragment_shader(frag)

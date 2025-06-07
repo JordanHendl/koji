@@ -39,4 +39,4 @@ cargo run --example deferred_sample  # deferred rendering example
 cargo run --example shadow_sample    # cascaded shadow map demo
 ```
 
-These demos compile included GLSL files in `shaders/` and open an SDL2 window.
+These demos compile included GLSL files in `assets/shaders/` and open an SDL2 window.
