@@ -132,7 +132,7 @@ pub fn run(ctx: &mut Context) {
     lights.register(&mut resources);
     resources.register_variable("", ctx, light_count);
 
-    let lighting_bg = pso_lighting.create_bind_group(0, &resources);
+    let lighting_bg = pso_lighting.create_bind_group(0, &resources).unwrap();
 
     let mut display = ctx.make_display(&Default::default()).unwrap();
     let semaphores = ctx.make_semaphores(2).unwrap();

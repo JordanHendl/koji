@@ -97,7 +97,7 @@ fn render_triangle_and_cube() {
         .build();
 
     // Generate/cached bind group resources for all sets
-    let bind_group_resources = pso.create_bind_groups(&renderer.resources());
+    let bind_group_resources = pso.create_bind_groups(&renderer.resources()).unwrap();
 
     // Register pipeline+resources
     renderer.register_pso(RenderStage::Opaque, pso, bind_group_resources);

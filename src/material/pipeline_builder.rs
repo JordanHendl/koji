@@ -140,6 +140,11 @@ pub struct PSOBindGroupResources {
     pub textures: HashMap<String, Texture>,
 }
 
+#[derive(Debug)]
+pub enum PipelineError {
+    MissingResource(String),
+}
+
 /// Builder for a graphics pipeline, including reflection of SPIR-V
 pub struct PipelineBuilder<'a> {
     ctx: &'a mut Context,
@@ -169,7 +174,7 @@ impl PSO {
         &mut self,
         set_index: usize,
         resources: &ResourceManager,
-    ) -> PSOBindGroupResources {
+    ) -> Result<PSOBindGroupResources, PipelineError> {
         let ctx = unsafe { &mut *self.ctx };
         let layout = self.bind_group_layouts[set_index].expect("Bind group layout not initialized");
 
@@ -267,7 +272,7 @@ impl PSO {
                     }
                 }
             } else {
-                panic!("Resource not found: {}", name);
+                return Err(PipelineError::MissingResource(name.clone()));
             }
         }
         // Now build all references in a *second pass*
@@ -298,24 +303,24 @@ impl PSO {
             .unwrap()
         };
 
-        PSOBindGroupResources {
+        Ok(PSOBindGroupResources {
             bind_group,
             buffers,
             textures,
-        }
+        })
     }
 
     pub fn create_bind_groups(
         &mut self,
         res: &ResourceManager,
-    ) -> [Option<PSOBindGroupResources>; 4] {
+    ) -> Result<[Option<PSOBindGroupResources>; 4], PipelineError> {
         let mut sets: [Option<PSOBindGroupResources>; 4] = [None, None, None, None];
         for set_idx in 0..4 {
             if self.bind_group_layouts[set_idx].is_some() {
-                sets[set_idx] = Some(self.create_bind_group(set_idx, res));
+                sets[set_idx] = Some(self.create_bind_group(set_idx, res)?);
             }
         }
-        sets
+        Ok(sets)
     }
 }
 
