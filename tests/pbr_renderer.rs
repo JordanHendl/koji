@@ -3,9 +3,9 @@ use koji::renderer::*;
 use koji::utils::*;
 use dashi::*;
 use serial_test::serial;
-
+use inline_spirv::include_spirv;
 use koji::material::pipeline_builder::PipelineBuilder;
-
+use dashi::utils::Handle;
 fn make_vertex(pos: [f32;3], uv:[f32;2]) -> Vertex {
     Vertex {
         position: pos,
