@@ -6,6 +6,7 @@ use crate::utils::ResourceManager;
 use dashi::utils::*;
 use crate::render_pass::*;
 use dashi::*;
+use glam::Mat4;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::collections::HashMap;
@@ -31,6 +32,7 @@ pub struct Renderer {
     resource_manager: ResourceManager,
     lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
+    skeletal_meshes: Vec<SkeletalMesh>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
     clear_color: [f32; 4],
@@ -91,6 +93,7 @@ impl Renderer {
             targets,
             pipelines: HashMap::new(),
             drawables: Vec::new(),
+            skeletal_meshes: Vec::new(),
             resource_manager,
             lights,
             command_list,
@@ -127,6 +130,14 @@ impl Renderer {
         self.drawables.push((mesh, dynamic_buffers));
     }
 
+
+    /// Upload a skeletal mesh and track it for later updates.
+    pub fn register_skeletal_mesh(&mut self, mut mesh: SkeletalMesh) {
+        mesh.upload(self.get_ctx())
+            .expect("Failed to upload skeletal mesh to GPU");
+        self.skeletal_meshes.push(mesh);
+    }
+  
     pub fn add_light(&mut self, light: LightDesc) -> u32 {
         let ctx = self.get_ctx();
         let res = &mut self.resource_manager;
@@ -165,6 +176,15 @@ impl Renderer {
             mesh.0
                 .upload(unsafe{&mut *self.ctx})
                 .expect("Failed to update mesh to GPU");
+        }
+    }
+
+    /// Update bone matrices for a registered skeletal mesh.
+    pub fn update_skeletal_bones(&mut self, idx: usize, matrices: &[Mat4]) {
+        if let Some(mesh) = self.skeletal_meshes.get(idx).cloned() {
+            mesh
+                .update_bones(self.get_ctx(), matrices)
+                .expect("Failed to update bone matrices");
         }
     }
 
