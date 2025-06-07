@@ -1,6 +1,9 @@
 //! Types of drawables that can be registered with the renderer.
 //! These may expand to support more mesh/material types and instancing.
-use dashi::*;
+//!
+//! Skeletal meshes expose [`SkeletalMesh::update_bones`] to upload
+//! bone matrices each frame. The [`Renderer`](crate::renderer::Renderer)
+//! provides a helper to call this on registered meshes.
 use dashi::{utils::Handle, *};
 use glam::Mat4;
 use crate::animation::Skeleton;
@@ -98,9 +101,21 @@ impl SkeletalMesh {
         })?);
         Ok(())
     }
+
+    /// Upload updated bone matrices to the GPU.
+    pub fn update_bones(&self, ctx: &mut Context, matrices: &[Mat4]) -> Result<(), GPUError> {
+        let buffer = self
+            .bone_buffer
+            .expect("Skeletal mesh not uploaded or bone buffer missing");
+        let bytes: &[u8] = bytemuck::cast_slice(matrices);
+        let slice = unsafe { ctx.map_buffer_mut(buffer)? };
+        slice[..bytes.len()].copy_from_slice(bytes);
+        ctx.unmap_buffer(buffer)?;
+        Ok(())
+    }
 }
 
-/// Placeholder for skeletal mesh (not implemented in this pass).
+/// Skeletal mesh data with optional GPU resources.
 #[derive(Debug, Clone)]
 pub struct SkeletalMesh {
     pub vertices: Vec<SkeletalVertex>,

@@ -1,7 +1,7 @@
 use crate::utils::{CombinedTextureSampler, ResourceBuffer, ResourceList, ResourceManager, Texture, DHObject};
 use dashi::{Context, Image, ImageView, Sampler};
 use dashi::utils::Handle;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// Container for textures and material buffers used with bindless descriptors.
 pub struct BindlessData {
@@ -32,7 +32,7 @@ impl BindlessData {
     /// Register the arrays with a [`ResourceManager`] so shaders can access them.
     pub fn register(self, res: &mut ResourceManager) {
         res.register_combined_texture_array("bindless_textures", Arc::new(self.textures));
-        res.register_buffer_array("bindless_materials", Arc::new(self.materials));
+        res.register_buffer_array("bindless_materials", Arc::new(Mutex::new(self.materials)));
     }
 }
 
