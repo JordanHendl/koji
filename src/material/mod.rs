@@ -11,16 +11,6 @@ pub use bindless::*;
 pub use bindless_lighting::*;
 use crate::utils::ResourceManager;
 
-fn descriptor_type_to_dashi_local(ty: ShaderDescriptorType) -> BindGroupVariableType {
-    match ty {
-        ShaderDescriptorType::SampledImage | ShaderDescriptorType::CombinedImageSampler => BindGroupVariableType::SampledImage,
-        ShaderDescriptorType::UniformBuffer => BindGroupVariableType::Uniform,
-        ShaderDescriptorType::StorageBuffer => BindGroupVariableType::Storage,
-        ShaderDescriptorType::StorageImage => BindGroupVariableType::StorageImage,
-        other => panic!("Unsupported descriptor type: {:?}", other),
-    }
-}
-
 pub struct MaterialPipeline {
     pub name: String,
     pub pipeline: Handle<GraphicsPipeline>,
@@ -117,7 +107,7 @@ impl MaterialPipeline {
             for b in binds {
                 bind_map.insert(b.name.clone(), b.binding);
                 vars.push(BindGroupVariable {
-                    var_type: descriptor_type_to_dashi_local(b.ty),
+                    var_type: descriptor_to_var_type(b.ty),
                     binding: b.binding,
                     count: b.count,
                 });

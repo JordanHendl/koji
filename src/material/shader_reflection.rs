@@ -148,3 +148,16 @@ fn descriptor_type_to_string(ty: ReflectDescriptorType) -> String {
         _ => format!("unknown({:?})", ty),
     }
 }
+
+/// Map a [`ShaderDescriptorType`] to the corresponding [`BindGroupVariableType`].
+pub fn descriptor_to_var_type(ty: ShaderDescriptorType) -> BindGroupVariableType {
+    match ty {
+        ShaderDescriptorType::SampledImage | ShaderDescriptorType::CombinedImageSampler => {
+            BindGroupVariableType::SampledImage
+        }
+        ShaderDescriptorType::UniformBuffer => BindGroupVariableType::Uniform,
+        ShaderDescriptorType::StorageBuffer => BindGroupVariableType::Storage,
+        ShaderDescriptorType::StorageImage => BindGroupVariableType::StorageImage,
+        other => panic!("Unsupported descriptor type: {:?}", other),
+    }
+}
