@@ -122,14 +122,14 @@ pub fn run(ctx: &mut Context) {
     lights.add_light(
         ctx,
         &mut resources,
-        LightDesc { position: [0.0, 0.0, 1.0], intensity: 1.0, color: [1.0, 1.0, 1.0], _pad: 0 },
+        LightDesc { position: [0.0, 0.0, 1.0], intensity: 1.0, color: [1.0, 1.0, 1.0], _pad: 0, ..Default::default() },
     );
     lights.add_light(
         ctx,
         &mut resources,
-        LightDesc { position: [1.0, 1.0, 1.0], intensity: 0.5, color: [1.0, 0.0, 0.0], _pad: 0 },
+        LightDesc { position: [1.0, 1.0, 1.0], intensity: 0.5, color: [1.0, 0.0, 0.0], _pad: 0, ..Default::default() },
     );
-    let light_count = lights.lights.len() as u32;
+    let light_count = lights.lights.lock().unwrap().len();
     lights.register(&mut resources);
     resources.register_variable("", ctx, light_count);
 

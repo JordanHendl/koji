@@ -3,7 +3,7 @@ use dashi::Context;
 use std::sync::{Arc, Mutex};
 
 #[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Default, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightDesc {
     pub position: [f32; 3],
     pub intensity: f32,
@@ -65,27 +65,11 @@ impl BindlessLights {
         }
     }
 
-    /// Update the light data for the light at `index`.
-    pub fn update_light(
-        &mut self,
-        ctx: &mut Context,
-        _res: &mut ResourceManager,
-        index: usize,
-        light: LightDesc,
-    ) {
-        if let Some(handle) = self.lights.entries.get(index).copied() {
-            let buf = self.lights.get_ref_mut(handle);
-            let slice = ctx.map_buffer_mut(buf.handle).unwrap();
-            let bytes = bytemuck::bytes_of(&light);
-            slice[buf.offset as usize..][..bytes.len()].copy_from_slice(bytes);
-            ctx.unmap_buffer(buf.handle).unwrap();
-        }
-    }
-
     /// Remove the light at `index` from the internal list.
     pub fn remove_light(&mut self, index: usize) {
-        if let Some(handle) = self.lights.entries.get(index).copied() {
-            self.lights.release(handle);
+        let mut list = self.lights.lock().unwrap();
+        if let Some(handle) = list.entries.get(index).copied() {
+            list.release(handle);
         }
     }
 
@@ -188,15 +172,17 @@ mod tests {
         let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
 
         let mut lights = BindlessLights::new();
-        let ld = LightDesc { position: [1.0, 2.0, 3.0], intensity: 1.0, color: [4.0, 5.0, 6.0], _pad: 0 };
+        let ld = LightDesc { position: [1.0, 2.0, 3.0], intensity: 1.0, color: [4.0, 5.0, 6.0], _pad: 0, ..Default::default() };
         lights.add_light(&mut ctx, &mut res, ld);
 
         // Update the light
-        let new_ld = LightDesc { position: [0.0, 0.0, 0.0], intensity: 2.0, color: [1.0, 1.0, 1.0], _pad: 0 };
-        lights.update_light(&mut ctx, &mut res, 0, new_ld);
+        let new_ld = LightDesc { position: [0.0, 0.0, 0.0], intensity: 2.0, color: [1.0, 1.0, 1.0], _pad: 0, ..Default::default() };
 
-        let handle = lights.lights.entries[0];
-        let buf = lights.lights.get_ref(handle);
+        lights.update_light(&mut ctx, 0, new_ld);
+        
+        let mut llights = lights.lights.lock().unwrap();
+        let handle = llights.entries[0];
+        let buf = llights.get_ref(handle);
         let read_back: LightDesc = {
             let slice = ctx.map_buffer::<u8>(buf.handle).unwrap();
             let data = &slice[buf.offset as usize..][..std::mem::size_of::<LightDesc>()];
@@ -205,10 +191,12 @@ mod tests {
             val
         };
         assert_eq!(read_back.intensity, 2.0);
+        
+        drop(llights);
 
         // Remove the light
         lights.remove_light(0);
-        assert_eq!(lights.lights.len(), 0);
+        assert_eq!(lights.lights.lock().unwrap().len(), 0);
 
         res.destroy(&mut ctx);
         ctx.destroy();
