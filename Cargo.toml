@@ -43,4 +43,8 @@ path = "examples/sample_deferred/bin.rs"
 name = "shadow_sample"
 path = "examples/sample_shadows/bin.rs"
 
+[[example]]
+name = "pbr_spheres"
+path = "examples/pbr_spheres/bin.rs"
+
 
