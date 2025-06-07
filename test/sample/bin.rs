@@ -1,9 +1,7 @@
 use dashi::utils::*;
 use dashi::*;
 use koji::*;
-use koji::render_pass::*;
 use sdl2::{event::Event, keyboard::Keycode};
-use std::sync::Arc;
 // Shaders are stored under `shaders/` and compiled at build time using `include_spirv!`.
 
 pub fn main() {
@@ -117,7 +115,7 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
             }
         }
 
-        let (img, acquire_sem, img_idx, _ok) = ctx.acquire_new_image(&mut display).unwrap();
+        let (img, acquire_sem, _img_idx, _ok) = ctx.acquire_new_image(&mut display).unwrap();
 
         framed_list.record(|list| {
             for target in targets {

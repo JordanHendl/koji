@@ -86,7 +86,7 @@ impl GpuAllocator {
             .free_list
             .iter()
             .enumerate()
-            .find(|(_, (offset, free_size))| *free_size >= aligned_size)
+            .find(|(_, (_offset, free_size))| *free_size >= aligned_size)
         {
             let alloc = Allocation {
                 buffer: self.buffer,
@@ -167,7 +167,7 @@ mod test {
         let mut alloc = GpuAllocator::new(&mut ctx, 1024, BufferUsage::STORAGE, 64).unwrap();
 
         let a = alloc.allocate(128).unwrap();
-        let b = alloc.allocate(128).unwrap();
+        let _b = alloc.allocate(128).unwrap();
         let ao = a.offset;
         alloc.free(a);
 

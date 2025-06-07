@@ -1,9 +1,7 @@
 // src/deferred_render.rs
-use dashi::utils::*;
 use dashi::*;
 use inline_spirv::include_spirv;
 use koji::render_pass::*;
-use koji::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 // Shader sources live in `shaders/` and are included with `include_spirv!`.
@@ -149,7 +147,7 @@ pub fn run(ctx: &mut Context) {
     let semaphores = ctx.make_semaphores(2).unwrap();
     let mut framed = FramedCommandList::new(ctx, "deferred", 2);
     let mut event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
-    let mut timer = Instant::now();
+    let _timer = Instant::now();
 
     'main: loop {
         for e in event_pump.poll_iter() {

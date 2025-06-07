@@ -1,15 +1,10 @@
-use bytemuck::*;
-use dashi::utils::*;
 use dashi::*;
 use glam::*;
 use inline_spirv::include_spirv;
 use koji::render_pass::*;
-use koji::*;
 use sdl2::keyboard::Keycode;
 use sdl2::event::Event;
 // Shader code is located in `shaders/` and included via `include_spirv!`.
-use std::f32::consts::PI;
-use std::time::Instant;
 
 pub fn run(ctx: &mut Context) {
     const WIDTH: u32 = 640;
@@ -258,7 +253,7 @@ pub fn run(ctx: &mut Context) {
         ),
         specialization: &[],
     };
-    let vertex_info = VertexDescriptionInfo {
+    let _vertex_info = VertexDescriptionInfo {
         entries: &[VertexEntryInfo {
             format: ShaderPrimitiveType::Vec3,
             location: 0,

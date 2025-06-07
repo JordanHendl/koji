@@ -1,6 +1,5 @@
 //! Types of drawables that can be registered with the renderer.
 //! These may expand to support more mesh/material types and instancing.
-use dashi::*;
 use dashi::{utils::Handle, *};
 use glam::Mat4;
 use crate::animation::Skeleton;

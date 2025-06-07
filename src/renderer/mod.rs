@@ -42,7 +42,7 @@ impl Renderer {
        unsafe{&mut *self.ctx}
     }
 
-    pub fn new(width: u32, height: u32, title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
+    pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
         let clear_color = [0.1, 0.2, 0.3, 1.0];
 
         let ptr: *mut Context =  ctx;
@@ -181,8 +181,8 @@ impl Renderer {
                         .collect::<Vec<_>>(),
                 })
                 .unwrap();
-                let (pso, bind_groups) = &self.pipelines[&RenderStage::Opaque];
-                for (idx, (mesh, dynamic_buffers)) in self.drawables.iter().enumerate() {
+                let (_pso, bind_groups) = &self.pipelines[&RenderStage::Opaque];
+                for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
                     let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                     let ib = mesh.index_buffer;
                     let draw: dashi::Command = if let Some(ib) = ib {

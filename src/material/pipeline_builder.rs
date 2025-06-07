@@ -1,7 +1,6 @@
 use crate::material::*;
-use crate::utils::{DHObject, ResourceBinding, ResourceBuffer, Texture};
+use crate::utils::{ResourceBinding, Texture};
 use bytemuck::Pod;
-use dashi::*;
 use std::collections::HashMap;
 
 use spirv_reflect::types::ReflectFormat;
@@ -24,8 +23,6 @@ pub struct ShaderVariable {
     allocation: crate::utils::DHObject,
     members: Vec<(String, u32, u32)>,
     ctx: *mut Context,
-    set: usize,
-    binding: u32,
 }
 
 impl ShaderVariable {
@@ -39,7 +36,7 @@ impl ShaderVariable {
             .expect("Field not found");
         assert!(std::mem::size_of::<T>() <= *size as usize, "Size mismatch");
 
-        let slice = unsafe { ctx.map_buffer_mut(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer_mut(self.allocation.handle).unwrap();
         let bytes = bytemuck::bytes_of(&value);
         slice[(self.allocation.offset + *offset as u64) as usize..][..bytes.len()]
             .copy_from_slice(bytes);
@@ -55,7 +52,7 @@ impl ShaderVariable {
             "Size mismatch"
         );
 
-        let slice = unsafe { ctx.map_buffer_mut(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer_mut(self.allocation.handle).unwrap();
         let bytes = bytemuck::bytes_of(&value);
         slice[self.allocation.offset as usize..][..bytes.len()].copy_from_slice(bytes);
 
@@ -71,7 +68,7 @@ impl ShaderVariable {
             .expect("Field not found");
         assert!(std::mem::size_of::<T>() <= *size as usize, "Size mismatch");
 
-        let slice = unsafe { ctx.map_buffer::<u8>(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer::<u8>(self.allocation.handle).unwrap();
         let data_slice = &slice[(self.allocation.offset + *offset as u64) as usize..];
         let value = bytemuck::from_bytes::<T>(&data_slice[..std::mem::size_of::<T>()]);
 
@@ -87,7 +84,7 @@ impl ShaderVariable {
             "Size mismatch"
         );
 
-        let slice = unsafe { ctx.map_buffer::<u8>(self.allocation.handle).unwrap() };
+        let slice = ctx.map_buffer::<u8>(self.allocation.handle).unwrap();
         let data_slice = &slice[self.allocation.offset as usize..];
         let value = bytemuck::from_bytes::<T>(&data_slice[..std::mem::size_of::<T>()]);
 
@@ -402,7 +399,6 @@ impl<'a> PipelineBuilder<'a> {
                 ShaderPrimitiveType::Vec4 | ShaderPrimitiveType::IVec4 => 16,
                 ShaderPrimitiveType::Vec3 => 12,
                 ShaderPrimitiveType::Vec2 => 8,
-                _ => 0,
             };
         }
 
@@ -481,7 +477,7 @@ mod tests {
         material::pipeline_builder::ShaderDescriptorType,
         utils::{
             allocator::GpuAllocator, resource_list::ResourceList, CombinedTextureSampler,
-            TextureInfo,
+            DHObject, ResourceBuffer,
         },
     };
     use dashi::builders::RenderPassBuilder;
@@ -491,28 +487,6 @@ mod tests {
 
     fn make_ctx() -> Context {
         Context::headless(&ContextInfo::default()).unwrap()
-    }
-    fn simple_vert() -> Vec<u32> {
-        inline_spirv!(
-            r#"
-            #version 450
-            layout(set=0,binding=0) uniform U{vec4 u;};
-            layout(location=0) in vec2 v;
-            void main(){ gl_Position=vec4(v,0,1); }"#,
-            vert
-        )
-        .to_vec()
-    }
-    fn simple_frag() -> Vec<u32> {
-        inline_spirv!(
-            r#"
-            #version 450
-            layout(set=0,binding=1) uniform U2{float x;};
-            layout(location=0) out vec4 o;
-            void main(){ o=vec4(x); }"#,
-            frag
-        )
-        .to_vec()
     }
 
     fn simple_vertex_spirv() -> Vec<u32> {
@@ -657,8 +631,6 @@ mod tests {
             allocation,
             members: vec![("data".into(), 0, 4)],
             ctx: &mut ctx,
-            set: 0,
-            binding: 0,
         };
 
         variable.write(100u32);
@@ -684,8 +656,6 @@ mod tests {
             },
             members: vec![],
             ctx: std::ptr::null_mut(),
-            set: 0,
-            binding: 0,
         };
 
         let mut resource = PSOResource {
