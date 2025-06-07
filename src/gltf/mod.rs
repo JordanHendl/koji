@@ -1,4 +1,5 @@
 use crate::renderer::{SkeletalMesh, SkeletalVertex, StaticMesh, Vertex};
+use crate::animation::{Bone, Skeleton};
 use glam::{Mat4, Quat, Vec3};
 use gltf::{self};
 
@@ -19,6 +20,35 @@ pub struct Scene {
 fn mat4_from_node(node: &gltf::Node) -> Mat4 {
     let (t, r, s) = node.transform().decomposed();
     Mat4::from_scale_rotation_translation(Vec3::from(s), Quat::from_array(r), Vec3::from(t))
+}
+
+fn load_skin(skin: &gltf::Skin, buffers: &[gltf::buffer::Data]) -> Skeleton {
+    let joint_nodes: Vec<_> = skin.joints().collect();
+    let reader = skin.reader(|b| Some(&buffers[b.index()].0));
+    let mut inverse = vec![Mat4::IDENTITY; joint_nodes.len()];
+    if let Some(iter) = reader.read_inverse_bind_matrices() {
+        for (i, m) in iter.enumerate() {
+            if i < inverse.len() {
+                inverse[i] = Mat4::from_cols_array_2d(&m);
+            }
+        }
+    }
+    let mut bones = Vec::new();
+    for (i, joint) in joint_nodes.iter().enumerate() {
+        let mut parent_idx = None;
+        for (pi, potential) in joint_nodes.iter().enumerate() {
+            if potential.children().any(|c| c.index() == joint.index()) {
+                parent_idx = Some(pi);
+                break;
+            }
+        }
+        bones.push(Bone {
+            name: joint.name().unwrap_or("").into(),
+            parent: parent_idx,
+            inverse_bind: inverse[i],
+        });
+    }
+    Skeleton { bones }
 }
 
 pub fn load_scene(path: &str) -> Result<Scene, gltf::Error> {
@@ -79,7 +109,7 @@ fn load_node(
                         joint_weights: w,
                     })
                     .collect();
-                MeshData::Skeletal(SkeletalMesh {
+                let mut mesh = SkeletalMesh {
                     vertices: verts,
                     indices,
                     vertex_buffer: None,
@@ -87,7 +117,11 @@ fn load_node(
                     index_count: 0,
                     skeleton: Default::default(),
                     bone_buffer: None,
-                })
+                };
+                if let Some(skin) = node.skin() {
+                    mesh.skeleton = load_skin(&skin, buffers);
+                }
+                MeshData::Skeletal(mesh)
             } else {
                 let verts = positions
                     .into_iter()
