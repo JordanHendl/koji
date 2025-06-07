@@ -26,6 +26,30 @@ impl BindlessLights {
         (self.lights.len() - 1) as u32
     }
 
+    /// Update the light data for the light at `index`.
+    pub fn update_light(
+        &mut self,
+        ctx: &mut Context,
+        _res: &mut ResourceManager,
+        index: usize,
+        light: LightDesc,
+    ) {
+        if let Some(handle) = self.lights.entries.get(index).copied() {
+            let buf = self.lights.get_ref_mut(handle);
+            let slice = ctx.map_buffer_mut(buf.handle).unwrap();
+            let bytes = bytemuck::bytes_of(&light);
+            slice[buf.offset as usize..][..bytes.len()].copy_from_slice(bytes);
+            ctx.unmap_buffer(buf.handle).unwrap();
+        }
+    }
+
+    /// Remove the light at `index` from the internal list.
+    pub fn remove_light(&mut self, index: usize) {
+        if let Some(handle) = self.lights.entries.get(index).copied() {
+            self.lights.release(handle);
+        }
+    }
+
     /// Register the internal buffer array with the [`ResourceManager`].
     ///
     /// The shader in the tests expects the storage buffer to be named
@@ -107,6 +131,39 @@ mod tests {
         let group = pso.create_bind_group(0, &res);
         assert!(group.bind_group.valid());
         assert_eq!(count, 1000);
+        res.destroy(&mut ctx);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn update_and_remove_light() {
+        let mut ctx = make_ctx();
+        let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+        let mut lights = BindlessLights::new();
+        let ld = LightDesc { position: [1.0, 2.0, 3.0], intensity: 1.0, color: [4.0, 5.0, 6.0], _pad: 0 };
+        lights.add_light(&mut ctx, &mut res, ld);
+
+        // Update the light
+        let new_ld = LightDesc { position: [0.0, 0.0, 0.0], intensity: 2.0, color: [1.0, 1.0, 1.0], _pad: 0 };
+        lights.update_light(&mut ctx, &mut res, 0, new_ld);
+
+        let handle = lights.lights.entries[0];
+        let buf = lights.lights.get_ref(handle);
+        let read_back: LightDesc = {
+            let slice = ctx.map_buffer::<u8>(buf.handle).unwrap();
+            let data = &slice[buf.offset as usize..][..std::mem::size_of::<LightDesc>()];
+            let val = *bytemuck::from_bytes::<LightDesc>(data);
+            ctx.unmap_buffer(buf.handle).unwrap();
+            val
+        };
+        assert_eq!(read_back.intensity, 2.0);
+
+        // Remove the light
+        lights.remove_light(0);
+        assert_eq!(lights.lights.len(), 0);
+
         res.destroy(&mut ctx);
         ctx.destroy();
     }
