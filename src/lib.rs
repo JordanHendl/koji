@@ -5,7 +5,9 @@ pub mod renderer;
 pub mod gltf;
 pub mod animation;
 pub mod render_pass;
+pub mod text;
 
 pub use utils::*;
 pub use material::*;
 pub use render_pass::*;
+pub use text::*;
