@@ -5,6 +5,9 @@ pub mod pipeline_builder;
 pub mod bindless;
 pub mod bindless_lighting;
 
+#[cfg(test)]
+mod pipeline_builder_tests;
+
 pub use pipeline_builder::*;
 pub use shader_reflection::*;
 pub use bindless::*;
