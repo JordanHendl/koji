@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use super::*;
 use crate::{
@@ -446,7 +446,7 @@ fn multiple_bindless_bindings_in_shader() {
 
     let mut resources = ResourceManager::new(&mut ctx, 4096).unwrap();
     resources.register_combined_texture_array("tex_array", Arc::new(combined_array));
-    resources.register_buffer_array("buf_array", Arc::new(buf_array));
+    resources.register_buffer_array("buf_array", Arc::new(Mutex::new(buf_array)));
 
     let group = pso.create_bind_group(0, &resources);
 
