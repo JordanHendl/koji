@@ -8,6 +8,8 @@ pub struct LightDesc {
     pub position: [f32; 3],
     pub intensity: f32,
     pub color: [f32; 3],
+    pub range: f32,
+    pub direction: [f32; 3],
     pub _pad: u32,
 }
 
@@ -73,7 +75,7 @@ mod tests {
 
         let frag = inline_spirv!(
             r"#version 450
-            struct Light { vec3 pos; float intensity; vec3 color; uint pad; };
+            struct Light { vec3 pos; float intensity; vec3 color; float range; vec3 dir; uint pad; };
             layout(set=0,binding=0) buffer Lights { Light lights[]; };
             layout(set=0,binding=1) uniform Count { uint count; };
             layout(location=0) out vec4 o;
@@ -95,7 +97,14 @@ mod tests {
         let mut lights = BindlessLights::new();
         let mut res = ResourceManager::new(&mut ctx, 1024 * 1024).unwrap();
         for _ in 0..1000 {
-            let ld = LightDesc { position: [0.0;3], intensity: 1.0, color: [1.0,1.0,1.0], _pad: 0 };
+            let ld = LightDesc {
+                position: [0.0; 3],
+                intensity: 1.0,
+                color: [1.0, 1.0, 1.0],
+                range: 1.0,
+                direction: [0.0; 3],
+                _pad: 0,
+            };
             lights.add_light(&mut ctx, &mut res, ld);
         }
         let count = lights.lights.len() as u32;
