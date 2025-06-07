@@ -8,7 +8,6 @@ use crate::{
         allocator::GpuAllocator,
         resource_list::ResourceList,
         CombinedTextureSampler,
-        TextureInfo,
         DHObject,
         ResourceBuffer,
         ResourceBinding,
@@ -22,28 +21,6 @@ use spirv_reflect::types::ReflectFormat;
 
 fn make_ctx() -> Context {
     Context::headless(&ContextInfo::default()).unwrap()
-}
-fn simple_vert() -> Vec<u32> {
-    inline_spirv!(
-        r#"
-        #version 450
-        layout(set=0,binding=0) uniform U{vec4 u;};
-        layout(location=0) in vec2 v;
-        void main(){ gl_Position=vec4(v,0,1); }"#,
-        vert
-    )
-    .to_vec()
-}
-fn simple_frag() -> Vec<u32> {
-    inline_spirv!(
-        r#"
-        #version 450
-        layout(set=0,binding=1) uniform U2{float x;};
-        layout(location=0) out vec4 o;
-        void main(){ o=vec4(x); }"#,
-        frag
-    )
-    .to_vec()
 }
 
 fn simple_vertex_spirv() -> Vec<u32> {
@@ -188,8 +165,6 @@ fn shader_variable_write() {
         allocation,
         vec![("data".into(), 0, 4)],
         &mut ctx,
-        0,
-        0,
     );
 
     variable.write(100u32);
@@ -215,8 +190,6 @@ fn pso_resource_variable_lookup() {
         },
         vec![],
         std::ptr::null_mut(),
-        0,
-        0,
     );
 
     let mut resource = PSOResource::test_new(0, vec![("var1".into(), variable)]);

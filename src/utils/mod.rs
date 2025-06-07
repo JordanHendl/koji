@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use bytemuck::NoUninit;
 use dashi::*;
 use utils::Handle;
 
@@ -57,7 +56,7 @@ impl DHObject {
         let slice =  ctx.map_buffer_mut(alloc.buffer)?;
         slice[..value.len()].copy_from_slice(value);
 
-        ctx.unmap_buffer(alloc.buffer).expect("Error unmapping memory!");
+        let _ = ctx.unmap_buffer(alloc.buffer);
         Ok(Self {
             handle: alloc.buffer,
             offset: alloc.offset,

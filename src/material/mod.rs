@@ -30,7 +30,6 @@ impl MaterialPipeline {
         render_pass: Handle<RenderPass>,
         subpass_id: u32,
     ) -> Result<Self, GPUError> {
-        use ShaderType::*;
         pub struct OwnedPipelineShaderInfo {
             pub stage: ShaderType,
             pub spirv: Vec<u32>,

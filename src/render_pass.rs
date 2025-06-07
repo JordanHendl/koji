@@ -394,7 +394,7 @@ mod tests {
             .depth_attachment("depth", Format::D24S8)
             .subpass("main", ["color"], &[] as &[&str]);
 
-        let (_, targets, all) = builder.build_with_images(&mut ctx).unwrap();
+        let (_, targets, _all) = builder.build_with_images(&mut ctx).unwrap();
         assert!(!targets.is_empty());
         assert_eq!(targets[0].colors.len(), 1);
         assert!(targets[0].depth.is_some());

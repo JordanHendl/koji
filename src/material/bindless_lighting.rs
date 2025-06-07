@@ -180,7 +180,7 @@ mod tests {
 
         lights.update_light(&mut ctx, 0, new_ld);
         
-        let mut llights = lights.lights.lock().unwrap();
+        let llights = lights.lights.lock().unwrap();
         let handle = llights.entries[0];
         let buf = llights.get_ref(handle);
         let read_back: LightDesc = {
