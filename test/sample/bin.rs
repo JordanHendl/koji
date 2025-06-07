@@ -1,6 +1,7 @@
 use dashi::utils::*;
 use dashi::*;
 use koji::*;
+use koji::render_pass::*;
 use sdl2::{event::Event, keyboard::Keycode};
 use std::sync::Arc;
 // Shaders are stored under `shaders/` and compiled at build time using `include_spirv!`.

@@ -2,6 +2,7 @@
 use dashi::utils::*;
 use dashi::*;
 use inline_spirv::include_spirv;
+use koji::render_pass::*;
 use koji::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
