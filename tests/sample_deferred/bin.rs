@@ -1,9 +1,8 @@
-#[path = "../../test/sample_deferred/bin.rs"]
-mod bin;
+mod bin_impl;
 
 
-pub use bin::run;
+pub use bin_impl::run;
 
 pub fn main() {
-    bin::main();
+    bin_impl::main();
 }

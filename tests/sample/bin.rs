@@ -1,9 +1,8 @@
-#[path = "../../test/sample/bin.rs"]
-mod bin;
+mod bin_impl;
 
 
-pub use bin::render_sample_model;
+pub use bin_impl::render_sample_model;
 
 pub fn main() {
-    bin::main();
+    bin_impl::main();
 }

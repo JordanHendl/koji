@@ -36,14 +36,14 @@ walkdir = "2.4.0"
 
 [[bin]]
 name = "sample"
-path = "test/sample/bin.rs"
+path = "tests/sample/bin_impl.rs"
 
 [[bin]]
 name = "deferred_sample"
-path = "test/sample_deferred/bin.rs"
+path = "tests/sample_deferred/bin_impl.rs"
 
 [[bin]]
 name = "shadow_sample"
-path = "test/sample_shadows/bin.rs"
+path = "tests/sample_shadows/bin_impl.rs"
 
 

@@ -31,7 +31,7 @@ cargo test
 
 ## Sample Binaries
 
-Three examples live under the `test/` directory and can be run with:
+Three examples live under the `tests/` directory and can be run with:
 
 ```bash
 cargo run --bin sample           # basic triangle sample
