@@ -9,19 +9,6 @@ use spirv_reflect::ShaderModule;
 
 use self::shader_reflection::*;
 
-/// Map shader descriptor types to Dashi bind group variable types
-fn descriptor_type_to_dashi(ty: ShaderDescriptorType) -> BindGroupVariableType {
-    match ty {
-        ShaderDescriptorType::SampledImage | ShaderDescriptorType::CombinedImageSampler => {
-            BindGroupVariableType::SampledImage
-        }
-        ShaderDescriptorType::UniformBuffer => BindGroupVariableType::Uniform,
-        ShaderDescriptorType::StorageBuffer => BindGroupVariableType::Storage,
-        ShaderDescriptorType::StorageImage => BindGroupVariableType::StorageImage,
-        other => panic!("Unsupported descriptor type: {:?}", other),
-    }
-}
-
 /// Map SPIR-V reflect format to shader primitive enum
 fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPrimitiveType {
     use ReflectFormat::*;
@@ -378,7 +365,7 @@ impl<'a> PipelineBuilder<'a> {
             let mut vars = Vec::new();
 
             for b in binds.iter() {
-                let var_type = descriptor_type_to_dashi(b.ty);
+                let var_type = descriptor_to_var_type(b.ty);
                 vars.push(BindGroupVariable {
                     var_type,
                     binding: b.binding,
@@ -593,11 +580,11 @@ mod tests {
     #[serial]
     fn descriptor_mapping_roundtrip() {
         assert_eq!(
-            descriptor_type_to_dashi(ShaderDescriptorType::SampledImage),
+            descriptor_to_var_type(ShaderDescriptorType::SampledImage),
             BindGroupVariableType::SampledImage
         );
         assert_eq!(
-            descriptor_type_to_dashi(ShaderDescriptorType::UniformBuffer),
+            descriptor_to_var_type(ShaderDescriptorType::UniformBuffer),
             BindGroupVariableType::Uniform
         );
     }
