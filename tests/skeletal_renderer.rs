@@ -17,7 +17,7 @@ fn render_simple_skeleton() {
     let mut renderer = Renderer::new(320, 240, "skin", &mut ctx).unwrap();
 
     let scene = load_scene("tests/data/simple_skin.gltf").expect("load");
-    let mut mesh = match &scene.meshes[0].mesh {
+    let mesh = match &scene.meshes[0].mesh {
         MeshData::Skeletal(m) => m.clone(),
         _ => panic!("expected skeletal mesh"),
     };

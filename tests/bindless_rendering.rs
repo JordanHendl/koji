@@ -1,6 +1,5 @@
 use koji::material::*;
 use koji::renderer::*;
-use koji::utils::*;
 use dashi::*;
 use serial_test::serial;
 use inline_spirv::inline_spirv;

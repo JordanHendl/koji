@@ -1,6 +1,5 @@
 use koji::material::*;
 use koji::renderer::*;
-use koji::utils::*;
 use dashi::*;
 use dashi::utils::Handle;
 use serial_test::serial;
@@ -60,7 +59,7 @@ fn pbr_spheres() {
     renderer.register_pso(RenderStage::Opaque,pso,bgr);
 
     let (verts,inds) = make_sphere(8,16);
-    for i in 0..3 {
+    for _ in 0..3 {
         let mesh = StaticMesh{ vertices:verts.clone(), indices:Some(inds.clone()), vertex_buffer:None, index_buffer:None, index_count:0 };
         renderer.register_static_mesh(mesh,None);
     }

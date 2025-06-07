@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use spirv_reflect::types::ReflectFormat;
 use spirv_reflect::ShaderModule;
 
-use self::shader_reflection::*;
 
 /// Map SPIR-V reflect format to shader primitive enum
 pub(crate) fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPrimitiveType {
