@@ -31,12 +31,12 @@ cargo test
 
 ## Sample Binaries
 
-Three examples live under the `test/` directory and can be run with:
+Three examples live under the `examples/` directory and can be run with:
 
 ```bash
-cargo run --bin sample           # basic triangle sample
-cargo run --bin deferred_sample  # deferred rendering example
-cargo run --bin shadow_sample    # cascaded shadow map demo
+cargo run --example sample           # basic triangle sample
+cargo run --example deferred_sample  # deferred rendering example
+cargo run --example shadow_sample    # cascaded shadow map demo
 ```
 
 These demos compile included GLSL files in `shaders/` and open an SDL2 window.

@@ -31,16 +31,16 @@ walkdir = "2.4.0"
 
 [lib]
 
-[[bin]]
+[[example]]
 name = "sample"
-path = "test/sample/bin.rs"
+path = "examples/sample/bin.rs"
 
-[[bin]]
+[[example]]
 name = "deferred_sample"
-path = "test/sample_deferred/bin.rs"
+path = "examples/sample_deferred/bin.rs"
 
-[[bin]]
+[[example]]
 name = "shadow_sample"
-path = "test/sample_shadows/bin.rs"
+path = "examples/sample_shadows/bin.rs"
 
 
