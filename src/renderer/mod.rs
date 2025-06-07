@@ -30,6 +30,7 @@ pub struct Renderer {
     render_pass: Handle<RenderPass>,
     targets: Vec<RenderTarget>,
     pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
+    skeletal_pipeline: Option<(PSO, [Option<PSOBindGroupResources>; 4])>,
     resource_manager: ResourceManager,
     lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
@@ -94,6 +95,7 @@ impl Renderer {
             render_pass,
             targets,
             pipelines: HashMap::new(),
+            skeletal_pipeline: None,
             drawables: Vec::new(),
             text_drawables: Vec::new(),
             skeletal_meshes: Vec::new(),
@@ -123,6 +125,14 @@ impl Renderer {
         self.pipelines.insert(stage, (pso, bind_group_resources));
     }
 
+    pub fn register_skeletal_pso(
+        &mut self,
+        pso: PSO,
+        bind_group_resources: [Option<PSOBindGroupResources>; 4],
+    ) {
+        self.skeletal_pipeline = Some((pso, bind_group_resources));
+    }
+
     pub fn register_static_mesh(
         &mut self,
         mut mesh: StaticMesh,
@@ -143,6 +153,9 @@ impl Renderer {
     pub fn register_skeletal_mesh(&mut self, mut mesh: SkeletalMesh) {
         mesh.upload(self.get_ctx())
             .expect("Failed to upload skeletal mesh to GPU");
+        if let Some(buf) = mesh.bone_buffer {
+            self.resource_manager.register_storage("bone_buf", buf);
+        }
         self.skeletal_meshes.push(mesh);
     }
   
@@ -263,6 +276,7 @@ impl Renderer {
 
                 list.end_drawing().unwrap();
 
+
                 if let Some((pso, bind_groups)) = self.pipelines.get(&RenderStage::Text) {
                     list.begin_drawing(&DrawBegin {
                         viewport: Viewport {
@@ -284,6 +298,7 @@ impl Renderer {
                             .iter()
                             .map(|a| a.attachment)
                             .collect::<Vec<_>>(),
+
                     }).unwrap();
 
                     for mesh in &self.text_drawables {
@@ -309,6 +324,7 @@ impl Renderer {
                                 instance_count: 1,
                                 vertices: vb,
                                 bind_groups: [
+
                                     bind_groups[0].as_ref().map(|b| b.bind_group),
                                     bind_groups[1].as_ref().map(|b| b.bind_group),
                                     bind_groups[2].as_ref().map(|b| b.bind_group),
@@ -323,6 +339,66 @@ impl Renderer {
                     list.end_drawing().unwrap();
                 }
 
+                if let Some((pso, bind_groups)) = &self.skeletal_pipeline {
+                    list.begin_drawing(&DrawBegin {
+                        viewport: Viewport {
+                            area: FRect2D {
+                                w: self.width as f32,
+                                h: self.height as f32,
+                                ..Default::default()
+                            },
+                            scissor: Rect2D {
+                                w: self.width,
+                                h: self.height,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        pipeline: pso.pipeline,
+                        attachments: &target
+                            .colors
+                            .iter()
+                            .map(|a| a.attachment)
+                            .collect::<Vec<_>>(),
+                    })
+                    .unwrap();
+                    for mesh in &self.skeletal_meshes {
+                        let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                        let ib = mesh.index_buffer;
+                        let draw: dashi::Command = if let Some(ib) = ib {
+                            Command::DrawIndexed(DrawIndexed {
+                                index_count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                indices: ib,
+                                bind_groups: [
+                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        } else {
+                            Command::Draw(Draw {
+                                count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                bind_groups: [
+                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        };
+                        list.append(draw);
+                    }
+
+                    list.end_drawing().unwrap();
+                }
+              
                 list.blit_image(ImageBlit {
                     src: target.colors[0].attachment.img,
                     dst: img,
