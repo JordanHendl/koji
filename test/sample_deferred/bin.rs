@@ -4,6 +4,8 @@ use dashi::*;
 use inline_spirv::include_spirv;
 use koji::render_pass::*;
 use koji::*;
+use koji::material::bindless_lighting::*;
+use koji::utils::ResourceManager;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 // Shader sources live in `shaders/` and are included with `include_spirv!`.
@@ -84,66 +86,54 @@ pub fn run(ctx: &mut Context) {
         specialization: &[],
     };
 
-    let vertex_info = VertexDescriptionInfo {
-        entries: &[VertexEntryInfo {
-            format: ShaderPrimitiveType::Vec2,
-            location: 0,
-            offset: 0,
-        }],
-        stride: 8,
-        rate: VertexRate::Vertex,
-    };
+    let mut pso_gbuffer = PipelineBuilder::new(ctx, "gbuffer")
+        .vertex_shader(vert.spirv)
+        .fragment_shader(frag_gbuffer.spirv)
+        .render_pass(render_pass, 0)
+        .build();
 
-    let pipeline_glayout = ctx
-        .make_graphics_pipeline_layout(&GraphicsPipelineLayoutInfo {
-            debug_name: "gbuffer_layout",
-            vertex_info: vertex_info.clone(),
-            bg_layouts: [None, None, None, None],
-            shaders: &[vert.clone(), frag_gbuffer],
-            details: GraphicsPipelineDetails {
-                color_blend_states: vec![Default::default(), Default::default()],
-                depth_test: Some(DepthInfo {
-                    should_test: true,
-                    should_write: true,
-                }),
-                ..Default::default()
-            },
-        })
-        .unwrap();
+    let mut pso_lighting = PipelineBuilder::new(ctx, "lighting")
+        .vertex_shader(vert.spirv)
+        .fragment_shader(frag_lighting.spirv)
+        .render_pass(render_pass, 1)
+        .build();
 
-    let pipeline_gbuffer = ctx
-        .make_graphics_pipeline(&GraphicsPipelineInfo {
-            layout: pipeline_glayout,
-            render_pass,
-            subpass_id: 0,
-            debug_name: "gbuffer_pipeline",
-        })
-        .unwrap();
+    let pipeline_gbuffer = pso_gbuffer.pipeline;
+    let pipeline_lighting = pso_lighting.pipeline;
 
-    let pipeline_llayout = ctx
-        .make_graphics_pipeline_layout(&GraphicsPipelineLayoutInfo {
-            debug_name: "lighting_layout",
-            vertex_info,
-            bg_layouts: [None, None, None, None],
-            shaders: &[vert.clone(), frag_lighting],
-            details: GraphicsPipelineDetails {
-                depth_test: Some(DepthInfo {
-                    should_test: true,
-                    should_write: true,
-                }),
-                ..Default::default()
-            },
-        })
-        .unwrap();
+    let sampler = ctx.make_sampler(&Default::default()).unwrap();
+    let mut resources = ResourceManager::new(ctx, 4096).unwrap();
+    resources.register_combined(
+        "albedoTex",
+        Handle::default(),
+        gbuffer_target.colors[0].attachment.img,
+        [WIDTH, HEIGHT],
+        sampler,
+    );
+    resources.register_combined(
+        "normalTex",
+        Handle::default(),
+        gbuffer_target.colors[1].attachment.img,
+        [WIDTH, HEIGHT],
+        sampler,
+    );
 
-    let pipeline_lighting = ctx
-        .make_graphics_pipeline(&GraphicsPipelineInfo {
-            layout: pipeline_llayout,
-            render_pass,
-            subpass_id: 1,
-            debug_name: "lighting_pipeline",
-        })
-        .unwrap();
+    let mut lights = BindlessLights::new();
+    lights.add_light(
+        ctx,
+        &mut resources,
+        LightDesc { position: [0.0, 0.0, 1.0], intensity: 1.0, color: [1.0, 1.0, 1.0], _pad: 0 },
+    );
+    lights.add_light(
+        ctx,
+        &mut resources,
+        LightDesc { position: [1.0, 1.0, 1.0], intensity: 0.5, color: [1.0, 0.0, 0.0], _pad: 0 },
+    );
+    let light_count = lights.lights.len() as u32;
+    lights.register(&mut resources);
+    resources.register_variable("", ctx, light_count);
+
+    let lighting_bg = pso_lighting.create_bind_group(0, &resources);
 
     let mut display = ctx.make_display(&Default::default()).unwrap();
     let semaphores = ctx.make_semaphores(2).unwrap();
@@ -168,44 +158,36 @@ pub fn run(ctx: &mut Context) {
         let (img, acquire_sem, _, _) = ctx.acquire_new_image(&mut display).unwrap();
 
         framed.record(|cmd| {
-            for (pipeline, target) in [
-                (pipeline_gbuffer, gbuffer_target),
-                (pipeline_lighting, lighting_target),
-            ] {
-                cmd.begin_drawing(&DrawBegin {
-                    pipeline,
-                    viewport: Viewport {
-                        area: FRect2D {
-                            w: 640.0,
-                            h: 480.0,
-                            ..Default::default()
-                        },
-                        scissor: Rect2D {
-                            w: 640,
-                            h: 480,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
-                    attachments: &attachments
-                        .attachments
-                        .iter()
-                        .map(|a| a.attachment.clone())
-                        .collect::<Vec<_>>(),
-                })
-                .unwrap();
-
-                cmd.draw(Draw {
-                    vertices: vertex_buffer,
-                    count: 3,
-                    instance_count: 1,
+            cmd.begin_drawing(&DrawBegin {
+                pipeline: pipeline_gbuffer,
+                viewport: Viewport {
+                    area: FRect2D { w: 640.0, h: 480.0, ..Default::default() },
+                    scissor: Rect2D { w: 640, h: 480, ..Default::default() },
                     ..Default::default()
-                });
+                },
+                attachments: &attachments
+                    .attachments
+                    .iter()
+                    .map(|a| a.attachment.clone())
+                    .collect::<Vec<_>>(),
+            }).unwrap();
 
-                if target.name != "lighting" {
-                    cmd.next_subpass().unwrap();
-                }
-            }
+            cmd.draw(Draw {
+                vertices: vertex_buffer,
+                count: 3,
+                instance_count: 1,
+                ..Default::default()
+            });
+
+            cmd.next_subpass().unwrap();
+
+            cmd.draw(Draw {
+                vertices: vertex_buffer,
+                count: 3,
+                instance_count: 1,
+                bind_groups: [Some(lighting_bg.bind_group), None, None, None],
+                ..Default::default()
+            });
 
             cmd.end_drawing().unwrap();
             cmd.blit_image(ImageBlit {
