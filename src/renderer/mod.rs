@@ -1,7 +1,6 @@
 mod drawable;
 pub use drawable::*;
 
-mod tests;
 use crate::material::{PSOBindGroupResources, PSO};
 use crate::utils::ResourceManager;
 use dashi::utils::*;
