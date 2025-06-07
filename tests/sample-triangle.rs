@@ -3,7 +3,7 @@ use koji::renderer::*;
 use dashi::*;
 use inline_spirv::include_spirv;
 use serial_test::serial;
-// External shader files are loaded from `shaders/` using `include_spirv!`.
+// External shader files are loaded from `assets/shaders/` using `include_spirv!`.
 
 fn make_color_vertex(position: [f32; 3], color: [f32; 4]) -> Vertex {
     Vertex {
@@ -57,7 +57,7 @@ fn cube_indices() -> Vec<u32> {
 
 fn make_shader_vert() -> Vec<u32> {
     include_spirv!(
-        "shaders/test_triangle.vert",
+        "assets/shaders/test_triangle.vert",
         vert
     )
     .to_vec()
@@ -65,7 +65,7 @@ fn make_shader_vert() -> Vec<u32> {
 
 fn make_shader_frag() -> Vec<u32> {
     include_spirv!(
-        "shaders/test_triangle.frag",
+        "assets/shaders/test_triangle.frag",
         frag
     )
     .to_vec()

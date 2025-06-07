@@ -6,11 +6,11 @@ use inline_spirv::include_spirv;
 use serial_test::serial;
 
 fn make_vert() -> Vec<u32> {
-    include_spirv!("shaders/text.vert", vert).to_vec()
+    include_spirv!("assets/shaders/text.vert", vert).to_vec()
 }
 
 fn make_frag() -> Vec<u32> {
-    include_spirv!("shaders/text.frag", frag).to_vec()
+    include_spirv!("assets/shaders/text.frag", frag).to_vec()
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn draw_text_2d() {
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Text, pso, bgr);
 
-    let font_bytes: &[u8] = include_bytes!("data/DejaVuSans.ttf");
+    let font_bytes: &[u8] = include_bytes!("../assets/data/DejaVuSans.ttf");
     let text = TextRenderer2D::new(font_bytes);
     let dim = text.upload_text_texture(&mut ctx, renderer.resources(), "glyph_tex", "Hello", 32.0);
     let mesh = text.make_quad(dim, [-0.5, 0.5]);
