@@ -6,6 +6,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -16,6 +18,11 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
+
+      - name: Install llvmpipe Vulkan driver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers
 
       - name: Build
         run: cargo build --release
