@@ -82,7 +82,7 @@ impl GpuAllocator {
     pub fn allocate(&mut self, size: u64) -> Option<Allocation> {
         // First, try from free list
         let aligned_size = Self::align_up(size, self.alignment);
-        if let Some((index, (offset, free_size))) = self
+        if let Some((index, (_offset, free_size))) = self
             .free_list
             .iter()
             .enumerate()
@@ -90,11 +90,11 @@ impl GpuAllocator {
         {
             let alloc = Allocation {
                 buffer: self.buffer,
-                offset: *offset,
+                offset: *_offset,
                 size: aligned_size,
             };
             if *free_size > aligned_size {
-                self.free_list[index] = (offset + aligned_size, free_size - aligned_size);
+                self.free_list[index] = (_offset + aligned_size, free_size - aligned_size);
             } else {
                 self.free_list.swap_remove(index);
             }

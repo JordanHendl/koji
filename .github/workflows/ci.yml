@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -17,8 +19,14 @@ jobs:
           override: true
           profile: minimal
           cache: true
+      - name: Install llvmpipe Vulkan driver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers
       - name: Run tests
-        run: cargo test --all --locked | tee test-results.txt
+        run: |
+          set -euo pipefail
+          cargo test --all --locked | tee test-results.txt
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
