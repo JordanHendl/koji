@@ -39,7 +39,7 @@ impl DHObject {
         };
         slice[..bytes.len()].copy_from_slice(bytes);
 
-        ctx.unmap_buffer(alloc.buffer);
+        let _ = ctx.unmap_buffer(alloc.buffer);
         Ok(Self {
             handle: alloc.buffer,
             offset: alloc.offset,
