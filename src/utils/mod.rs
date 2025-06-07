@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use bytemuck::NoUninit;
 use dashi::*;
@@ -101,7 +101,7 @@ pub enum ResourceBinding {
     Storage(Handle<Buffer>),
     TextureArray(Arc<ResourceList<Texture>>),
     CombinedTextureArray(Arc<ResourceList<CombinedTextureSampler>>),
-    BufferArray(Arc<ResourceList<ResourceBuffer>>),
+    BufferArray(Arc<Mutex<ResourceList<ResourceBuffer>>>),
     CombinedImageSampler {
         texture: Texture,
         sampler: Handle<Sampler>,
@@ -215,7 +215,7 @@ impl ResourceManager {
     pub fn register_buffer_array(
         &mut self,
         key: impl Into<String>,
-        array: Arc<ResourceList<ResourceBuffer>>,
+        array: Arc<Mutex<ResourceList<ResourceBuffer>>>,
     ) {
         self.bindings
             .insert(key.into(), ResourceBinding::BufferArray(array));
@@ -316,7 +316,7 @@ mod tests {
     #[serial]
     fn register_buffer_array_binding() {
         let manager = &mut ResourceManager::default();
-        let array = Arc::new(ResourceList::<ResourceBuffer>::default());
+        let array = Arc::new(Mutex::new(ResourceList::<ResourceBuffer>::default()));
         manager.register_buffer_array("array_buf", array.clone());
 
         match manager.get("array_buf") {

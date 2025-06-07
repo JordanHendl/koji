@@ -255,8 +255,8 @@ impl PSO {
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
                     }
                     ResourceBinding::BufferArray(array) => {
-                        let mut data: Vec<IndexedResource> = array
-                            .as_ref()
+                        let list = array.lock().unwrap();
+                        let mut data: Vec<IndexedResource> = list
                             .iter()
                             .enumerate()
                             .map(|(i, b)| IndexedResource {
