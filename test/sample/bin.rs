@@ -95,7 +95,7 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
     resources.register_combined("tex", img, view, [1, 1], sampler);
     resources.register_variable("ubo", ctx, uniform_value);
 
-    let bind_group = pso.create_bind_group(0, &resources);
+    let bind_group = pso.create_bind_group(0, &resources).unwrap();
 
     // ==== The rest: draw with pipeline ====
     let mut display = ctx.make_display(&Default::default()).unwrap();

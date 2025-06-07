@@ -109,7 +109,7 @@ impl SkeletalMesh {
             .bone_buffer
             .expect("Skeletal mesh not uploaded or bone buffer missing");
         let bytes: &[u8] = bytemuck::cast_slice(matrices);
-        let slice = unsafe { ctx.map_buffer_mut(buffer)? };
+        let slice = ctx.map_buffer_mut(buffer)?;
         slice[..bytes.len()].copy_from_slice(bytes);
         ctx.unmap_buffer(buffer)?;
         Ok(())

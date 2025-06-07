@@ -1,6 +1,5 @@
 use koji::material::*;
 use koji::renderer::*;
-use koji::utils::*;
 use dashi::*;
 use dashi::utils::Handle;
 use serial_test::serial;
@@ -56,11 +55,11 @@ fn pbr_spheres() {
     let mut renderer = Renderer::new(320,240,"pbr_spheres",&mut ctx).unwrap();
 
     let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(),0);
-    let bgr = pso.create_bind_groups(&renderer.resources());
+    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Opaque,pso,bgr);
 
     let (verts,inds) = make_sphere(8,16);
-    for i in 0..3 {
+    for _ in 0..3 {
         let mesh = StaticMesh{ vertices:verts.clone(), indices:Some(inds.clone()), vertex_buffer:None, index_buffer:None, index_count:0 };
         renderer.register_static_mesh(mesh,None);
     }

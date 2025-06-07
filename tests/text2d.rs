@@ -1,7 +1,6 @@
 use koji::material::pipeline_builder::PipelineBuilder;
 use koji::renderer::*;
 use koji::text::*;
-use koji::utils::*;
 use dashi::*;
 use inline_spirv::include_spirv;
 use serial_test::serial;
@@ -29,7 +28,7 @@ fn draw_text_2d() {
         .fragment_shader(&frag_spv)
         .render_pass(renderer.render_pass(), 0)
         .build();
-    let bgr = pso.create_bind_groups(renderer.resources());
+    let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Text, pso, bgr);
 
     let font_bytes: &[u8] = include_bytes!("data/DejaVuSans.ttf");

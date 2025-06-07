@@ -17,7 +17,7 @@ fn render_simple_skeleton() {
     let mut renderer = Renderer::new(320, 240, "skin", &mut ctx).unwrap();
 
     let scene = load_scene("tests/data/simple_skin.gltf").expect("load");
-    let mut mesh = match &scene.meshes[0].mesh {
+    let mesh = match &scene.meshes[0].mesh {
         MeshData::Skeletal(m) => m.clone(),
         _ => panic!("expected skeletal mesh"),
     };
@@ -25,7 +25,7 @@ fn render_simple_skeleton() {
     renderer.register_skeletal_mesh(mesh);
 
     let mut pso = build_skinning_pipeline(&mut ctx, renderer.render_pass(), 0);
-    let bgr = pso.create_bind_groups(&renderer.resources());
+    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_skeletal_pso(pso, bgr);
 
     let mats = vec![Mat4::IDENTITY; bone_count];
