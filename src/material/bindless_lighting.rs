@@ -158,7 +158,7 @@ mod tests {
         // register the accompanying uniform under an empty key as well.
         res.register_variable("", &mut ctx, count);
 
-        let group = pso.create_bind_group(0, &res);
+        let group = pso.create_bind_group(0, &res).unwrap();
         assert!(group.bind_group.valid());
         assert_eq!(count, 1000);
         res.destroy(&mut ctx);

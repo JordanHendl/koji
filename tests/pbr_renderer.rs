@@ -47,7 +47,7 @@ fn render_pbr_quad() {
     let mut renderer = Renderer::new(320,240,"pbr", &mut ctx).expect("renderer");
 
     let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(),0);
-    let bgr = pso.create_bind_groups(&renderer.resources());
+    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Opaque, pso, bgr);
 
     let mesh = StaticMesh {

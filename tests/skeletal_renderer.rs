@@ -25,7 +25,7 @@ fn render_simple_skeleton() {
     renderer.register_skeletal_mesh(mesh);
 
     let mut pso = build_skinning_pipeline(&mut ctx, renderer.render_pass(), 0);
-    let bgr = pso.create_bind_groups(&renderer.resources());
+    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_skeletal_pso(pso, bgr);
 
     let mats = vec![Mat4::IDENTITY; bone_count];
