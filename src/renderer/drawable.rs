@@ -127,3 +127,125 @@ pub struct SkeletalMesh {
     pub skeleton: Skeleton,
     pub bone_buffer: Option<Handle<Buffer>>,
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dashi::*;
+    use serial_test::serial;
+    use crate::animation::Bone;
+
+    fn make_ctx() -> Context {
+        Context::headless(&ContextInfo::default()).unwrap()
+    }
+
+    fn simple_vertex() -> Vertex {
+        Vertex {
+            position: [0.0, 0.0, 0.0],
+            normal: [0.0, 0.0, 1.0],
+            tangent: [1.0, 0.0, 0.0, 1.0],
+            uv: [0.0, 0.0],
+            color: [1.0, 1.0, 1.0, 1.0],
+        }
+    }
+
+    fn simple_skel_vertex() -> SkeletalVertex {
+        SkeletalVertex {
+            position: [0.0, 0.0, 0.0],
+            normal: [0.0, 0.0, 1.0],
+            tangent: [1.0, 0.0, 0.0, 1.0],
+            uv: [0.0, 0.0],
+            color: [1.0, 1.0, 1.0, 1.0],
+            joint_indices: [0, 0, 0, 0],
+            joint_weights: [1.0, 0.0, 0.0, 0.0],
+        }
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "gpu_tests"), ignore)]
+    fn upload_static_mesh_sets_buffers_valid() {
+        let mut ctx = make_ctx();
+        let mut mesh = StaticMesh {
+            vertices: vec![simple_vertex(), simple_vertex(), simple_vertex()],
+            indices: Some(vec![0, 1, 2]),
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+        };
+        mesh.upload(&mut ctx).unwrap();
+        assert!(mesh.vertex_buffer.unwrap().valid());
+        assert!(mesh.index_buffer.unwrap().valid());
+        assert_eq!(mesh.index_count, 3);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "gpu_tests"), ignore)]
+    fn upload_skeletal_mesh_creates_bone_buffer() {
+        let mut ctx = make_ctx();
+        let skeleton = Skeleton { bones: vec![Bone::default(); 2] };
+        let mut mesh = SkeletalMesh {
+            vertices: vec![simple_skel_vertex()],
+            indices: None,
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+            skeleton,
+            bone_buffer: None,
+        };
+        mesh.upload(&mut ctx).unwrap();
+        let bone_buf = mesh.bone_buffer.expect("bone buffer");
+        assert!(bone_buf.valid());
+        let slice = ctx.map_buffer::<u8>(bone_buf).unwrap();
+        assert_eq!(slice.len(), mesh.skeleton.bone_count() * std::mem::size_of::<Mat4>());
+        ctx.unmap_buffer(bone_buf).unwrap();
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "gpu_tests"), ignore)]
+    fn update_bones_writes_matrices() {
+        let mut ctx = make_ctx();
+        let skeleton = Skeleton { bones: vec![Bone::default(); 2] };
+        let mut mesh = SkeletalMesh {
+            vertices: vec![simple_skel_vertex()],
+            indices: None,
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+            skeleton,
+            bone_buffer: None,
+        };
+        mesh.upload(&mut ctx).unwrap();
+        let mats = vec![Mat4::IDENTITY, Mat4::from_translation(glam::Vec3::new(1.0, 2.0, 3.0))];
+        mesh.update_bones(&mut ctx, &mats).unwrap();
+        let bone_buf = mesh.bone_buffer.unwrap();
+        let mapped = ctx.map_buffer::<Mat4>(bone_buf).unwrap();
+        assert_eq!(mapped[0], mats[0]);
+        assert_eq!(mapped[1], mats[1]);
+        ctx.unmap_buffer(bone_buf).unwrap();
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "gpu_tests"), ignore)]
+    #[should_panic(expected = "Skeletal mesh not uploaded or bone buffer missing")]
+    fn update_bones_panics_without_upload() {
+        let mut ctx = make_ctx();
+        let skeleton = Skeleton { bones: vec![Bone::default()] };
+        let mesh = SkeletalMesh {
+            vertices: vec![simple_skel_vertex()],
+            indices: None,
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+            skeleton,
+            bone_buffer: None,
+        };
+        let mats = vec![Mat4::IDENTITY];
+        mesh.update_bones(&mut ctx, &mats).unwrap();
+    }
+}
