@@ -137,4 +137,43 @@ mod tests {
         assert_eq!(root_pos, Vec3::new(1.0, 0.0, 0.0));
         assert_eq!(child_pos, Vec3::new(1.0, 0.0, 1.0));
     }
+
+    #[test]
+    fn empty_skeleton_bone_count() {
+        let skeleton = Skeleton { bones: Vec::new() };
+        assert_eq!(skeleton.bone_count(), 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn animator_update_wrong_slice_length() {
+        let bones = vec![Bone { name: "root".into(), parent: None, inverse_bind: Mat4::IDENTITY }];
+        let skeleton = Skeleton { bones };
+        let mut animator = Animator::new(skeleton);
+        let locals = vec![Mat4::IDENTITY, Mat4::IDENTITY];
+        animator.update(&locals);
+    }
+
+    #[test]
+    fn compute_order_deep_hierarchy() {
+        // Two roots each with a long chain
+        let bones = vec![
+            Bone { name: "r1".into(), parent: None, inverse_bind: Mat4::IDENTITY }, //0
+            Bone { name: "r2".into(), parent: None, inverse_bind: Mat4::IDENTITY }, //1
+            Bone { name: "r1c1".into(), parent: Some(0), inverse_bind: Mat4::IDENTITY }, //2
+            Bone { name: "r1c2".into(), parent: Some(2), inverse_bind: Mat4::IDENTITY }, //3
+            Bone { name: "r2c1".into(), parent: Some(1), inverse_bind: Mat4::IDENTITY }, //4
+            Bone { name: "r2c2".into(), parent: Some(4), inverse_bind: Mat4::IDENTITY }, //5
+        ];
+        let skeleton = Skeleton { bones };
+        let order = super::compute_topo_order(&skeleton);
+        // parents should always appear before children
+        for (i, b) in skeleton.bones.iter().enumerate() {
+            if let Some(p) = b.parent {
+                let pos_parent = order.iter().position(|&x| x == p).unwrap();
+                let pos_child = order.iter().position(|&x| x == i).unwrap();
+                assert!(pos_parent < pos_child);
+            }
+        }
+    }
 }
