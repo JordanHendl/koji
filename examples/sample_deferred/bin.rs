@@ -7,7 +7,7 @@ use koji::*;
 use koji::utils::ResourceManager;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-// Shader sources live in `shaders/` and are included with `include_spirv!`.
+// Shader sources live in `assets/shaders/` and are included with `include_spirv!`.
 use std::time::Instant;
 
 pub fn run(ctx: &mut Context) {
@@ -61,7 +61,7 @@ pub fn run(ctx: &mut Context) {
     let vert = PipelineShaderInfo {
         stage: ShaderType::Vertex,
         spirv: include_spirv!(
-            "shaders/deferred.vert",
+            "assets/shaders/deferred.vert",
             vert
         ),
         specialization: &[],
@@ -70,7 +70,7 @@ pub fn run(ctx: &mut Context) {
     let frag_gbuffer = PipelineShaderInfo {
         stage: ShaderType::Fragment,
         spirv: include_spirv!(
-            "shaders/gbuffer.frag",
+            "assets/shaders/gbuffer.frag",
             frag
         ),
         specialization: &[],
@@ -79,7 +79,7 @@ pub fn run(ctx: &mut Context) {
     let frag_lighting = PipelineShaderInfo {
         stage: ShaderType::Fragment,
         spirv: include_spirv!(
-            "shaders/lighting.frag",
+            "assets/shaders/lighting.frag",
             frag
         ),
         specialization: &[],

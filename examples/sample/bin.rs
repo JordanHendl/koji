@@ -2,7 +2,7 @@ use dashi::utils::*;
 use dashi::*;
 use koji::*;
 use sdl2::{event::Event, keyboard::Keycode};
-// Shaders are stored under `shaders/` and compiled at build time using `include_spirv!`.
+// Shaders are stored under `assets/shaders/` and compiled at build time using `include_spirv!`.
 
 pub fn main() {
     let device = DeviceSelector::new()
@@ -73,13 +73,13 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
 
     // ==== NEW: Set up PipelineBuilder shaders ====
     let vert_spirv = inline_spirv::include_spirv!(
-        "shaders/sample.vert",
+        "assets/shaders/sample.vert",
         vert
     )
     .to_vec();
 
     let frag_spirv = inline_spirv::include_spirv!(
-        "shaders/sample.frag",
+        "assets/shaders/sample.frag",
         frag
     )
     .to_vec();

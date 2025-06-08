@@ -15,7 +15,7 @@ fn skinned_mesh_render() {
     let mut ctx = Context::new(&ContextInfo{ device }).unwrap();
     let mut renderer = Renderer::new(320,240,"skin", &mut ctx).unwrap();
 
-    let scene = load_scene("tests/data/simple_skin.gltf").expect("load");
+    let scene = load_scene("assets/data/simple_skin.gltf").expect("load");
     let mesh = match &scene.meshes[0].mesh { MeshData::Skeletal(m) => m.clone(), _ => panic!("expected skel") };
     let bone_count = mesh.skeleton.bone_count();
     renderer.register_skeletal_mesh(mesh);
