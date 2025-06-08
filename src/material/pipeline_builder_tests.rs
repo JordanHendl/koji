@@ -435,3 +435,154 @@ fn multiple_bindless_bindings_in_shader() {
 
     ctx.destroy();
 }
+
+fn multi_set_vert() -> Vec<u32> {
+    inline_spirv!(
+        r#"
+        #version 450
+        layout(location=0) in vec2 pos;
+        layout(set=0, binding=0) uniform B0 { float x; } b0;
+        void main() {
+            gl_Position = vec4(pos, 0.0, 1.0);
+        }
+        "#,
+        vert
+    )
+    .to_vec()
+}
+
+fn multi_set_frag() -> Vec<u32> {
+    inline_spirv!(
+        r#"
+        #version 450
+        layout(set=1, binding=0) uniform sampler2D tex;
+        layout(location=0) out vec4 o;
+        void main() {
+            o = texture(tex, vec2(0.5));
+        }
+        "#,
+        frag
+    )
+    .to_vec()
+}
+
+fn large_array_frag() -> Vec<u32> {
+    inline_spirv!(
+        r#"
+        #version 450
+        layout(set=0, binding=0) uniform sampler2D tex_array[];
+        layout(location=0) out vec4 o;
+        void main() {
+            o = texture(tex_array[0], vec2(0.5));
+        }
+        "#,
+        frag
+    )
+    .to_vec()
+}
+
+#[test]
+#[serial]
+fn create_bind_group_missing_resource() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let mut pso = PipelineBuilder::new(&mut ctx, "missing")
+        .vertex_shader(&simple_vert2())
+        .fragment_shader(&simple_frag2())
+        .render_pass(rp, 0)
+        .build();
+
+    let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+    res.register_variable("b0", &mut ctx, 1u32);
+    // intentionally omit "tex"
+
+    match pso.create_bind_group(0, &res) {
+        Err(PipelineError::MissingResource(name)) => assert_eq!(name, "tex"),
+        _ => panic!("expected missing resource error"),
+    }
+
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn create_bind_groups_multiple_sets() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let mut pso = PipelineBuilder::new(&mut ctx, "multi_set")
+        .vertex_shader(&multi_set_vert())
+        .fragment_shader(&multi_set_frag())
+        .render_pass(rp, 0)
+        .build();
+
+    let mut res = ResourceManager::new(&mut ctx, 2048).unwrap();
+    res.register_variable("b0", &mut ctx, 55u32);
+    let img = ctx.make_image(&ImageInfo::default()).unwrap();
+    let view = ctx
+        .make_image_view(&ImageViewInfo { img, ..Default::default() })
+        .unwrap();
+    let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+    res.register_combined("tex", img, view, [1, 1], sampler);
+
+    let sets = pso.create_bind_groups(&res).unwrap();
+    assert!(sets[0].is_some());
+    assert!(sets[1].is_some());
+    assert!(sets[2].is_none());
+    assert!(sets[3].is_none());
+
+    let set0 = sets[0].as_ref().unwrap();
+    assert!(set0.buffers.contains_key("b0"));
+    let set1 = sets[1].as_ref().unwrap();
+    assert!(set1.textures.contains_key("tex"));
+
+    ctx.destroy();
+}
+
+#[cfg(feature = "large-tests")]
+#[test]
+#[serial]
+#[ignore]
+fn large_indexed_array_bindings() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let mut pso = PipelineBuilder::new(&mut ctx, "large_array")
+        .vertex_shader(&simple_vertex_spirv())
+        .fragment_shader(&large_array_frag())
+        .render_pass(rp, 0)
+        .build();
+
+    let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+    let mut tex_array = ResourceList::<CombinedTextureSampler>::default();
+    // allocate a moderately large array of textures to stress descriptor
+    // handling without exceeding device limits
+    for _ in 0..16 {
+        let img = ctx.make_image(&ImageInfo::default()).unwrap();
+        let view = ctx
+            .make_image_view(&ImageViewInfo { img, ..Default::default() })
+            .unwrap();
+        tex_array.push(CombinedTextureSampler {
+            texture: Texture { handle: img, view, dim: [32, 32] },
+            sampler,
+        });
+    }
+    let mut res = ResourceManager::new(&mut ctx, 4096).unwrap();
+    res.register_combined_texture_array("tex_array", Arc::new(tex_array));
+
+    let group = pso.create_bind_group(0, &res).unwrap();
+    assert!(group.bind_group.valid());
+
+    ctx.destroy();
+}
+
