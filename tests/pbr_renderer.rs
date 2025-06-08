@@ -27,8 +27,8 @@ fn quad_vertices() -> Vec<Vertex> {
 fn quad_indices() -> Vec<u32> { vec![0,1,2,2,3,0] }
 
 fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
-    let vert: &[u32] = include_spirv!("src/material/pbr.vert", vert, glsl);
-    let frag: &[u32] = include_spirv!("src/material/pbr.frag", frag, glsl);
+    let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
+    let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr_pipeline")
         .vertex_shader(vert)
         .fragment_shader(frag)

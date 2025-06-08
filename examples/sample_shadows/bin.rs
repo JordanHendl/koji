@@ -4,7 +4,7 @@ use inline_spirv::include_spirv;
 use koji::render_pass::*;
 use sdl2::keyboard::Keycode;
 use sdl2::event::Event;
-// Shader code is located in `shaders/` and included via `include_spirv!`.
+// Shader code is located in `assets/shaders/` and included via `include_spirv!`.
 
 pub fn run(ctx: &mut Context) {
     const WIDTH: u32 = 640;
@@ -229,7 +229,7 @@ pub fn run(ctx: &mut Context) {
     let vert_shader = PipelineShaderInfo {
         stage: ShaderType::Vertex,
         spirv: include_spirv!(
-            "shaders/shadows.vert",
+            "assets/shaders/shadows.vert",
             vert
         ),
         specialization: &[],
@@ -238,7 +238,7 @@ pub fn run(ctx: &mut Context) {
     let frag_shadow = PipelineShaderInfo {
         stage: ShaderType::Fragment,
         spirv: include_spirv!(
-            "shaders/shadow_pass.frag",
+            "assets/shaders/shadow_pass.frag",
             frag
         ),
         specialization: &[],
@@ -248,7 +248,7 @@ pub fn run(ctx: &mut Context) {
     let frag_lit = PipelineShaderInfo {
         stage: ShaderType::Fragment,
         spirv: include_spirv!(
-            "shaders/shadows_lit.frag",
+            "assets/shaders/shadows_lit.frag",
             frag
         ),
         specialization: &[],
