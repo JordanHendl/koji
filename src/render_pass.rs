@@ -428,4 +428,52 @@ mod tests {
         assert!(builder.attachments.contains_key("depth"));
         assert_eq!(builder.extent, [640, 480]);
     }
+
+    #[test]
+    #[serial]
+    fn build_multiple_subpasses_with_deps() {
+        let mut ctx = init_ctx();
+        let builder = RenderPassBuilder::new()
+            .debug_name("multi_subpass_test")
+            .extent([256, 256])
+            .color_attachment("a", Format::RGBA8)
+            .color_attachment("b", Format::RGBA8)
+            .depth_attachment("depth", Format::D24S8)
+            .subpass("first", ["a"], &[] as &[&str])
+            .subpass("second", ["b"], &["first"]);
+
+        let (_rp, targets, _all) = builder.build_with_images(&mut ctx).unwrap();
+        assert_eq!(targets.len(), 2);
+        assert_eq!(targets[0].name, "first");
+        assert_eq!(targets[1].name, "second");
+        assert!(targets.iter().all(|t| t.depth.is_some()));
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn from_yaml_file_invalid_path() {
+        let result = RenderPassBuilder::from_yaml_file("/nonexistent/path.yaml");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn build_orders_attachments_by_usage() {
+        let mut ctx = init_ctx();
+        let builder = RenderPassBuilder::new()
+            .debug_name("order_test")
+            .extent([64, 64])
+            .color_attachment("a", Format::RGBA8)
+            .color_attachment("b", Format::RGBA8)
+            .color_attachment("c", Format::RGBA8)
+            .subpass("one", ["b"], &[] as &[&str])
+            .subpass("two", ["c"], &["one"])
+            .subpass("three", ["a"], &["two"]);
+
+        let (_rp, _targets, all) = builder.build_with_images(&mut ctx).unwrap();
+        let names: Vec<&str> = all.attachments.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(names, vec!["b", "c", "a"]);
+        ctx.destroy();
+    }
 }
