@@ -202,9 +202,10 @@ impl Renderer {
 
     /// Update bone matrices for a registered skeletal mesh.
     pub fn update_skeletal_bones(&mut self, idx: usize, matrices: &[Mat4]) {
-        if let Some(mesh) = self.skeletal_meshes.get(idx).cloned() {
+        let ctx = self.get_ctx();
+        if let Some(mesh) = self.skeletal_meshes.get_mut(idx) {
             mesh
-                .update_bones(self.get_ctx(), matrices)
+                .update_bones(ctx, matrices)
                 .expect("Failed to update bone matrices");
         }
     }
