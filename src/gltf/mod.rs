@@ -33,18 +33,26 @@ fn load_skin(skin: &gltf::Skin, buffers: &[gltf::buffer::Data]) -> Skeleton {
             }
         }
     }
-    let mut bones = Vec::new();
-    for (i, joint) in joint_nodes.iter().enumerate() {
-        let mut parent_idx = None;
-        for (pi, potential) in joint_nodes.iter().enumerate() {
-            if potential.children().any(|c| c.index() == joint.index()) {
-                parent_idx = Some(pi);
-                break;
+    use std::collections::HashMap;
+    let mut index_map = HashMap::new();
+    for (i, node) in joint_nodes.iter().enumerate() {
+        index_map.insert(node.index(), i);
+    }
+
+    let mut parents = vec![None; joint_nodes.len()];
+    for (pi, node) in joint_nodes.iter().enumerate() {
+        for child in node.children() {
+            if let Some(&ci) = index_map.get(&child.index()) {
+                parents[ci] = Some(pi);
             }
         }
+    }
+
+    let mut bones = Vec::new();
+    for (i, joint) in joint_nodes.iter().enumerate() {
         bones.push(Bone {
             name: joint.name().unwrap_or("").into(),
-            parent: parent_idx,
+            parent: parents[i],
             inverse_bind: inverse[i],
         });
     }
