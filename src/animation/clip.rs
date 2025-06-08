@@ -44,11 +44,17 @@ pub struct AnimationClip {
 }
 
 impl AnimationClip {
+    pub fn sample_into(&self, time: f32, out: &mut [Mat4]) {
+        assert_eq!(out.len(), self.tracks.len());
+        for (track, m) in self.tracks.iter().zip(out.iter_mut()) {
+            *m = sample_track(track, time);
+        }
+    }
+
     pub fn sample(&self, time: f32) -> Vec<Mat4> {
-        self.tracks
-            .iter()
-            .map(|track| sample_track(track, time))
-            .collect()
+        let mut out = vec![Mat4::IDENTITY; self.tracks.len()];
+        self.sample_into(time, &mut out);
+        out
     }
 }
 
@@ -124,8 +130,8 @@ mod tests {
             },
         ];
         let clip = AnimationClip { length: 1.0, tracks: vec![track] };
-        let mut player = AnimationPlayer::new(clip);
-        let mats = player.advance(0.5);
+        let mut mats = vec![Mat4::IDENTITY; clip.tracks.len()];
+        clip.sample_into(0.5, &mut mats);
         let (_, _, t) = mats[0].to_scale_rotation_translation();
         assert!((t - Vec3::new(0.5, 0.0, 0.0)).length() < 0.0001);
     }
