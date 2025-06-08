@@ -23,6 +23,7 @@ rusttype = "0.9"
 serial_test = "2.0"
 
 [features]
+gpu_tests = []
 large-tests = []
 
 [build-dependencies]
@@ -50,8 +51,3 @@ path = "examples/sample_shadows/bin.rs"
 name = "pbr_spheres"
 path = "examples/pbr_spheres/bin.rs"
 
-
-
-[features]
-# Enable GPU-based tests
-gpu_tests = []
