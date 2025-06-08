@@ -184,4 +184,68 @@ mod tests {
         let (_, _, t) = m.to_scale_rotation_translation();
         assert_eq!(t, Vec3::new(1.0, 0.0, 0.0));
     }
+
+    #[test]
+    fn transform_to_mat4_and_lerp() {
+        let a = Transform {
+            translation: Vec3::new(1.0, 2.0, 3.0),
+            rotation: Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
+            scale: Vec3::new(2.0, 2.0, 2.0),
+        };
+        let b = Transform {
+            translation: Vec3::new(3.0, 4.0, 5.0),
+            rotation: Quat::from_rotation_x(std::f32::consts::PI),
+            scale: Vec3::new(4.0, 4.0, 4.0),
+        };
+        let m = a.to_mat4();
+        let (s, r, t) = m.to_scale_rotation_translation();
+        assert_eq!(t, a.translation);
+        assert!((s - a.scale).length() < 0.0001);
+        assert!((r.x - a.rotation.x).abs() < 0.0001);
+
+        let l = a.lerp(&b, 0.5);
+        assert_eq!(l.translation, a.translation.lerp(b.translation, 0.5));
+        assert_eq!(l.scale, a.scale.lerp(b.scale, 0.5));
+        let lr = a.rotation.slerp(b.rotation, 0.5);
+        assert!((l.rotation.x - lr.x).abs() < 0.0001);
+    }
+
+    #[test]
+    fn sample_into_empty_and_multi_tracks() {
+        let clip_empty = AnimationClip { length: 1.0, tracks: vec![] };
+        let mut out = Vec::<Mat4>::new();
+        clip_empty.sample_into(0.5, &mut out);
+
+        let track1 = vec![Keyframe { time: 0.0, transform: Transform::default() }];
+        let track2 = vec![Keyframe { time: 0.0, transform: Transform { translation: Vec3::X, rotation: Quat::IDENTITY, scale: Vec3::ONE } }];
+        let clip = AnimationClip { length: 1.0, tracks: vec![track1.clone(), track2.clone()] };
+        let mut mats = vec![Mat4::IDENTITY; 2];
+        clip.sample_into(0.0, &mut mats);
+        let (_, _, t1) = mats[0].to_scale_rotation_translation();
+        let (_, _, t2) = mats[1].to_scale_rotation_translation();
+        assert_eq!(t1, Vec3::ZERO);
+        assert_eq!(t2, Vec3::X);
+    }
+
+    #[test]
+    fn animation_player_advance_looping_and_clamp() {
+        let track = vec![
+            Keyframe { time: 0.0, transform: Transform::default() },
+            Keyframe { time: 1.0, transform: Transform { translation: Vec3::X, rotation: Quat::IDENTITY, scale: Vec3::ONE } },
+        ];
+        let clip = AnimationClip { length: 1.0, tracks: vec![track] };
+        let mut player = AnimationPlayer::new(clip);
+
+        // looping
+        let _ = player.advance(0.6); // time = 0.6
+        let _ = player.advance(0.6); // time wraps to 0.2
+        assert!(player.time > 0.19 && player.time < 0.21);
+
+        // disable looping and advance beyond length
+        player.looping = false;
+        let _ = player.advance(2.0);
+        assert!((player.time - 1.0).abs() < 0.0001);
+        let _ = player.advance(1.0);
+        assert!((player.time - 1.0).abs() < 0.0001);
+    }
 }
