@@ -201,4 +201,104 @@ mod tests {
         res.destroy(&mut ctx);
         ctx.destroy();
     }
+
+    #[test]
+    #[serial]
+    fn upload_all_writes_cpu_values() {
+        let mut ctx = make_ctx();
+        let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+        let mut lights = BindlessLights::new();
+        let ld = LightDesc {
+            position: [1.0, 1.0, 1.0],
+            intensity: 5.0,
+            color: [2.0, 3.0, 4.0],
+            range: 1.0,
+            direction: [0.0; 3],
+            _pad: 0,
+        };
+        lights.add_light(&mut ctx, &mut res, ld);
+
+        {
+            let ll = lights.lights.lock().unwrap();
+            let handle = ll.entries[0];
+            let buf = ll.get_ref(handle);
+            let mut slice = ctx.map_buffer_mut(buf.handle).unwrap();
+            let range = buf.offset as usize..buf.offset as usize + std::mem::size_of::<LightDesc>();
+            for b in &mut slice[range] {
+                *b = 0;
+            }
+            ctx.unmap_buffer(buf.handle).unwrap();
+        }
+
+        lights.upload_all(&mut ctx);
+
+        let ll = lights.lights.lock().unwrap();
+        let handle = ll.entries[0];
+        let buf = ll.get_ref(handle);
+        let read_back: LightDesc = {
+            let slice = ctx.map_buffer::<u8>(buf.handle).unwrap();
+            let data = &slice[buf.offset as usize..][..std::mem::size_of::<LightDesc>()];
+            let val = *bytemuck::from_bytes::<LightDesc>(data);
+            ctx.unmap_buffer(buf.handle).unwrap();
+            val
+        };
+        assert_eq!(read_back.intensity, ld.intensity);
+        assert_eq!(read_back.position, ld.position);
+
+        res.destroy(&mut ctx);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn remove_lights_various_indices() {
+        let mut ctx = make_ctx();
+        let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+        let mut lights = BindlessLights::new();
+        let ld = LightDesc { intensity: 1.0, ..Default::default() };
+        for _ in 0..3 {
+            lights.add_light(&mut ctx, &mut res, ld);
+        }
+        assert_eq!(lights.lights.lock().unwrap().len(), 3);
+
+        lights.remove_light(1);
+        assert_eq!(lights.lights.lock().unwrap().len(), 2);
+        lights.remove_light(0);
+        assert_eq!(lights.lights.lock().unwrap().len(), 1);
+        lights.remove_light(5);
+        assert_eq!(lights.lights.lock().unwrap().len(), 1);
+        lights.remove_light(0);
+        assert_eq!(lights.lights.lock().unwrap().len(), 0);
+
+        res.destroy(&mut ctx);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn update_nonexistent_index() {
+        let mut ctx = make_ctx();
+        let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+        let mut lights = BindlessLights::new();
+        let ld = LightDesc { intensity: 1.0, ..Default::default() };
+        lights.add_light(&mut ctx, &mut res, ld);
+
+        let new_ld = LightDesc { intensity: 3.0, ..Default::default() };
+        lights.update_light(&mut ctx, 5, new_ld);
+
+        let ll = lights.lights.lock().unwrap();
+        let handle = ll.entries[0];
+        let buf = ll.get_ref(handle);
+        let read_back: LightDesc = {
+            let slice = ctx.map_buffer::<u8>(buf.handle).unwrap();
+            let data = &slice[buf.offset as usize..][..std::mem::size_of::<LightDesc>()];
+            let val = *bytemuck::from_bytes::<LightDesc>(data);
+            ctx.unmap_buffer(buf.handle).unwrap();
+            val
+        };
+        assert_eq!(read_back.intensity, ld.intensity);
+
+        res.destroy(&mut ctx);
+        ctx.destroy();
+    }
 }
