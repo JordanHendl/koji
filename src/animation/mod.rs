@@ -23,20 +23,28 @@ impl Skeleton {
 pub struct Animator {
     pub skeleton: Skeleton,
     pub matrices: Vec<Mat4>,
+    order: Vec<usize>,
 }
 
 impl Animator {
     pub fn new(skeleton: Skeleton) -> Self {
         let matrices = vec![Mat4::IDENTITY; skeleton.bone_count()];
-        Self { skeleton, matrices }
+        let order = compute_topo_order(&skeleton);
+        Self { skeleton, matrices, order }
     }
 
     pub fn update(&mut self, local: &[Mat4]) {
         assert_eq!(local.len(), self.skeleton.bone_count());
-        let mut world_cache: Vec<Option<Mat4>> = vec![None; self.skeleton.bone_count()];
-        for i in 0..self.skeleton.bone_count() {
-            let world = compute_world_recursive(&self.skeleton, i, local, &mut world_cache);
-            self.matrices[i] = world * self.skeleton.bones[i].inverse_bind;
+        let mut worlds = vec![Mat4::IDENTITY; self.skeleton.bone_count()];
+        for &i in &self.order {
+            let bone = &self.skeleton.bones[i];
+            let parent_world = if let Some(p) = bone.parent {
+                worlds[p]
+            } else {
+                Mat4::IDENTITY
+            };
+            worlds[i] = parent_world * local[i];
+            self.matrices[i] = worlds[i] * bone.inverse_bind;
         }
     }
 
@@ -45,24 +53,28 @@ impl Animator {
     }
 }
 
-fn compute_world_recursive(
-    skeleton: &Skeleton,
-    index: usize,
-    local: &[Mat4],
-    cache: &mut [Option<Mat4>],
-) -> Mat4 {
-    if let Some(m) = cache[index] {
-        return m;
+fn compute_topo_order(skeleton: &Skeleton) -> Vec<usize> {
+    fn visit(idx: usize, skeleton: &Skeleton, visited: &mut [bool], order: &mut Vec<usize>) {
+        if visited[idx] {
+            return;
+        }
+        visited[idx] = true;
+        order.push(idx);
+        for (i, bone) in skeleton.bones.iter().enumerate() {
+            if bone.parent == Some(idx) {
+                visit(i, skeleton, visited, order);
+            }
+        }
     }
-    let bone = &skeleton.bones[index];
-    let parent_world = if let Some(p) = bone.parent {
-        compute_world_recursive(skeleton, p, local, cache)
-    } else {
-        Mat4::IDENTITY
-    };
-    let world = parent_world * local[index];
-    cache[index] = Some(world);
-    world
+
+    let mut order = Vec::new();
+    let mut visited = vec![false; skeleton.bone_count()];
+    for (i, bone) in skeleton.bones.iter().enumerate() {
+        if bone.parent.is_none() {
+            visit(i, skeleton, &mut visited, &mut order);
+        }
+    }
+    order
 }
 
 #[cfg(test)]
