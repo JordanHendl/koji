@@ -59,15 +59,22 @@ fn sample_track(frames: &[Keyframe], time: f32) -> Mat4 {
     if time <= frames[0].time {
         return frames[0].transform.to_mat4();
     }
-    for pair in frames.windows(2) {
-        let a = pair[0];
-        let b = pair[1];
-        if time >= a.time && time <= b.time {
-            let t = (time - a.time) / (b.time - a.time);
-            return a.transform.lerp(&b.transform, t).to_mat4();
-        }
+    if time >= frames.last().unwrap().time {
+        return frames.last().unwrap().transform.to_mat4();
     }
-    frames.last().unwrap().transform.to_mat4()
+
+    use std::cmp::Ordering;
+
+    let idx = match frames
+        .binary_search_by(|f| f.time.partial_cmp(&time).unwrap_or(Ordering::Less))
+    {
+        Ok(i) => return frames[i].transform.to_mat4(),
+        Err(i) => i,
+    };
+    let a = &frames[idx - 1];
+    let b = &frames[idx];
+    let t = (time - a.time) / (b.time - a.time);
+    a.transform.lerp(&b.transform, t).to_mat4()
 }
 
 pub struct AnimationPlayer {
@@ -128,5 +135,47 @@ mod tests {
         let mats = player.advance(0.5);
         let (_, _, t) = mats[0].to_scale_rotation_translation();
         assert!((t - Vec3::new(0.5, 0.0, 0.0)).length() < 0.0001);
+    }
+
+    #[test]
+    fn sample_track_boundaries() {
+        let frames = vec![
+            Keyframe {
+                time: 0.0,
+                transform: Transform {
+                    translation: Vec3::ZERO,
+                    rotation: Quat::IDENTITY,
+                    scale: Vec3::ONE,
+                },
+            },
+            Keyframe {
+                time: 1.0,
+                transform: Transform {
+                    translation: Vec3::new(1.0, 0.0, 0.0),
+                    rotation: Quat::IDENTITY,
+                    scale: Vec3::ONE,
+                },
+            },
+        ];
+
+        // before first frame
+        let m = sample_track(&frames, -1.0);
+        let (_, _, t) = m.to_scale_rotation_translation();
+        assert_eq!(t, Vec3::ZERO);
+
+        // exactly at first frame
+        let m = sample_track(&frames, 0.0);
+        let (_, _, t) = m.to_scale_rotation_translation();
+        assert_eq!(t, Vec3::ZERO);
+
+        // midway
+        let m = sample_track(&frames, 0.5);
+        let (_, _, t) = m.to_scale_rotation_translation();
+        assert!((t - Vec3::new(0.5, 0.0, 0.0)).length() < 0.0001);
+
+        // after last frame
+        let m = sample_track(&frames, 2.0);
+        let (_, _, t) = m.to_scale_rotation_translation();
+        assert_eq!(t, Vec3::new(1.0, 0.0, 0.0));
     }
 }
