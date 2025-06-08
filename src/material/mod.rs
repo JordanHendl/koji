@@ -9,6 +9,8 @@ pub mod skin_pipeline;
 #[cfg(test)]
 mod pipeline_builder_tests;
 #[cfg(test)]
+mod shader_reflection_tests;
+#[cfg(test)]
 mod material_yaml_tests;
 
 pub use pipeline_builder::*;
