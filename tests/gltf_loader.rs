@@ -1,14 +1,18 @@
 use koji::gltf::{load_scene, MeshData};
 
+const TRIANGLE: &str = "tests/data/simple_triangle.gltf";
+const SKIN: &str = "tests/data/simple_skin.gltf";
+
 #[test]
 fn load_triangle() {
-    let scene = load_scene("assets/data/simple_triangle.gltf").expect("load");
+    let scene = load_scene(TRIANGLE).expect("load");
     assert_eq!(scene.meshes.len(), 1);
+    assert!(matches!(scene.meshes[0].mesh, MeshData::Static(_)));
 }
 
 #[test]
 fn load_simple_skin() {
-    let scene = load_scene("assets/data/simple_skin.gltf").expect("load");
+    let scene = load_scene(SKIN).expect("load");
     assert_eq!(scene.meshes.len(), 1);
     match &scene.meshes[0].mesh {
         MeshData::Skeletal(mesh) => {
@@ -17,4 +21,9 @@ fn load_simple_skin() {
         }
         _ => panic!("expected skeletal mesh"),
     }
+}
+
+#[test]
+fn invalid_path_errors() {
+    assert!(load_scene("tests/data/does_not_exist.gltf").is_err());
 }
