@@ -158,3 +158,46 @@ fn load_node(
         load_node(&child, transform, buffers, meshes);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mat4_from_node_transformation() {
+        let (doc, _, _) = gltf::import("tests/data/transform_node.gltf").unwrap();
+        let node = doc.nodes().next().unwrap();
+        let m = super::mat4_from_node(&node);
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::splat(2.0),
+            Quat::from_rotation_z(std::f32::consts::FRAC_PI_2),
+            Vec3::new(1.0, 2.0, 3.0),
+        );
+        let a = m.to_cols_array();
+        let b = expected.to_cols_array();
+        for (x, y) in a.iter().zip(b.iter()) {
+            assert!((x - y).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn load_skin_builds_correct_skeleton() {
+        let (doc, buffers, _) = gltf::import("tests/data/simple_skin.gltf").unwrap();
+        let skin = doc.skins().next().unwrap();
+        let skeleton = super::load_skin(&skin, &buffers);
+        assert_eq!(skeleton.bones.len(), 2);
+        assert_eq!(skeleton.bones[1].parent, Some(0));
+
+        let id = Mat4::IDENTITY.to_cols_array();
+        let bone0 = skeleton.bones[0].inverse_bind.to_cols_array();
+        for (x, y) in bone0.iter().zip(id.iter()) {
+            assert!((x - y).abs() < 1e-5);
+        }
+
+        let expected = Mat4::from_translation(Vec3::new(0.0, -1.0, 0.0)).to_cols_array();
+        let bone1 = skeleton.bones[1].inverse_bind.to_cols_array();
+        for (x, y) in bone1.iter().zip(expected.iter()) {
+            assert!((x - y).abs() < 1e-5);
+        }
+    }
+}
