@@ -325,4 +325,137 @@ mod tests {
             _ => panic!("Expected buffer array binding"),
         }
     }
+
+    #[test]
+    #[serial]
+    fn register_variable_bytes_binding() {
+        let mut ctx = setup_ctx();
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+        manager.register_variable_bytes("var_bytes", &mut ctx, &[1u8, 2, 3, 4]);
+
+        let handle = match manager.get("var_bytes") {
+            Some(ResourceBinding::Uniform(h)) => *h,
+            _ => panic!("Expected uniform binding"),
+        };
+
+        assert_eq!(manager.buffers.entries.len(), 1);
+        let buf_handle = manager
+            .buffers
+            .get_ref(manager.buffers.entries[0])
+            .handle;
+        assert_eq!(buf_handle, handle);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn register_variable_binding() {
+        let mut ctx = setup_ctx();
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+        manager.register_variable("var", &mut ctx, 55u32);
+
+        let handle = match manager.get("var") {
+            Some(ResourceBinding::Uniform(h)) => *h,
+            _ => panic!("Expected uniform binding"),
+        };
+
+        assert_eq!(manager.buffers.entries.len(), 1);
+        let stored_handle = manager
+            .buffers
+            .get_ref(manager.buffers.entries[0])
+            .handle;
+        assert_eq!(stored_handle, handle);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn register_ubo_binding() {
+        let mut ctx = setup_ctx();
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
+        let buffer = ctx
+            .make_buffer(&BufferInfo {
+                debug_name: "ubo_test",
+                byte_size: 16,
+                visibility: MemoryVisibility::CpuAndGpu,
+                usage: BufferUsage::UNIFORM,
+                initial_data: None,
+            })
+            .unwrap();
+
+        manager.register_ubo("ubo", buffer);
+        match manager.get("ubo") {
+            Some(ResourceBinding::Uniform(h)) => assert_eq!(*h, buffer),
+            _ => panic!("Expected uniform binding"),
+        }
+        assert!(manager.buffers.entries.is_empty());
+        ctx.destroy_buffer(buffer);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn register_storage_binding() {
+        let mut ctx = setup_ctx();
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
+        let buffer = ctx
+            .make_buffer(&BufferInfo {
+                debug_name: "storage_test",
+                byte_size: 16,
+                visibility: MemoryVisibility::CpuAndGpu,
+                usage: BufferUsage::STORAGE,
+                initial_data: None,
+            })
+            .unwrap();
+
+        manager.register_storage("store", buffer);
+        match manager.get("store") {
+            Some(ResourceBinding::Storage(h)) => assert_eq!(*h, buffer),
+            _ => panic!("Expected storage binding"),
+        }
+        assert!(manager.buffers.entries.is_empty());
+        ctx.destroy_buffer(buffer);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn register_combined_texture_array_binding() {
+        let mut ctx = setup_ctx();
+        let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+        let mut list = ResourceList::<CombinedTextureSampler>::default();
+
+        let img = ctx.make_image(&ImageInfo::default()).unwrap();
+        let view = ctx
+            .make_image_view(&ImageViewInfo { img, ..Default::default() })
+            .unwrap();
+        list.push(CombinedTextureSampler {
+            texture: Texture {
+                handle: img,
+                view,
+                dim: [1, 1],
+            },
+            sampler,
+        });
+
+        let array = Arc::new(list);
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
+        manager.register_combined_texture_array("combo_arr", array.clone());
+
+        match manager.get("combo_arr") {
+            Some(ResourceBinding::CombinedTextureArray(arr)) => {
+                assert!(Arc::ptr_eq(arr, &array));
+            }
+            _ => panic!("Expected combined texture array"),
+        }
+        ctx.destroy();
+    }
+
+    #[test]
+    fn invalid_lookup_returns_none() {
+        let manager = ResourceManager::default();
+        assert!(manager.get("missing").is_none());
+    }
 }
