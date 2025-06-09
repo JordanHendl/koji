@@ -48,7 +48,7 @@ fn render_pbr_quad() {
 
     let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(),0);
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Opaque, pso, bgr);
+    renderer.register_pipeline_for_pass("main", pso, bgr);
 
     let mesh = StaticMesh {
         vertices: quad_vertices(),

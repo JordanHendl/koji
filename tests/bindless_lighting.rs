@@ -39,7 +39,7 @@ fn bindless_lighting_sample() {
         .render_pass(renderer.render_pass(),0)
         .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Opaque, pso, bgr);
+    renderer.register_pipeline_for_pass("main", pso, bgr);
 
     let mut lights = BindlessLights::new();
     let light = LightDesc{ position:[0.0,0.0,0.0], intensity:1.0, color:[1.0,1.0,1.0], range:1.0, direction:[0.0,0.0,-1.0], _pad:0 };

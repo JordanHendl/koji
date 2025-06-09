@@ -41,7 +41,7 @@ fn static_mesh_with_movement() {
         .render_pass(renderer.render_pass(),0)
         .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Opaque,pso,bgr);
+    renderer.register_pipeline_for_pass("main", pso, bgr);
 
     let mesh = StaticMesh {
         vertices: vec![

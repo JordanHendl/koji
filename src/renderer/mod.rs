@@ -29,7 +29,8 @@ pub struct Renderer {
     event_pump: sdl2::EventPump,
     render_pass: Handle<RenderPass>,
     targets: Vec<RenderTarget>,
-    pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
+    stage_pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
+    pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
     skeletal_pipeline: Option<(PSO, [Option<PSOBindGroupResources>; 4])>,
     resource_manager: ResourceManager,
     lights: BindlessLights,
@@ -79,6 +80,7 @@ impl Renderer {
             event_pump,
             render_pass,
             targets,
+            stage_pipelines: HashMap::new(),
             pipelines: HashMap::new(),
             skeletal_pipeline: None,
             drawables: Vec::new(),
@@ -140,7 +142,16 @@ impl Renderer {
         pso: PSO,
         bind_group_resources: [Option<PSOBindGroupResources>; 4],
     ) {
-        self.pipelines.insert(stage, (pso, bind_group_resources));
+        self.stage_pipelines.insert(stage, (pso, bind_group_resources));
+    }
+
+    pub fn register_pipeline_for_pass(
+        &mut self,
+        pass: &str,
+        pso: PSO,
+        bind_group_resources: [Option<PSOBindGroupResources>; 4],
+    ) {
+        self.pipelines.insert(pass.to_string(), (pso, bind_group_resources));
     }
 
     pub fn register_skeletal_pso(
@@ -236,29 +247,29 @@ impl Renderer {
 
         self.command_list.record(|list| {
             for target in &self.targets {
-                list.begin_drawing(&DrawBegin {
-                    viewport: Viewport {
-                        area: FRect2D {
-                            w: self.width as f32,
-                            h: self.height as f32,
+                if let Some((pso, bind_groups)) = self.pipelines.get(&target.name) {
+                    list.begin_drawing(&DrawBegin {
+                        viewport: Viewport {
+                            area: FRect2D {
+                                w: self.width as f32,
+                                h: self.height as f32,
+                                ..Default::default()
+                            },
+                            scissor: Rect2D {
+                                w: self.width,
+                                h: self.height,
+                                ..Default::default()
+                            },
                             ..Default::default()
                         },
-                        scissor: Rect2D {
-                            w: self.width,
-                            h: self.height,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
-                    pipeline: self.pipelines[&RenderStage::Opaque].0.pipeline,
-                    attachments: &target
-                        .colors
-                        .iter()
-                        .map(|a| a.attachment)
-                        .collect::<Vec<_>>(),
-                })
-                .unwrap();
-                let (_pso, bind_groups) = &self.pipelines[&RenderStage::Opaque];
+                        pipeline: pso.pipeline,
+                        attachments: &target
+                            .colors
+                            .iter()
+                            .map(|a| a.attachment)
+                            .collect::<Vec<_>>(),
+                    })
+                    .unwrap();
                 for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
                     let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                     let ib = mesh.index_buffer;
@@ -294,9 +305,10 @@ impl Renderer {
                 }
 
                 list.end_drawing().unwrap();
+                }
 
 
-                if let Some((pso, bind_groups)) = self.pipelines.get(&RenderStage::Text) {
+                if let Some((pso, bind_groups)) = self.stage_pipelines.get(&RenderStage::Text) {
                     list.begin_drawing(&DrawBegin {
                         viewport: Viewport {
                             area: FRect2D {

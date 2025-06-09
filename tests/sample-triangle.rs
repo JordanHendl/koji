@@ -100,7 +100,7 @@ fn render_triangle_and_cube() {
     let bind_group_resources = pso.create_bind_groups(&renderer.resources()).unwrap();
 
     // Register pipeline+resources
-    renderer.register_pso(RenderStage::Opaque, pso, bind_group_resources);
+    renderer.register_pipeline_for_pass("main", pso, bind_group_resources);
 
     // Register triangle
     let triangle_mesh = StaticMesh {
