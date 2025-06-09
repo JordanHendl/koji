@@ -40,7 +40,7 @@ fn bindless_rendering_sample() {
         .render_pass(renderer.render_pass(),0)
         .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Opaque, pso, bgr);
+    renderer.register_pipeline_for_pass("main", pso, bgr);
 
     let mut bindless = BindlessData::new();
     let tex_data:[u8;4] = [255,0,0,255];

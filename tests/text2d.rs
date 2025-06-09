@@ -29,7 +29,7 @@ fn draw_text_2d() {
         .render_pass(renderer.render_pass(), 0)
         .build();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Text, pso, bgr);
+    renderer.register_pipeline_for_pass("main", pso, bgr);
 
     let font_bytes: &[u8] = include_bytes!("../assets/data/DejaVuSans.ttf");
     let text = TextRenderer2D::new(font_bytes);
