@@ -48,35 +48,20 @@ impl Renderer {
        unsafe{&mut *self.ctx}
     }
 
-    pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
+    pub fn with_render_pass(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        builder: RenderPassBuilder,
+    ) -> Result<Self, GPUError> {
         let clear_color = [0.1, 0.2, 0.3, 1.0];
 
-        let ptr: *mut Context =  ctx;
-        let mut ctx: &mut Context =  unsafe{&mut *ptr};
-        let display = ctx.make_display(&DisplayInfo {
-            ..Default::default()
-        })?;
+        let ptr: *mut Context = ctx;
+        let mut ctx: &mut Context = unsafe { &mut *ptr };
+        let display = ctx.make_display(&DisplayInfo { ..Default::default() })?;
 
-        // Main pass: 1 color attachment, no depth
-        let (render_pass, targets, _attachments) = RenderPassBuilder::new()
-            .debug_name("MainPass")
-            .extent([width, height])
-            .viewport(Viewport {
-                area: FRect2D {
-                    w: width as f32,
-                    h: height as f32,
-                    ..Default::default()
-                },
-                scissor: Rect2D {
-                    w: width,
-                    h: height,
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .color_attachment("color", Format::RGBA8)
-            .subpass("main", &["color"], &[] as &[&str])
-            .build_with_images(&mut ctx)?;
+        let builder = builder.extent([width, height]);
+        let (render_pass, targets, _attachments) = builder.build_with_images(&mut ctx)?;
 
         assert!(render_pass.valid());
         let event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
@@ -107,6 +92,39 @@ impl Renderer {
             height,
             clear_color,
         })
+    }
+
+    pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
+        let builder = RenderPassBuilder::new()
+            .debug_name("MainPass")
+            .viewport(Viewport {
+                area: FRect2D {
+                    w: width as f32,
+                    h: height as f32,
+                    ..Default::default()
+                },
+                scissor: Rect2D {
+                    w: width,
+                    h: height,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .color_attachment("color", Format::RGBA8)
+            .subpass("main", &["color"], &[] as &[&str]);
+
+        Self::with_render_pass(width, height, ctx, builder)
+    }
+
+    pub fn with_render_pass_yaml(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        path: &str,
+    ) -> Result<Self, GPUError> {
+        let builder = RenderPassBuilder::from_yaml_file(path)
+            .map_err(|_| GPUError::LibraryError())?;
+        Self::with_render_pass(width, height, ctx, builder)
     }
     pub fn render_pass(&self) -> Handle<RenderPass> {
         self.render_pass
