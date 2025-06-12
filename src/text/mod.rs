@@ -82,6 +82,13 @@ impl<'a> TextRenderer2D<'a> {
             Vertex { position: [pos[0], pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,0.0], color:[1.0;4]},
         ];
         let indices = vec![0u32,1,2,2,3,0];
-        StaticMesh { vertices: verts, indices: Some(indices), vertex_buffer: None, index_buffer: None, index_count: 0 }
+        StaticMesh {
+            material_id: "text".into(),
+            vertices: verts,
+            indices: Some(indices),
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+        }
     }
 }

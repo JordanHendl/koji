@@ -44,6 +44,7 @@ fn static_mesh_with_movement() {
     renderer.register_pipeline_for_pass("main", pso, bgr);
 
     let mesh = StaticMesh {
+        material_id: "default".into(),
         vertices: vec![
             Vertex{position:[-0.5,-0.5,0.0],normal:[0.0,0.0,1.0],tangent:[1.0,0.0,0.0,1.0],uv:[0.0,0.0],color:[1.0,1.0,1.0,1.0]},
             Vertex{position:[0.5,-0.5,0.0],normal:[0.0,0.0,1.0],tangent:[1.0,0.0,0.0,1.0],uv:[1.0,0.0],color:[1.0,1.0,1.0,1.0]},
@@ -54,7 +55,7 @@ fn static_mesh_with_movement() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh,None);
+    renderer.register_static_mesh(mesh,None,"default".into());
 
     // move vertices slightly
     let new_verts = vec![

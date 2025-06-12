@@ -118,6 +118,7 @@ fn load_node(
                     })
                     .collect();
                 let mut mesh = SkeletalMesh {
+                    material_id: "default".into(),
                     vertices: verts,
                     indices,
                     vertex_buffer: None,
@@ -144,6 +145,7 @@ fn load_node(
                     })
                     .collect();
                 MeshData::Static(StaticMesh {
+                    material_id: "default".into(),
                     vertices: verts,
                     indices,
                     vertex_buffer: None,

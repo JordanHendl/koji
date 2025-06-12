@@ -104,23 +104,25 @@ fn render_triangle_and_cube() {
 
     // Register triangle
     let triangle_mesh = StaticMesh {
+        material_id: "color".into(),
         vertices: triangle_vertices(),
         indices: None,
         vertex_buffer: None,
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(triangle_mesh, None);
+    renderer.register_static_mesh(triangle_mesh, None, "color".into());
 
     // Register cube
     let cube_mesh = StaticMesh {
+        material_id: "color".into(),
         vertices: cube_vertices(),
         indices: Some(cube_indices()),
         vertex_buffer: None,
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(cube_mesh, None);
+    renderer.register_static_mesh(cube_mesh, None, "color".into());
 
     // Main loop: just draw both objects with same pipeline/PSO/bind group
     renderer.render_loop(|_r| {

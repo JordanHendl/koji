@@ -59,13 +59,14 @@ pub fn run(ctx: &mut Context) {
     let (verts, inds) = make_sphere(8, 16);
     for _ in 0..3 {
         let mesh = StaticMesh {
+            material_id: "pbr".into(),
             vertices: verts.clone(),
             indices: Some(inds.clone()),
             vertex_buffer: None,
             index_buffer: None,
             index_count: 0,
         };
-        renderer.register_static_mesh(mesh, None);
+        renderer.register_static_mesh(mesh, None, "pbr".into());
     }
 
     let white: [u8; 4] = [255, 255, 255, 255];

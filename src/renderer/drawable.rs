@@ -36,6 +36,7 @@ pub struct SkeletalVertex {
 }
 
 pub struct StaticMesh {
+    pub material_id: String,
     pub vertices: Vec<Vertex>,
     pub indices: Option<Vec<u32>>,
     pub vertex_buffer: Option<Handle<Buffer>>,
@@ -119,6 +120,7 @@ impl SkeletalMesh {
 /// Skeletal mesh data with optional GPU resources.
 #[derive(Debug, Clone)]
 pub struct SkeletalMesh {
+    pub material_id: String,
     pub vertices: Vec<SkeletalVertex>,
     pub indices: Option<Vec<u32>>,
     pub vertex_buffer: Option<Handle<Buffer>>,
@@ -166,6 +168,7 @@ mod tests {
     fn upload_static_mesh_sets_buffers_valid() {
         let mut ctx = make_ctx();
         let mut mesh = StaticMesh {
+            material_id: "test".into(),
             vertices: vec![simple_vertex(), simple_vertex(), simple_vertex()],
             indices: Some(vec![0, 1, 2]),
             vertex_buffer: None,
@@ -186,6 +189,7 @@ mod tests {
         let mut ctx = make_ctx();
         let skeleton = Skeleton { bones: vec![Bone::default(); 2] };
         let mut mesh = SkeletalMesh {
+            material_id: "test".into(),
             vertices: vec![simple_skel_vertex()],
             indices: None,
             vertex_buffer: None,
@@ -210,6 +214,7 @@ mod tests {
         let mut ctx = make_ctx();
         let skeleton = Skeleton { bones: vec![Bone::default(); 2] };
         let mut mesh = SkeletalMesh {
+            material_id: "test".into(),
             vertices: vec![simple_skel_vertex()],
             indices: None,
             vertex_buffer: None,
@@ -237,6 +242,7 @@ mod tests {
         let mut ctx = make_ctx();
         let skeleton = Skeleton { bones: vec![Bone::default()] };
         let mesh = SkeletalMesh {
+            material_id: "test".into(),
             vertices: vec![simple_skel_vertex()],
             indices: None,
             vertex_buffer: None,

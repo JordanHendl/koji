@@ -18,7 +18,7 @@ fn skinned_mesh_render() {
     let scene = load_scene("assets/data/simple_skin.gltf").expect("load");
     let mesh = match &scene.meshes[0].mesh { MeshData::Skeletal(m) => m.clone(), _ => panic!("expected skel") };
     let bone_count = mesh.skeleton.bone_count();
-    renderer.register_skeletal_mesh(mesh);
+    renderer.register_skeletal_mesh(mesh, "skin".into());
 
     let mut pso = build_skinning_pipeline(&mut ctx, renderer.render_pass(),0);
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
