@@ -5,6 +5,26 @@ use dashi::*;
 use inline_spirv::include_spirv;
 use serial_test::serial;
 
+fn load_system_font() -> Vec<u8> {
+    #[cfg(target_os = "windows")]
+    const CANDIDATES: &[&str] = &[
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+    ];
+    #[cfg(target_os = "linux")]
+    const CANDIDATES: &[&str] = &[
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+    ];
+    for path in CANDIDATES {
+        if let Ok(bytes) = std::fs::read(path) {
+            return bytes;
+        }
+    }
+    panic!("Could not locate a system font");
+}
+
 fn make_vert() -> Vec<u32> {
     include_spirv!("assets/shaders/text.vert", vert).to_vec()
 }
@@ -31,8 +51,8 @@ fn draw_text_2d() {
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
 
-    let font_bytes: &[u8] = include_bytes!("../assets/data/DejaVuSans.ttf");
-    let text = TextRenderer2D::new(font_bytes);
+    let font_bytes = load_system_font();
+    let text = TextRenderer2D::new(&font_bytes);
     let dim = text.upload_text_texture(&mut ctx, renderer.resources(), "glyph_tex", "Hello", 32.0);
     let mesh = text.make_quad(dim, [-0.5, 0.5]);
     renderer.register_text_mesh(mesh);

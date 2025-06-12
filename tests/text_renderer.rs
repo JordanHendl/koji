@@ -4,6 +4,26 @@ use dashi::gpu;
 use rusttype::{Font, Scale, point};
 use serial_test::serial;
 
+fn load_system_font() -> Vec<u8> {
+    #[cfg(target_os = "windows")]
+    const CANDIDATES: &[&str] = &[
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+    ];
+    #[cfg(target_os = "linux")]
+    const CANDIDATES: &[&str] = &[
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+    ];
+    for path in CANDIDATES {
+        if let Ok(bytes) = std::fs::read(path) {
+            return bytes;
+        }
+    }
+    panic!("Could not locate a system font");
+}
+
 fn setup_ctx() -> gpu::Context {
     gpu::Context::headless(&Default::default()).unwrap()
 }
@@ -35,12 +55,12 @@ fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
 #[test]
 #[serial]
 fn new_loads_font_bytes() {
-    let font_bytes: &[u8] = include_bytes!("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-    let text = TextRenderer2D::new(font_bytes);
+    let font_bytes = load_system_font();
+    let text = TextRenderer2D::new(&font_bytes);
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let dim = text.upload_text_texture(&mut ctx, &mut res, "hello", "Hi", 20.0);
-    assert_eq!(dim, expected_dims("Hi", 20.0, font_bytes));
+    assert_eq!(dim, expected_dims("Hi", 20.0, &font_bytes));
     destroy_combined(&mut ctx, &res, "hello");
     ctx.destroy();
 }
@@ -48,13 +68,13 @@ fn new_loads_font_bytes() {
 #[test]
 #[serial]
 fn upload_registers_texture_with_expected_dims() {
-    let font_bytes: &[u8] = include_bytes!("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-    let text = TextRenderer2D::new(font_bytes);
+    let font_bytes = load_system_font();
+    let text = TextRenderer2D::new(&font_bytes);
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
 
     let dim = text.upload_text_texture(&mut ctx, &mut res, "greeting", "Hello", 32.0);
-    let expected = expected_dims("Hello", 32.0, font_bytes);
+    let expected = expected_dims("Hello", 32.0, &font_bytes);
     assert_eq!(dim, expected);
     match res.get("greeting") {
         Some(ResourceBinding::CombinedImageSampler { texture, .. }) => {
@@ -68,8 +88,8 @@ fn upload_registers_texture_with_expected_dims() {
 
 #[test]
 fn make_quad_generates_correct_vertices() {
-    let font_bytes: &[u8] = include_bytes!("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-    let text = TextRenderer2D::new(font_bytes);
+    let font_bytes = load_system_font();
+    let text = TextRenderer2D::new(&font_bytes);
     let dim = [16, 8];
     let pos = [1.0, 2.0];
     let mesh = text.make_quad(dim, pos);
@@ -94,8 +114,8 @@ fn make_quad_generates_correct_vertices() {
 #[serial]
 #[should_panic]
 fn upload_empty_string_zero_texture() {
-    let font_bytes: &[u8] = include_bytes!("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-    let text = TextRenderer2D::new(font_bytes);
+    let font_bytes = load_system_font();
+    let text = TextRenderer2D::new(&font_bytes);
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let dim = text.upload_text_texture(&mut ctx, &mut res, "empty", "", 16.0);
