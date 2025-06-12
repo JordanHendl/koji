@@ -3,7 +3,6 @@ use koji::renderer::*;
 use koji::text::*;
 use dashi::*;
 use inline_spirv::include_spirv;
-use serial_test::serial;
 
 fn load_system_font() -> Vec<u8> {
     #[cfg(target_os = "windows")]
@@ -33,10 +32,8 @@ fn make_frag() -> Vec<u32> {
     include_spirv!("assets/shaders/text.frag", frag).to_vec()
 }
 
-#[test]
-#[serial]
-#[ignore]
-fn draw_text_2d() {
+#[cfg(feature = "gpu_tests")]
+pub fn run() {
     let device = DeviceSelector::new().unwrap().select(DeviceFilter::default().add_required_type(DeviceType::Dedicated)).unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo { device }).unwrap();
     let mut renderer = Renderer::new(320, 240, "text", &mut ctx).expect("renderer");
@@ -59,4 +56,17 @@ fn draw_text_2d() {
 
     renderer.present_frame().unwrap();
     ctx.destroy();
+}
+
+#[cfg(all(test, feature = "gpu_tests"))]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[serial]
+    #[ignore]
+    fn draw_text_2d() {
+        run();
+    }
 }

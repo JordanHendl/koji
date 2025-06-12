@@ -1,7 +1,7 @@
 use koji::material::*;
 use koji::renderer::*;
 use dashi::*;
-use serial_test::serial;
+
 use inline_spirv::inline_spirv;
 
 fn simple_vert() -> Vec<u32> {
@@ -22,10 +22,8 @@ fn simple_frag() -> Vec<u32> {
     ).to_vec()
 }
 
-#[test]
-#[serial]
-#[ignore]
-fn bindless_rendering_sample() {
+#[cfg(feature = "gpu_tests")]
+pub fn run() {
     let device = DeviceSelector::new().unwrap()
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
         .unwrap_or_default();
@@ -69,4 +67,17 @@ fn bindless_rendering_sample() {
     renderer.register_static_mesh(mesh,None,"bindless".into());
     renderer.present_frame().unwrap();
     ctx.destroy();
+}
+
+#[cfg(all(test, feature = "gpu_tests"))]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[serial]
+    #[ignore]
+    fn bindless_rendering_sample() {
+        run();
+    }
 }

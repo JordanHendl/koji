@@ -4,12 +4,9 @@ use koji::material::*;
 use glam::Mat4;
 use koji::animation::Animator;
 use dashi::*;
-use serial_test::serial;
 
-#[test]
-#[serial]
-#[ignore]
-fn skinned_mesh_render() {
+#[cfg(feature = "gpu_tests")]
+pub fn run() {
     let device = DeviceSelector::new().unwrap()
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
         .unwrap_or_default();
@@ -30,4 +27,17 @@ fn skinned_mesh_render() {
     renderer.update_skeletal_bones(0,0,&mats);
     renderer.present_frame().unwrap();
     ctx.destroy();
+}
+
+#[cfg(all(test, feature = "gpu_tests"))]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[serial]
+    #[ignore]
+    fn skinned_mesh_render() {
+        run();
+    }
 }

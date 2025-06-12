@@ -55,3 +55,31 @@ path = "examples/pbr_spheres/bin.rs"
 name = "custom_pass"
 path = "examples/custom_pass/bin.rs"
 
+[[example]]
+name = "bindless_lighting"
+path = "examples/bindless_lighting/bin.rs"
+
+[[example]]
+name = "bindless_rendering"
+path = "examples/bindless_rendering/bin.rs"
+
+[[example]]
+name = "pbr_renderer"
+path = "examples/pbr_renderer/bin.rs"
+
+[[example]]
+name = "skinned_mesh_render"
+path = "examples/skinned_mesh_render/bin.rs"
+
+[[example]]
+name = "skeletal_renderer"
+path = "examples/skeletal_renderer/bin.rs"
+
+[[example]]
+name = "static_movement"
+path = "examples/static_movement/bin.rs"
+
+[[example]]
+name = "text2d"
+path = "examples/text2d/bin.rs"
+

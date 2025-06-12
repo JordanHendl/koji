@@ -1,7 +1,7 @@
 use koji::material::*;
 use koji::renderer::*;
 use dashi::*;
-use serial_test::serial;
+
 use inline_spirv::include_spirv;
 use koji::material::pipeline_builder::PipelineBuilder;
 use dashi::utils::Handle;
@@ -38,10 +38,8 @@ fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -
         .build()
 }
 
-#[test]
-#[serial]
-#[ignore]
-fn render_pbr_quad() {
+#[cfg(feature = "gpu_tests")]
+pub fn run() {
     let device = DeviceSelector::new().unwrap().select(DeviceFilter::default().add_required_type(DeviceType::Dedicated)).unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo{ device }).unwrap();
     let mut renderer = Renderer::new(320,240,"pbr", &mut ctx).expect("renderer");
@@ -72,4 +70,17 @@ fn render_pbr_quad() {
 
     renderer.present_frame().unwrap();
     ctx.destroy();
+}
+
+#[cfg(all(test, feature = "gpu_tests"))]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[serial]
+    #[ignore]
+    fn render_pbr_quad() {
+        run();
+    }
 }
