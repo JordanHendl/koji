@@ -25,6 +25,13 @@ fn load_simple_skin() {
     let clip = &scene.animations[0];
     assert_eq!(clip.tracks.len(), 3);
     assert!(!clip.tracks[2].is_empty());
+    // verify first few keyframes are loaded correctly
+    assert!((clip.length - 5.5).abs() < 0.0001);
+    assert_eq!(clip.tracks[2].len(), 12);
+    let kf1 = &clip.tracks[2][1];
+    assert!((kf1.time - 0.5).abs() < 0.0001);
+    assert!((kf1.transform.rotation.z - 0.383).abs() < 0.001);
+    assert!((kf1.transform.rotation.w - 0.924).abs() < 0.001);
 }
 
 #[test]
