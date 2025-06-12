@@ -37,7 +37,7 @@ pub struct Renderer {
     lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
     text_drawables: Vec<StaticMesh>,
-    skeletal_meshes: Vec<SkeletalMesh>,
+    skeletal_meshes: Vec<(SkeletalMesh, Vec<SkeletalInstance>)>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
     clear_color: [f32; 4],
@@ -192,15 +192,20 @@ impl Renderer {
         self.text_drawables.push(mesh);
    }
 
-    /// Upload a skeletal mesh and track it for later updates.
-    pub fn register_skeletal_mesh(&mut self, mut mesh: SkeletalMesh, material_id: String) {
+    /// Upload a skeletal mesh and its instances.
+    pub fn register_skeletal_mesh(
+        &mut self,
+        mut mesh: SkeletalMesh,
+        instances: Vec<SkeletalInstance>,
+        material_id: String,
+    ) {
         mesh.material_id = material_id;
         mesh.upload(self.get_ctx())
             .expect("Failed to upload skeletal mesh to GPU");
-        if let Some(buf) = mesh.bone_buffer {
-            self.resource_manager.register_storage("bone_buf", buf);
+        for inst in &instances {
+            self.resource_manager.register_storage("bone_buf", inst.bone_buffer);
         }
-        self.skeletal_meshes.push(mesh);
+        self.skeletal_meshes.push((mesh, instances));
     }
   
     pub fn add_light(&mut self, light: LightDesc) -> u32 {
@@ -244,13 +249,14 @@ impl Renderer {
         }
     }
 
-    /// Update bone matrices for a registered skeletal mesh.
-    pub fn update_skeletal_bones(&mut self, idx: usize, matrices: &[Mat4]) {
+    /// Update bone matrices for a specific skeletal instance.
+    pub fn update_skeletal_bones(&mut self, mesh_idx: usize, inst_idx: usize, matrices: &[Mat4]) {
         let ctx = self.get_ctx();
-        if let Some(mesh) = self.skeletal_meshes.get_mut(idx) {
-            mesh
-                .update_bones(ctx, matrices)
-                .expect("Failed to update bone matrices");
+        if let Some((_mesh, instances)) = self.skeletal_meshes.get_mut(mesh_idx) {
+            if let Some(inst) = instances.get_mut(inst_idx) {
+                inst.animator.matrices.clone_from_slice(matrices);
+                let _ = inst.update_gpu(ctx);
+            }
         }
     }
 
@@ -392,7 +398,7 @@ impl Renderer {
                     list.end_drawing().unwrap();
                 }
 
-                for mesh in &self.skeletal_meshes {
+                for (mesh, instances) in &mut self.skeletal_meshes {
                     let (pso, bind_groups) = if let Some(entry) =
                         self.material_pipelines.get(&mesh.material_id)
                     {
@@ -402,61 +408,77 @@ impl Renderer {
                     } else {
                         continue;
                     };
-                    list.begin_drawing(&DrawBegin {
-                        viewport: Viewport {
-                            area: FRect2D {
-                                w: self.width as f32,
-                                h: self.height as f32,
-                                ..Default::default()
-                            },
-                            scissor: Rect2D {
-                                w: self.width,
-                                h: self.height,
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
-                        pipeline: pso.pipeline,
-                        attachments: &target
-                            .colors
-                            .iter()
-                            .map(|a| a.attachment)
-                            .collect::<Vec<_>>(),
-                    })
-                    .unwrap();
+                    let layout = pso.bind_group_layouts[0].expect("layout");
+                    for inst in instances.iter_mut() {
+                        inst.update_gpu(ctx).unwrap();
+                        let inst_bg = ctx
+                            .make_bind_group(&BindGroupInfo {
+                                debug_name: "skel_instance_bg",
+                                layout,
+                                set: 0,
+                                bindings: &[BindingInfo {
+                                    binding: 0,
+                                    resource: ShaderResource::StorageBuffer(inst.bone_buffer),
+                                }],
+                            })
+                            .unwrap();
 
-                    let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
-                    let ib = mesh.index_buffer;
-                    let draw: dashi::Command = if let Some(ib) = ib {
-                        Command::DrawIndexed(DrawIndexed {
-                            index_count: mesh.index_count as u32,
-                            instance_count: 1,
-                            vertices: vb,
-                            indices: ib,
-                            bind_groups: [
-                                bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
-                            ],
-                            ..Default::default()
+                        list.begin_drawing(&DrawBegin {
+                            viewport: Viewport {
+                                area: FRect2D {
+                                    w: self.width as f32,
+                                    h: self.height as f32,
+                                    ..Default::default()
+                                },
+                                scissor: Rect2D {
+                                    w: self.width,
+                                    h: self.height,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            },
+                            pipeline: pso.pipeline,
+                            attachments: &target
+                                .colors
+                                .iter()
+                                .map(|a| a.attachment)
+                                .collect::<Vec<_>>(),
                         })
-                    } else {
-                        Command::Draw(Draw {
-                            count: mesh.index_count as u32,
-                            instance_count: 1,
-                            vertices: vb,
-                            bind_groups: [
-                                bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
-                            ],
-                            ..Default::default()
-                        })
-                    };
-                    list.append(draw);
-                    list.end_drawing().unwrap();
+                        .unwrap();
+
+                        let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                        let ib = mesh.index_buffer;
+                        let draw: dashi::Command = if let Some(ib) = ib {
+                            Command::DrawIndexed(DrawIndexed {
+                                index_count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                indices: ib,
+                                bind_groups: [
+                                    Some(inst_bg),
+                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        } else {
+                            Command::Draw(Draw {
+                                count: mesh.index_count as u32,
+                                instance_count: 1,
+                                vertices: vb,
+                                bind_groups: [
+                                    Some(inst_bg),
+                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                ],
+                                ..Default::default()
+                            })
+                        };
+                        list.append(draw);
+                        list.end_drawing().unwrap();
+                    }
                 }
               
                 list.blit_image(ImageBlit {
