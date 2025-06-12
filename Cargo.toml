@@ -51,3 +51,7 @@ path = "examples/sample_shadows/bin.rs"
 name = "pbr_spheres"
 path = "examples/pbr_spheres/bin.rs"
 
+[[example]]
+name = "custom_pass"
+path = "examples/custom_pass/bin.rs"
+
