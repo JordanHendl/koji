@@ -21,6 +21,10 @@ fn load_simple_skin() {
         }
         _ => panic!("expected skeletal mesh"),
     }
+    assert_eq!(scene.animations.len(), 1);
+    let clip = &scene.animations[0];
+    assert_eq!(clip.tracks.len(), 3);
+    assert!(!clip.tracks[2].is_empty());
 }
 
 #[test]
