@@ -1,5 +1,6 @@
 use crate::renderer::{SkeletalMesh, SkeletalVertex, StaticMesh, Vertex};
 use crate::animation::{Bone, Skeleton};
+use crate::animation::clip::{AnimationClip, Keyframe, Transform};
 use glam::{Mat4, Quat, Vec3};
 use gltf::{self};
 
@@ -15,6 +16,7 @@ pub struct SceneMesh {
 
 pub struct Scene {
     pub meshes: Vec<SceneMesh>,
+    pub animations: Vec<AnimationClip>,
 }
 
 fn mat4_from_node(node: &gltf::Node) -> Mat4 {
@@ -62,13 +64,78 @@ fn load_skin(skin: &gltf::Skin, buffers: &[gltf::buffer::Data]) -> Skeleton {
 pub fn load_scene(path: &str) -> Result<Scene, gltf::Error> {
     let (doc, buffers, _images) = gltf::import(path)?;
     let mut meshes = Vec::new();
+    let mut animations = Vec::new();
     let default_scene = doc.default_scene().or_else(|| doc.scenes().next());
     if let Some(scene) = default_scene {
         for node in scene.nodes() {
             load_node(&node, Mat4::IDENTITY, &buffers, &mut meshes);
         }
     }
-    Ok(Scene { meshes })
+    let node_count = doc.nodes().len();
+    for anim in doc.animations() {
+        animations.push(load_animation(&anim, &buffers, node_count));
+    }
+    Ok(Scene { meshes, animations })
+}
+
+fn load_animation(
+    animation: &gltf::Animation,
+    buffers: &[gltf::buffer::Data],
+    node_count: usize,
+) -> AnimationClip {
+    use gltf::animation::util::ReadOutputs;
+    use std::collections::HashMap;
+
+    let mut tracks: Vec<HashMap<u32, Transform>> = vec![HashMap::new(); node_count];
+    let mut length = 0.0f32;
+
+    for channel in animation.channels() {
+        let reader = channel.reader(|b| Some(&buffers[b.index()].0));
+        if let (Some(inputs), Some(outputs)) = (reader.read_inputs(), reader.read_outputs()) {
+            let times: Vec<f32> = inputs.collect();
+            let node_idx = channel.target().node().index();
+            match outputs {
+                ReadOutputs::Translations(vals) => {
+                    for (t, v) in times.iter().zip(vals) {
+                        let entry = tracks[node_idx].entry(t.to_bits()).or_insert_with(Transform::default);
+                        entry.translation = Vec3::from(v);
+                        if *t > length { length = *t; }
+                    }
+                }
+                ReadOutputs::Rotations(vals) => {
+                    for (t, v) in times.iter().zip(vals.into_f32()) {
+                        let entry = tracks[node_idx].entry(t.to_bits()).or_insert_with(Transform::default);
+                        entry.rotation = Quat::from_array(v);
+                        if *t > length { length = *t; }
+                    }
+                }
+                ReadOutputs::Scales(vals) => {
+                    for (t, v) in times.iter().zip(vals) {
+                        let entry = tracks[node_idx].entry(t.to_bits()).or_insert_with(Transform::default);
+                        entry.scale = Vec3::from(v);
+                        if *t > length { length = *t; }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let tracks: Vec<Vec<Keyframe>> = tracks
+        .into_iter()
+        .map(|map| {
+            let mut vec: Vec<(f32, Transform)> = map
+                .into_iter()
+                .map(|(bits, t)| (f32::from_bits(bits), t))
+                .collect();
+            vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            vec.into_iter()
+                .map(|(time, transform)| Keyframe { time, transform })
+                .collect()
+        })
+        .collect();
+
+    AnimationClip { length, tracks }
 }
 
 fn load_node(
