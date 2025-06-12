@@ -31,6 +31,7 @@ pub struct Renderer {
     targets: Vec<RenderTarget>,
     stage_pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
     pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
+    material_pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
     skeletal_pipeline: Option<(PSO, [Option<PSOBindGroupResources>; 4])>,
     resource_manager: ResourceManager,
     lights: BindlessLights,
@@ -82,6 +83,7 @@ impl Renderer {
             targets,
             stage_pipelines: HashMap::new(),
             pipelines: HashMap::new(),
+            material_pipelines: HashMap::new(),
             skeletal_pipeline: None,
             drawables: Vec::new(),
             text_drawables: Vec::new(),
@@ -162,11 +164,23 @@ impl Renderer {
         self.skeletal_pipeline = Some((pso, bind_group_resources));
     }
 
+    pub fn register_material_pipeline(
+        &mut self,
+        material_id: &str,
+        pso: PSO,
+        bind_group_resources: [Option<PSOBindGroupResources>; 4],
+    ) {
+        self.material_pipelines
+            .insert(material_id.to_string(), (pso, bind_group_resources));
+    }
+
     pub fn register_static_mesh(
         &mut self,
         mut mesh: StaticMesh,
         dynamic_buffers: Option<DynamicBuffer>,
+        material_id: String,
     ) {
+        mesh.material_id = material_id;
         mesh.upload(self.get_ctx())
             .expect("Failed to upload mesh to GPU");
         self.drawables.push((mesh, dynamic_buffers));
@@ -179,7 +193,8 @@ impl Renderer {
    }
 
     /// Upload a skeletal mesh and track it for later updates.
-    pub fn register_skeletal_mesh(&mut self, mut mesh: SkeletalMesh) {
+    pub fn register_skeletal_mesh(&mut self, mut mesh: SkeletalMesh, material_id: String) {
+        mesh.material_id = material_id;
         mesh.upload(self.get_ctx())
             .expect("Failed to upload skeletal mesh to GPU");
         if let Some(buf) = mesh.bone_buffer {
@@ -247,7 +262,16 @@ impl Renderer {
 
         self.command_list.record(|list| {
             for target in &self.targets {
-                if let Some((pso, bind_groups)) = self.pipelines.get(&target.name) {
+                for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
+                    let (pso, bind_groups) = if let Some(entry) =
+                        self.material_pipelines.get(&mesh.material_id)
+                    {
+                        entry
+                    } else if let Some(entry) = self.pipelines.get(&target.name) {
+                        entry
+                    } else {
+                        continue;
+                    };
                     list.begin_drawing(&DrawBegin {
                         viewport: Viewport {
                             area: FRect2D {
@@ -270,7 +294,7 @@ impl Renderer {
                             .collect::<Vec<_>>(),
                     })
                     .unwrap();
-                for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
+
                     let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                     let ib = mesh.index_buffer;
                     let draw: dashi::Command = if let Some(ib) = ib {
@@ -302,9 +326,7 @@ impl Renderer {
                         })
                     };
                     list.append(draw);
-                }
-
-                list.end_drawing().unwrap();
+                    list.end_drawing().unwrap();
                 }
 
 
@@ -370,7 +392,16 @@ impl Renderer {
                     list.end_drawing().unwrap();
                 }
 
-                if let Some((pso, bind_groups)) = &self.skeletal_pipeline {
+                for mesh in &self.skeletal_meshes {
+                    let (pso, bind_groups) = if let Some(entry) =
+                        self.material_pipelines.get(&mesh.material_id)
+                    {
+                        entry
+                    } else if let Some(entry) = &self.skeletal_pipeline {
+                        entry
+                    } else {
+                        continue;
+                    };
                     list.begin_drawing(&DrawBegin {
                         viewport: Viewport {
                             area: FRect2D {
@@ -393,40 +424,38 @@ impl Renderer {
                             .collect::<Vec<_>>(),
                     })
                     .unwrap();
-                    for mesh in &self.skeletal_meshes {
-                        let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
-                        let ib = mesh.index_buffer;
-                        let draw: dashi::Command = if let Some(ib) = ib {
-                            Command::DrawIndexed(DrawIndexed {
-                                index_count: mesh.index_count as u32,
-                                instance_count: 1,
-                                vertices: vb,
-                                indices: ib,
-                                bind_groups: [
-                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
-                                ],
-                                ..Default::default()
-                            })
-                        } else {
-                            Command::Draw(Draw {
-                                count: mesh.index_count as u32,
-                                instance_count: 1,
-                                vertices: vb,
-                                bind_groups: [
-                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
-                                ],
-                                ..Default::default()
-                            })
-                        };
-                        list.append(draw);
-                    }
 
+                    let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                    let ib = mesh.index_buffer;
+                    let draw: dashi::Command = if let Some(ib) = ib {
+                        Command::DrawIndexed(DrawIndexed {
+                            index_count: mesh.index_count as u32,
+                            instance_count: 1,
+                            vertices: vb,
+                            indices: ib,
+                            bind_groups: [
+                                bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                            ],
+                            ..Default::default()
+                        })
+                    } else {
+                        Command::Draw(Draw {
+                            count: mesh.index_count as u32,
+                            instance_count: 1,
+                            vertices: vb,
+                            bind_groups: [
+                                bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                            ],
+                            ..Default::default()
+                        })
+                    };
+                    list.append(draw);
                     list.end_drawing().unwrap();
                 }
               

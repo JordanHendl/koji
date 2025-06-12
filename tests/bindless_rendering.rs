@@ -55,6 +55,7 @@ fn bindless_rendering_sample() {
     bindless.register(renderer.resources());
 
     let mesh = StaticMesh {
+        material_id: "bindless".into(),
         vertices: vec![
             Vertex{position:[0.0,-0.5,0.0],normal:[0.0,0.0,1.0],tangent:[1.0,0.0,0.0,1.0],uv:[0.0,0.0],color:[1.0,1.0,1.0,1.0]},
             Vertex{position:[0.5,0.5,0.0],normal:[0.0,0.0,1.0],tangent:[1.0,0.0,0.0,1.0],uv:[1.0,1.0],color:[1.0,1.0,1.0,1.0]},
@@ -65,7 +66,7 @@ fn bindless_rendering_sample() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh,None);
+    renderer.register_static_mesh(mesh,None,"bindless".into());
     renderer.present_frame().unwrap();
     ctx.destroy();
 }

@@ -22,7 +22,7 @@ fn render_simple_skeleton() {
         _ => panic!("expected skeletal mesh"),
     };
     let bone_count = mesh.skeleton.bone_count();
-    renderer.register_skeletal_mesh(mesh);
+    renderer.register_skeletal_mesh(mesh, "skin".into());
 
     let mut pso = build_skinning_pipeline(&mut ctx, renderer.render_pass(), 0);
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
@@ -51,7 +51,7 @@ fn update_bones_twice() {
         _ => panic!("expected skeletal mesh"),
     };
     let bone_count = mesh.skeleton.bone_count();
-    renderer.register_skeletal_mesh(mesh);
+    renderer.register_skeletal_mesh(mesh, "skin".into());
 
     let mut pso = build_skinning_pipeline(&mut ctx, renderer.render_pass(), 0);
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
