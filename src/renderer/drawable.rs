@@ -7,7 +7,7 @@
 //! provides a helper to call this on registered meshes.
 use dashi::{utils::Handle, *};
 use glam::Mat4;
-use crate::animation::Skeleton;
+use crate::animation::{Animator, Skeleton};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -128,6 +128,35 @@ pub struct SkeletalMesh {
     pub index_count: usize,
     pub skeleton: Skeleton,
     pub bone_buffer: Option<Handle<Buffer>>,
+}
+
+/// A runtime instance of a skeletal mesh with its own animator and GPU buffer.
+pub struct SkeletalInstance {
+    pub animator: Animator,
+    pub bone_buffer: Handle<Buffer>,
+}
+
+impl SkeletalInstance {
+    /// Create a new instance with GPU storage for bone matrices.
+    pub fn new(ctx: &mut Context, animator: Animator) -> Result<Self, GPUError> {
+        let bone_buffer = ctx.make_buffer(&BufferInfo {
+            debug_name: "skel_instance_bones",
+            byte_size: (animator.skeleton.bone_count() * std::mem::size_of::<Mat4>()) as u32,
+            visibility: MemoryVisibility::Gpu,
+            usage: BufferUsage::STORAGE,
+            initial_data: None,
+        })?;
+        Ok(Self { animator, bone_buffer })
+    }
+
+    /// Upload the animator's matrices to the GPU buffer.
+    pub fn update_gpu(&self, ctx: &mut Context) -> Result<(), GPUError> {
+        let bytes: &[u8] = bytemuck::cast_slice(&self.animator.matrices);
+        let slice = ctx.map_buffer_mut(self.bone_buffer)?;
+        slice[..bytes.len()].copy_from_slice(bytes);
+        ctx.unmap_buffer(self.bone_buffer)?;
+        Ok(())
+    }
 }
 #[cfg(test)]
 mod tests {
