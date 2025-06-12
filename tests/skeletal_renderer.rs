@@ -3,12 +3,9 @@ use koji::gltf::{load_scene, MeshData};
 use koji::material::*;
 use glam::Mat4;
 use dashi::*;
-use serial_test::serial;
 
-#[test]
-#[serial]
-#[ignore]
-fn render_simple_skeleton() {
+#[cfg(feature = "gpu_tests")]
+pub fn run_simple_skeleton() {
     let device = DeviceSelector::new()
         .unwrap()
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
@@ -34,10 +31,8 @@ fn render_simple_skeleton() {
     ctx.destroy();
 }
 
-#[test]
-#[serial]
-#[ignore]
-fn update_bones_twice() {
+#[cfg(feature = "gpu_tests")]
+pub fn run_update_bones_twice() {
     let device = DeviceSelector::new()
         .unwrap()
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
@@ -62,4 +57,24 @@ fn update_bones_twice() {
     renderer.update_skeletal_bones(0, &mats);
     renderer.present_frame().unwrap();
     ctx.destroy();
+}
+
+#[cfg(all(test, feature = "gpu_tests"))]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[serial]
+    #[ignore]
+    fn render_simple_skeleton() {
+        run_simple_skeleton();
+    }
+
+    #[test]
+    #[serial]
+    #[ignore]
+    fn update_bones_twice() {
+        run_update_bones_twice();
+    }
 }

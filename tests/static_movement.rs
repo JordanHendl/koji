@@ -1,7 +1,7 @@
 use koji::material::*;
 use koji::renderer::*;
 use dashi::*;
-use serial_test::serial;
+
 use inline_spirv::inline_spirv;
 
 fn vert() -> Vec<u32> {
@@ -25,10 +25,8 @@ fn make_vertex(pos:[f32;3]) -> Vertex {
     Vertex { position:pos, normal:[0.0,0.0,1.0], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,0.0], color:[1.0,1.0,1.0,1.0] }
 }
 
-#[test]
-#[serial]
-#[ignore]
-fn static_mesh_with_movement() {
+#[cfg(feature = "gpu_tests")]
+pub fn run() {
     let device = DeviceSelector::new().unwrap()
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
         .unwrap_or_default();
@@ -67,4 +65,17 @@ fn static_mesh_with_movement() {
 
     renderer.present_frame().unwrap();
     ctx.destroy();
+}
+
+#[cfg(all(test, feature = "gpu_tests"))]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[serial]
+    #[ignore]
+    fn static_mesh_with_movement() {
+        run();
+    }
 }
