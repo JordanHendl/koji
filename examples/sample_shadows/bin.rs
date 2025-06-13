@@ -603,21 +603,34 @@ pub fn main() {
 //    let mut display = ctx.make_display(&Default::default()).unwrap();
 //    let semaphores = ctx.make_semaphores(2).unwrap();
 //    let mut framed = FramedCommandList::new(ctx, "cascaded", 2);
-//    let mut event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
+//    let event_loop = display.winit_event_loop();
 //    let mut _timer = Instant::now();
 //
 //    'main: loop {
-//        for e in event_pump.poll_iter() {
-//            if matches!(
-//                e,
-//                Event::Quit { .. }
-//                    | Event::KeyDown {
-//                        keycode: Some(Keycode::Escape),
+//        let mut should_exit = false;
+//        event_loop.run_return(|event, _, control_flow| {
+//            *control_flow = ControlFlow::Exit;
+//            if let Event::WindowEvent { event, .. } = event {
+//                match event {
+//                    WindowEvent::CloseRequested
+//                    | WindowEvent::KeyboardInput {
+//                        input:
+//                            KeyboardInput {
+//                                virtual_keycode: Some(VirtualKeyCode::Escape),
+//                                state: ElementState::Pressed,
+//                                ..
+//                            },
 //                        ..
+//                    } =>
+//                    {
+//                        should_exit = true;
 //                    }
-//            ) {
-//                break 'main;
+//                    _ => {}
+//                }
 //            }
+//        });
+//        if should_exit {
+//            break 'main;
 //        }
 //
 //        let (img, acquire_sem, _, _) = ctx.acquire_new_image(&mut display).unwrap();
