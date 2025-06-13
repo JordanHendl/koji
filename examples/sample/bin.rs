@@ -1,7 +1,9 @@
 use dashi::utils::*;
 use dashi::*;
 use koji::*;
-use sdl2::{event::Event, keyboard::Keycode};
+use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use winit::event_loop::ControlFlow;
+use winit::platform::run_return::EventLoopExtRunReturn;
 // Shaders are stored under `assets/shaders/` and compiled at build time using `include_spirv!`.
 
 pub fn main() {
@@ -99,20 +101,27 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
 
     // ==== The rest: draw with pipeline ====
     let mut display = ctx.make_display(&Default::default()).unwrap();
-    let mut event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
     let mut framed_list = FramedCommandList::new(ctx, "SampleRenderList", 2);
     let semaphores = ctx.make_semaphores(2).unwrap();
 
     'running: loop {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-                _ => {}
-            }
+        let mut should_exit = false;
+        {
+            let event_loop = display.winit_event_loop();
+            event_loop.run_return(|event, _, control_flow| {
+                *control_flow = ControlFlow::Exit;
+                if let Event::WindowEvent { event, .. } = event {
+                    match event {
+                        WindowEvent::CloseRequested |
+                        WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), state: ElementState::Pressed, .. }, .. } =>
+                            should_exit = true,
+                        _ => {}
+                    }
+                }
+            });
+        }
+        if should_exit {
+            break 'running;
         }
 
         let (img, acquire_sem, _img_idx, _ok) = ctx.acquire_new_image(&mut display).unwrap();

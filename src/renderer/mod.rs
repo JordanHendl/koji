@@ -7,8 +7,9 @@ use dashi::utils::*;
 use crate::render_pass::*;
 use dashi::*;
 use glam::Mat4;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use winit::event_loop::ControlFlow;
+use winit::platform::run_return::EventLoopExtRunReturn;
 use std::collections::HashMap;
 /// Render pipeline stage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,7 +27,6 @@ pub struct PipelineEntry {
 pub struct Renderer {
     ctx: * mut Context,
     display: Display,
-    event_pump: sdl2::EventPump,
     render_pass: Handle<RenderPass>,
     targets: Vec<RenderTarget>,
     stage_pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
@@ -66,7 +66,6 @@ impl Renderer {
         let (render_pass, targets, _attachments) = builder.build_with_images(&mut ctx)?;
 
         assert!(render_pass.valid());
-        let event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
 
         let command_list = FramedCommandList::new(&mut ctx, "RendererCmdList", 2);
         let semaphores = ctx.make_semaphores(2)?;
@@ -78,7 +77,6 @@ impl Renderer {
         Ok(Self {
             ctx,
             display,
-            event_pump,
             render_pass,
             targets,
             stage_pipelines: HashMap::new(),
@@ -226,16 +224,22 @@ impl Renderer {
     /// Main render pass, returns false if quit requested
     pub fn render_loop<F: FnMut(&mut Renderer)>(&mut self, mut draw_fn: F) {
         'running: loop {
-            for event in self.event_pump.poll_iter() {
-                match event {
-                    Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    } => break 'running,
-                    _ => {}
-                }
+            let mut should_exit = false;
+            {
+                let event_loop = self.display.winit_event_loop();
+                event_loop.run_return(|event, _, control_flow| {
+                    *control_flow = ControlFlow::Exit;
+                    if let Event::WindowEvent { event, .. } = event {
+                        match event {
+                            WindowEvent::CloseRequested |
+                            WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), state: ElementState::Pressed, .. }, .. } =>
+                                should_exit = true,
+                            _ => {}
+                        }
+                    }
+                });
             }
+            if should_exit { break 'running; }
             draw_fn(self);
             self.present_frame().unwrap();
         }

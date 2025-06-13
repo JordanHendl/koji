@@ -2,8 +2,9 @@ use dashi::*;
 use glam::*;
 use inline_spirv::include_spirv;
 use koji::render_pass::*;
-use sdl2::keyboard::Keycode;
-use sdl2::event::Event;
+use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use winit::event_loop::ControlFlow;
+use winit::platform::run_return::EventLoopExtRunReturn;
 // Shader code is located in `assets/shaders/` and included via `include_spirv!`.
 
 pub fn run(ctx: &mut Context) {
@@ -391,25 +392,31 @@ pub fn run(ctx: &mut Context) {
 
     // -- SDL and Render Loop --
     let mut display = ctx.make_display(&Default::default()).unwrap();
-    let mut event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
     let mut framed = FramedCommandList::new(ctx, "csm_frame", 2);
     let semaphores = ctx.make_semaphores(2).unwrap();
 
     println!("Starting render loop...");
 
     'running: loop {
-        for e in event_pump.poll_iter() {
-            if matches!(
-                e,
-                Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
+        let mut should_exit = false;
+        {
+            let event_loop = display.winit_event_loop();
+            event_loop.run_return(|event, _, control_flow| {
+                *control_flow = ControlFlow::Exit;
+                if let Event::WindowEvent { event, .. } = event {
+                    match event {
+                        WindowEvent::CloseRequested |
+                        WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), state: ElementState::Pressed, .. }, .. } => {
+                            println!("Shutting down...");
+                            should_exit = true;
+                        }
+                        _ => {}
                     }
-            ) {
-                println!("Shutting down...");
-                break 'running;
-            }
+                }
+            });
+        }
+        if should_exit {
+            break 'running;
         }
 
         let (image, acquire_sem, _, _) = ctx.acquire_new_image(&mut display).unwrap();
