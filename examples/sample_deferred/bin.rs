@@ -6,7 +6,7 @@ use koji::render_pass::*;
 use koji::*;
 use koji::utils::ResourceManager;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
-use winit::event_loop::ControlFlow;
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 // Shader sources live in `assets/shaders/` and are included with `include_spirv!`.
 use std::time::Instant;
