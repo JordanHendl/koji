@@ -474,4 +474,5 @@ pub fn main() {
 
     let mut ctx = Context::new(&ContextInfo { device }).unwrap();
     run(&mut ctx);
+    ctx.destroy();
 }
