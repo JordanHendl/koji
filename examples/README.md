@@ -3,7 +3,7 @@
 Each subdirectory provides a small demo showcasing some feature of **Koji**. The
 examples can be run with `cargo run --example <name>`.
 
-Most demos compile shaders from the `assets/shaders/` directory and open an SDL2
+Most demos compile shaders from the `assets/shaders/` directory and open a winit
 window. Heavier integrations that were originally tests (such as bindless or
 skeletal rendering) are behind the `gpu_tests` feature flag.
 
