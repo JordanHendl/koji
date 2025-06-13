@@ -38,6 +38,7 @@ pub struct Keyframe {
     pub transform: Transform,
 }
 
+#[derive(Clone)]
 pub struct AnimationClip {
     pub length: f32,
     pub tracks: Vec<Vec<Keyframe>>, // per-bone keyframes
