@@ -131,7 +131,7 @@ pub fn run(ctx: &mut Context) {
     );
     let light_count = lights.lights.lock().unwrap().len();
     lights.register(&mut resources);
-    resources.register_variable("", ctx, light_count);
+    resources.register_variable("light_count", ctx, light_count);
 
     let lighting_bg = pso_lighting.create_bind_group(0, &resources).unwrap();
 
