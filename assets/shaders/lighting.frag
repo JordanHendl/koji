@@ -10,7 +10,7 @@ struct Light {
 layout(set = 0, binding = 0) uniform sampler2D albedoTex;
 layout(set = 0, binding = 1) uniform sampler2D normalTex;
 layout(set = 0, binding = 2) buffer Lights { Light lights[]; };
-layout(set = 0, binding = 3) uniform LightCount { uint count; };
+layout(set = 0, binding = 3) uniform LightCount { uint count; } light_count;
 
 layout(location = 0) out vec4 outColor;
 
@@ -21,7 +21,7 @@ void main() {
 
     vec3 view_dir = vec3(0.0, 0.0, 1.0);
     vec3 result = vec3(0.0);
-    for (uint i = 0u; i < count; ++i) {
+    for (uint i = 0u; i < light_count.count; ++i) {
         vec3 light_dir = normalize(lights[i].position);
         float diff = max(dot(normal, light_dir), 0.0);
         vec3 half_dir = normalize(light_dir + view_dir);
