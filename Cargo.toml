@@ -76,6 +76,10 @@ name = "skeletal_renderer"
 path = "examples/skeletal_renderer/bin.rs"
 
 [[example]]
+name = "skeletal_animation"
+path = "examples/skeletal_animation/bin.rs"
+
+[[example]]
 name = "static_movement"
 path = "examples/static_movement/bin.rs"
 

@@ -260,6 +260,20 @@ impl Renderer {
         }
     }
 
+    /// Advance an animation player and upload the new bone matrices.
+    pub fn play_animation(&mut self, mesh_idx: usize, inst_idx: usize, dt: f32) {
+        let ctx = self.get_ctx();
+        if let Some((_mesh, instances)) = self.skeletal_meshes.get_mut(mesh_idx) {
+            if let Some(inst) = instances.get_mut(inst_idx) {
+                if let Some(player) = inst.player.as_mut() {
+                    let local = player.advance(dt);
+                    inst.animator.update(&local);
+                    let _ = inst.update_gpu(ctx);
+                }
+            }
+        }
+    }
+
     /// Present one frame to display (for tests or non-interactive draw)
     pub fn present_frame(&mut self) -> Result<(), GPUError> {
         let ctx = self.get_ctx();

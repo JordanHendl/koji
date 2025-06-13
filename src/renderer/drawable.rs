@@ -134,6 +134,7 @@ pub struct SkeletalMesh {
 pub struct SkeletalInstance {
     pub animator: Animator,
     pub bone_buffer: Handle<Buffer>,
+    pub player: Option<crate::animation::clip::AnimationPlayer>,
 }
 
 impl SkeletalInstance {
@@ -146,7 +147,18 @@ impl SkeletalInstance {
             usage: BufferUsage::STORAGE,
             initial_data: None,
         })?;
-        Ok(Self { animator, bone_buffer })
+        Ok(Self { animator, bone_buffer, player: None })
+    }
+
+    /// Create a new instance with an animation player.
+    pub fn with_player(
+        ctx: &mut Context,
+        animator: Animator,
+        player: crate::animation::clip::AnimationPlayer,
+    ) -> Result<Self, GPUError> {
+        let mut inst = Self::new(ctx, animator)?;
+        inst.player = Some(player);
+        Ok(inst)
     }
 
     /// Upload the animator's matrices to the GPU buffer.

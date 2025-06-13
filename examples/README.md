@@ -24,5 +24,6 @@ cargo run --features gpu_tests --example text2d   # run an example requiring gpu
 - **pbr_renderer** – textured quad with the PBR material *(gpu_tests)*
 - **skinned_mesh_render** – render a skinned glTF mesh *(gpu_tests)*
 - **skeletal_renderer** – skeleton rendering and bone updates *(gpu_tests)*
+- **skeletal_animation** – play an animated skeletal mesh *(gpu_tests)*
 - **static_movement** – update vertices of a static mesh *(gpu_tests)*
 - **text2d** – draw 2D text using the text renderer *(gpu_tests)*
