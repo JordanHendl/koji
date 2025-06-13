@@ -33,6 +33,7 @@ cargo test
 ## Sample Binaries
 
 Example programs live under the `examples/` directory and can be run with
-`cargo run --example <name>`. Some of the heavier demos are gated behind the
-`gpu_tests` feature flag. See [examples/README.md](examples/README.md) for a
-description of each example and exact commands.
+`cargo run --example <name>`. These require a Vulkan-capable GPU and a working
+window system. Some of the heavier demos are gated behind the `gpu_tests`
+feature flag. See [examples/README.md](examples/README.md) for a description of
+each example and exact commands.
