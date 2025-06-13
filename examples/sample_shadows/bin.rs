@@ -390,7 +390,7 @@ pub fn run(ctx: &mut Context) {
         })
         .unwrap();
 
-    // -- SDL and Render Loop --
+    // -- Winit and Render Loop --
     let mut display = ctx.make_display(&Default::default()).unwrap();
     let mut framed = FramedCommandList::new(ctx, "csm_frame", 2);
     let semaphores = ctx.make_semaphores(2).unwrap();
@@ -481,8 +481,8 @@ pub fn main() {
 //use dashi::*;
 //use inline_spirv::inline_spirv;
 //use koji::*;
-//use sdl2::event::Event;
-//use sdl2::keyboard::Keycode;
+//use winit::event::Event;
+//use winit::event::VirtualKeyCode;
 //use std::time::Instant;
 //
 //pub fn run(ctx: &mut Context) {
@@ -603,16 +603,16 @@ pub fn main() {
 //    let mut display = ctx.make_display(&Default::default()).unwrap();
 //    let semaphores = ctx.make_semaphores(2).unwrap();
 //    let mut framed = FramedCommandList::new(ctx, "cascaded", 2);
-//    let mut event_pump = ctx.get_sdl_ctx().event_pump().unwrap();
+//    let event_loop = display.winit_event_loop();
 //    let mut _timer = Instant::now();
 //
 //    'main: loop {
-//        for e in event_pump.poll_iter() {
+//        for e in event_loop.poll_iter() {
 //            if matches!(
 //                e,
-//                Event::Quit { .. }
+//                Event::WindowEvent { .. }
 //                    | Event::KeyDown {
-//                        keycode: Some(Keycode::Escape),
+//                        keycode: Some(VirtualKeyCode::Escape),
 //                        ..
 //                    }
 //            ) {

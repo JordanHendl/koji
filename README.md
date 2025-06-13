@@ -4,6 +4,7 @@ Koji is a small rendering crate built on top of [Dashi](https://github.com/Jorda
 It provides helpers for building render pipelines, loading `glTF` assets and drawing text.
 SPIR-V shaders are compiled at build time via `inline-spirv` and winit is used for windowing.
 
+
 ## Dependencies
 
 Key dependencies include:
