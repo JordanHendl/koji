@@ -3,7 +3,7 @@ use glam::*;
 use inline_spirv::include_spirv;
 use koji::render_pass::*;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
-use winit::event_loop::ControlFlow;
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 // Shader code is located in `assets/shaders/` and included via `include_spirv!`.
 
@@ -481,8 +481,6 @@ pub fn main() {
 //use dashi::*;
 //use inline_spirv::inline_spirv;
 //use koji::*;
-//use sdl2::event::Event;
-//use sdl2::keyboard::Keycode;
 //use std::time::Instant;
 //
 //pub fn run(ctx: &mut Context) {

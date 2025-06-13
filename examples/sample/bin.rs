@@ -2,7 +2,7 @@ use dashi::utils::*;
 use dashi::*;
 use koji::*;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
-use winit::event_loop::ControlFlow;
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 // Shaders are stored under `assets/shaders/` and compiled at build time using `include_spirv!`.
 
