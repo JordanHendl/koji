@@ -100,7 +100,9 @@ pub fn run(ctx: &mut Context) {
         renderer.register_static_mesh(mesh, None, "pbr".into());
     }
 
-    renderer.present_frame().unwrap();
+    renderer.render_loop(|_r| {
+        // No per-frame updates required for this sample
+    });
 }
 
 pub fn main() {
