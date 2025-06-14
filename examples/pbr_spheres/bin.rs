@@ -120,14 +120,14 @@ fn register_textures(ctx: &mut Context, res: &mut ResourceManager) {
 }
 
 pub fn run(ctx: &mut Context) {
-    let mut renderer = Renderer::new(320, 240, "pbr_spheres", ctx).unwrap();
+    let mut renderer = Renderer::new(1920, 1080, "pbr_spheres", ctx).unwrap();
     register_textures(ctx, renderer.resources());
 
     let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
 
-    let (verts, inds) = make_sphere(8, 16);
+    let (verts, inds) = make_sphere(32, 32);
     for _ in 0..3 {
         let mesh = StaticMesh {
             material_id: "pbr".into(),
