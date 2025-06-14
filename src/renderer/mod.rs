@@ -1,5 +1,7 @@
 mod drawable;
 pub use drawable::*;
+mod time_stats;
+pub use time_stats::*;
 
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO};
 use crate::utils::ResourceManager;
