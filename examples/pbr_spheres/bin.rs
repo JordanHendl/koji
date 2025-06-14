@@ -52,23 +52,6 @@ fn make_sphere(lat: u32, long: u32) -> (Vec<Vertex>, Vec<u32>) {
 
 pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(320, 240, "pbr_spheres", ctx).unwrap();
-    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
-    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Opaque, pso, bgr);
-
-    let (verts, inds) = make_sphere(8, 16);
-    for _ in 0..3 {
-        let mesh = StaticMesh {
-            material_id: "pbr".into(),
-            vertices: verts.clone(),
-            indices: Some(inds.clone()),
-            vertex_buffer: None,
-            index_buffer: None,
-            index_count: 0,
-        };
-        renderer.register_static_mesh(mesh, None, "pbr".into());
-    }
-
     let white: [u8; 4] = [255, 255, 255, 255];
     let img = ctx
         .make_image(&ImageInfo {
@@ -99,6 +82,23 @@ pub fn run(ctx: &mut Context) {
     renderer
         .resources()
         .register_combined("roughness_map", img, view, [1, 1], sampler);
+
+    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
+    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
+    renderer.register_pso(RenderStage::Opaque, pso, bgr);
+
+    let (verts, inds) = make_sphere(8, 16);
+    for _ in 0..3 {
+        let mesh = StaticMesh {
+            material_id: "pbr".into(),
+            vertices: verts.clone(),
+            indices: Some(inds.clone()),
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+        };
+        renderer.register_static_mesh(mesh, None, "pbr".into());
+    }
 
     renderer.present_frame().unwrap();
 }
