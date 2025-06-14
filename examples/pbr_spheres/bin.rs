@@ -51,58 +51,120 @@ fn make_sphere(lat: u32, long: u32) -> (Vec<Vertex>, Vec<u32>) {
 }
 
 pub fn run(ctx: &mut Context) {
-    let mut renderer = Renderer::new(320, 240, "pbr_spheres", ctx).unwrap();
-    let white: [u8; 4] = [255, 255, 255, 255];
-    let img = ctx
-        .make_image(&ImageInfo {
-            debug_name: "alb",
-            dim: [1, 1, 1],
-            format: Format::RGBA8,
-            mip_levels: 1,
-            layers: 1,
-            initial_data: Some(&white),
-        })
-        .unwrap();
-    let view = ctx
-        .make_image_view(&ImageViewInfo {
-            img,
-            ..Default::default()
-        })
-        .unwrap();
-    let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
-    renderer
-        .resources()
-        .register_combined("albedo_map", img, view, [1, 1], sampler);
-    renderer
-        .resources()
-        .register_combined("normal_map", img, view, [1, 1], sampler);
-    renderer
-        .resources()
-        .register_combined("metallic_map", img, view, [1, 1], sampler);
-    renderer
-        .resources()
-        .register_combined("roughness_map", img, view, [1, 1], sampler);
+    let mut renderer = Renderer::new(640, 480, "pbr_spheres", ctx).unwrap();
 
-    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
-    let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Opaque, pso, bgr);
+    let normal: [u8; 4] = [128, 128, 255, 255];
+    let (base_verts, inds) = make_sphere(16, 32);
+    let positions = [-2.0f32, 0.0, 2.0];
+    let colors = [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255]];
+    let metallics = [0u8, 128u8, 255u8];
+    let roughness = [64u8, 128u8, 200u8];
 
-    let (verts, inds) = make_sphere(8, 16);
-    for _ in 0..3 {
+    for i in 0..3 {
+        let alb_img = ctx
+            .make_image(&ImageInfo {
+                debug_name: "alb",
+                dim: [1, 1, 1],
+                format: Format::RGBA8,
+                mip_levels: 1,
+                layers: 1,
+                initial_data: Some(&colors[i]),
+            })
+            .unwrap();
+        let alb_view = ctx
+            .make_image_view(&ImageViewInfo {
+                img: alb_img,
+                ..Default::default()
+            })
+            .unwrap();
+
+        let norm_img = ctx
+            .make_image(&ImageInfo {
+                debug_name: "norm",
+                dim: [1, 1, 1],
+                format: Format::RGBA8,
+                mip_levels: 1,
+                layers: 1,
+                initial_data: Some(&normal),
+            })
+            .unwrap();
+        let norm_view = ctx
+            .make_image_view(&ImageViewInfo {
+                img: norm_img,
+                ..Default::default()
+            })
+            .unwrap();
+
+        let metal_img = ctx
+            .make_image(&ImageInfo {
+                debug_name: "metal",
+                dim: [1, 1, 1],
+                format: Format::RGBA8,
+                mip_levels: 1,
+                layers: 1,
+                initial_data: Some(&[metallics[i], metallics[i], metallics[i], 255]),
+            })
+            .unwrap();
+        let metal_view = ctx
+            .make_image_view(&ImageViewInfo {
+                img: metal_img,
+                ..Default::default()
+            })
+            .unwrap();
+
+        let rough_img = ctx
+            .make_image(&ImageInfo {
+                debug_name: "rough",
+                dim: [1, 1, 1],
+                format: Format::RGBA8,
+                mip_levels: 1,
+                layers: 1,
+                initial_data: Some(&[roughness[i], roughness[i], roughness[i], 255]),
+            })
+            .unwrap();
+        let rough_view = ctx
+            .make_image_view(&ImageViewInfo {
+                img: rough_img,
+                ..Default::default()
+            })
+            .unwrap();
+
+        let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+
+        renderer
+            .resources()
+            .register_combined("albedo_map", alb_img, alb_view, [1, 1], sampler);
+        renderer
+            .resources()
+            .register_combined("normal_map", norm_img, norm_view, [1, 1], sampler);
+        renderer
+            .resources()
+            .register_combined("metallic_map", metal_img, metal_view, [1, 1], sampler);
+        renderer
+            .resources()
+            .register_combined("roughness_map", rough_img, rough_view, [1, 1], sampler);
+
+        let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
+        let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
+        let mat_id = format!("pbr{}", i);
+        renderer.register_material_pipeline(&mat_id, pso, bgr);
+
+        let mut verts = base_verts.clone();
+        for v in &mut verts {
+            v.position[0] += positions[i];
+        }
         let mesh = StaticMesh {
-            material_id: "pbr".into(),
-            vertices: verts.clone(),
+            material_id: mat_id.clone(),
+            vertices: verts,
             indices: Some(inds.clone()),
             vertex_buffer: None,
             index_buffer: None,
             index_count: 0,
         };
-        renderer.register_static_mesh(mesh, None, "pbr".into());
+        renderer.register_static_mesh(mesh, None, mat_id);
     }
 
-    renderer.render_loop(|_r| {
-        // No per-frame updates required for this sample
-    });
+    renderer.render_loop(|_r| {});
 }
 
 pub fn main() {
