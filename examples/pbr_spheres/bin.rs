@@ -103,9 +103,8 @@ fn register_textures(ctx: &mut Context, res: &mut ResourceManager) {
     #[cfg(not(feature = "gpu_tests"))]
     {
         let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
-        let white: [u8; 4] = [255, 255, 255, 255];
         for key in ["albedo_map", "normal_map", "metallic_map", "roughness_map"] {
-            let handle = texture_manager::load_from_bytes(ctx, res, key, &white);
+            let handle = texture_manager::create_solid_color(ctx, res, key, [255, 255, 255, 255]);
             let tex = *res.textures.get_ref(handle);
             res.remove(key);
             res.register_combined(key, tex.handle, tex.view, tex.dim, sampler);
