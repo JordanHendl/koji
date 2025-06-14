@@ -65,7 +65,7 @@ pub fn free_texture(
     ctx.destroy_image(tex.handle);
     res.textures.release(handle);
 
-    if let Some((key, _)) = res
+    if let Some(key) = res
         .bindings
         .iter()
         .find(|(_, b)| match b {
@@ -73,7 +73,7 @@ pub fn free_texture(
             ResourceBinding::CombinedImageSampler { texture, .. } => texture.handle == tex.handle,
             _ => false,
         })
-        .map(|(k, v)| (k.clone(), v.clone()))
+        .map(|(k, _)| k.clone())
     {
         res.bindings.remove(&key);
     }
