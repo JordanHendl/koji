@@ -50,8 +50,43 @@ pub fn load_from_file(
     key: &str,
     path: &std::path::Path,
 ) -> Handle<Texture> {
-    let bytes = std::fs::read(path).expect("Failed to read texture file");
+    let bytes = std::fs::read(path).unwrap_or_else(|_| {
+        panic!("Failed to read texture file {}", path.display())
+    });
     load_from_bytes(ctx, res, key, &bytes)
+}
+
+/// Create a single 1x1 texture with a solid RGBA color and register it with the [`ResourceManager`].
+pub fn create_solid_color(
+    ctx: &mut Context,
+    res: &mut ResourceManager,
+    key: &str,
+    color: [u8; 4],
+) -> Handle<Texture> {
+    let image = ctx
+        .make_image(&ImageInfo {
+            debug_name: key,
+            dim: [1, 1, 1],
+            layers: 1,
+            format: Format::RGBA8,
+            mip_levels: 1,
+            initial_data: Some(&color),
+        })
+        .unwrap();
+
+    let view = ctx
+        .make_image_view(&ImageViewInfo { img: image, ..Default::default() })
+        .unwrap();
+
+    let tex = Texture {
+        handle: image,
+        view,
+        dim: [1, 1],
+    };
+
+    let handle = res.textures.push(tex.clone());
+    res.bindings.insert(key.into(), ResourceBinding::Texture(tex));
+    handle
 }
 
 /// Free a texture previously loaded via this module.
