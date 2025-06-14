@@ -65,8 +65,10 @@ subpasses:
     };
     renderer.register_static_mesh(mesh, None, "color".into());
 
-    // Draw a single frame
-    renderer.present_frame().unwrap();
+    // Render loop - nothing changes per frame in this simple sample
+    renderer.render_loop(|_r| {
+        // No dynamic updates
+    });
 }
 
 pub fn main() {
