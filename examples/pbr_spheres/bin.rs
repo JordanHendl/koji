@@ -85,7 +85,7 @@ pub fn run(ctx: &mut Context) {
 
     let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
-    renderer.register_pso(RenderStage::Opaque, pso, bgr);
+    renderer.register_pipeline_for_pass("main", pso, bgr);
 
     let (verts, inds) = make_sphere(8, 16);
     for _ in 0..3 {
