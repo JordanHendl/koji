@@ -95,21 +95,26 @@ pub fn free_texture(
     res: &mut ResourceManager,
     handle: Handle<Texture>,
 ) {
-    let tex = *res.textures.get_ref(handle);
-    ctx.destroy_image_view(tex.view);
-    ctx.destroy_image(tex.handle);
-    res.textures.release(handle);
+    if !handle.valid() {
+        return;
+    }
 
-    if let Some(key) = res
-        .bindings
-        .iter()
-        .find(|(_, b)| match b {
-            ResourceBinding::Texture(t) => t.handle == tex.handle,
-            ResourceBinding::CombinedImageSampler { texture, .. } => texture.handle == tex.handle,
-            _ => false,
-        })
-        .map(|(k, _)| k.clone())
-    {
-        res.bindings.remove(&key);
+    if let Some(&tex) = res.textures.pool.get_ref(handle) {
+        ctx.destroy_image_view(tex.view);
+        ctx.destroy_image(tex.handle);
+        res.textures.release(handle);
+
+        if let Some(key) = res
+            .bindings
+            .iter()
+            .find(|(_, b)| match b {
+                ResourceBinding::Texture(t) => t.handle == tex.handle,
+                ResourceBinding::CombinedImageSampler { texture, .. } => texture.handle == tex.handle,
+                _ => false,
+            })
+            .map(|(k, _)| k.clone())
+        {
+            res.bindings.remove(&key);
+        }
     }
 }
