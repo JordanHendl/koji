@@ -112,7 +112,7 @@ pub struct ResourceManager {
     pub allocator: GpuAllocator,
     pub textures: ResourceList<Texture>,
     pub buffers: ResourceList<ResourceBuffer>,
-    bindings: HashMap<String, ResourceBinding>,
+    pub bindings: HashMap<String, ResourceBinding>,
 }
 
 impl ResourceManager {
@@ -225,6 +225,10 @@ impl ResourceManager {
     // }
     pub fn get(&self, key: &str) -> Option<&ResourceBinding> {
         self.bindings.get(key)
+    }
+
+    pub fn remove(&mut self, key: &str) {
+        self.bindings.remove(key);
     }
 }
 
