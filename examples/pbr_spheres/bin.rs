@@ -5,6 +5,7 @@ use koji::material::*;
 use koji::renderer::*;
 use koji::texture_manager;
 use koji::utils::ResourceManager;
+#[cfg(feature = "gpu_tests")]
 use std::path::Path;
 
 fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
@@ -103,8 +104,14 @@ fn register_textures(ctx: &mut Context, res: &mut ResourceManager) {
     #[cfg(not(feature = "gpu_tests"))]
     {
         let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
-        for key in ["albedo_map", "normal_map", "metallic_map", "roughness_map"] {
-            let handle = texture_manager::create_solid_color(ctx, res, key, [255, 255, 255, 255]);
+        let defaults = [
+            ("albedo_map", [255, 255, 255, 255]),
+            ("normal_map", [127, 127, 255, 255]),
+            ("metallic_map", [0, 0, 0, 255]),
+            ("roughness_map", [255, 255, 255, 255]),
+        ];
+        for (key, color) in defaults {
+            let handle = texture_manager::create_solid_color(ctx, res, key, color);
             let tex = *res.textures.get_ref(handle);
             res.remove(key);
             res.register_combined(key, tex.handle, tex.view, tex.dim, sampler);

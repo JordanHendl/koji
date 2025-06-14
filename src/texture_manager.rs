@@ -50,7 +50,9 @@ pub fn load_from_file(
     key: &str,
     path: &std::path::Path,
 ) -> Handle<Texture> {
-    let bytes = std::fs::read(path).expect("Failed to read texture file");
+    let bytes = std::fs::read(path).unwrap_or_else(|_| {
+        panic!("Failed to read texture file {}", path.display())
+    });
     load_from_bytes(ctx, res, key, &bytes)
 }
 
