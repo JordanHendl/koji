@@ -286,6 +286,7 @@ impl Renderer {
 
         self.command_list.record(|list| {
             for target in &self.targets {
+                let mut started = false;
                 for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
                     let (pso, bind_groups) = if let Some(entry) =
                         self.material_pipelines.get(&mesh.material_id)
@@ -296,28 +297,54 @@ impl Renderer {
                     } else {
                         continue;
                     };
-                    list.begin_drawing(&DrawBegin {
-                        viewport: Viewport {
-                            area: FRect2D {
-                                w: self.width as f32,
-                                h: self.height as f32,
+                    if !started {
+                        list.begin_drawing(&DrawBegin {
+                            viewport: Viewport {
+                                area: FRect2D {
+                                    w: self.width as f32,
+                                    h: self.height as f32,
+                                    ..Default::default()
+                                },
+                                scissor: Rect2D {
+                                    w: self.width,
+                                    h: self.height,
+                                    ..Default::default()
+                                },
                                 ..Default::default()
                             },
-                            scissor: Rect2D {
-                                w: self.width,
-                                h: self.height,
+                            pipeline: pso.pipeline,
+                            attachments: &target
+                                .colors
+                                .iter()
+                                .map(|a| a.attachment)
+                                .collect::<Vec<_>>(),
+                        })
+                        .unwrap();
+                        started = true;
+                    } else {
+                        list.begin_drawing(&DrawBegin {
+                            viewport: Viewport {
+                                area: FRect2D {
+                                    w: self.width as f32,
+                                    h: self.height as f32,
+                                    ..Default::default()
+                                },
+                                scissor: Rect2D {
+                                    w: self.width,
+                                    h: self.height,
+                                    ..Default::default()
+                                },
                                 ..Default::default()
                             },
-                            ..Default::default()
-                        },
-                        pipeline: pso.pipeline,
-                        attachments: &target
-                            .colors
-                            .iter()
-                            .map(|a| a.attachment)
-                            .collect::<Vec<_>>(),
-                    })
-                    .unwrap();
+                            pipeline: pso.pipeline,
+                            attachments: &target
+                                .colors
+                                .iter()
+                                .map(|a| a.attachment)
+                                .collect::<Vec<_>>(),
+                        })
+                        .unwrap();
+                    }
 
                     let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                     let ib = mesh.index_buffer;
@@ -350,6 +377,8 @@ impl Renderer {
                         })
                     };
                     list.append(draw);
+                }
+                if started {
                     list.end_drawing().unwrap();
                 }
 
@@ -427,6 +456,7 @@ impl Renderer {
                         continue;
                     };
                     let layout = pso.bind_group_layouts[0].expect("layout");
+                    let mut started = false;
                     for inst in instances.iter_mut() {
                         inst.update_gpu(ctx).unwrap();
                         let inst_bg = ctx
@@ -441,28 +471,54 @@ impl Renderer {
                             })
                             .unwrap();
 
-                        list.begin_drawing(&DrawBegin {
-                            viewport: Viewport {
-                                area: FRect2D {
-                                    w: self.width as f32,
-                                    h: self.height as f32,
+                        if !started {
+                            list.begin_drawing(&DrawBegin {
+                                viewport: Viewport {
+                                    area: FRect2D {
+                                        w: self.width as f32,
+                                        h: self.height as f32,
+                                        ..Default::default()
+                                    },
+                                    scissor: Rect2D {
+                                        w: self.width,
+                                        h: self.height,
+                                        ..Default::default()
+                                    },
                                     ..Default::default()
                                 },
-                                scissor: Rect2D {
-                                    w: self.width,
-                                    h: self.height,
+                                pipeline: pso.pipeline,
+                                attachments: &target
+                                    .colors
+                                    .iter()
+                                    .map(|a| a.attachment)
+                                    .collect::<Vec<_>>(),
+                            })
+                            .unwrap();
+                            started = true;
+                        } else {
+                            list.begin_drawing(&DrawBegin {
+                                viewport: Viewport {
+                                    area: FRect2D {
+                                        w: self.width as f32,
+                                        h: self.height as f32,
+                                        ..Default::default()
+                                    },
+                                    scissor: Rect2D {
+                                        w: self.width,
+                                        h: self.height,
+                                        ..Default::default()
+                                    },
                                     ..Default::default()
                                 },
-                                ..Default::default()
-                            },
-                            pipeline: pso.pipeline,
-                            attachments: &target
-                                .colors
-                                .iter()
-                                .map(|a| a.attachment)
-                                .collect::<Vec<_>>(),
-                        })
-                        .unwrap();
+                                pipeline: pso.pipeline,
+                                attachments: &target
+                                    .colors
+                                    .iter()
+                                    .map(|a| a.attachment)
+                                    .collect::<Vec<_>>(),
+                            })
+                            .unwrap();
+                        }
 
                         let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                         let ib = mesh.index_buffer;
@@ -495,6 +551,8 @@ impl Renderer {
                             })
                         };
                         list.append(draw);
+                    }
+                    if started {
                         list.end_drawing().unwrap();
                     }
                 }
