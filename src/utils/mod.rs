@@ -184,6 +184,15 @@ impl ResourceManager {
             .insert(key.into(), ResourceBinding::Uniform(buf.handle));
     }
 
+    pub fn register_time_buffers(&mut self, ctx: &mut Context) {
+        let time_data = [0.0f32, 0.0f32];
+        let dh = DHObject::new(ctx, &mut self.allocator, time_data).unwrap();
+        let buf = ResourceBuffer::from(dh);
+        self.buffers.push(buf.clone());
+        self.bindings
+            .insert("time".into(), ResourceBinding::Uniform(buf.handle));
+    }
+
       pub fn register_ubo(&mut self, key: impl Into<String>, handle: Handle<Buffer>) {
         self.bindings.insert(key.into(), ResourceBinding::Uniform(handle));
     }
@@ -361,6 +370,28 @@ mod tests {
         manager.register_variable("var", &mut ctx, 55u32);
 
         let handle = match manager.get("var") {
+            Some(ResourceBinding::Uniform(h)) => *h,
+            _ => panic!("Expected uniform binding"),
+        };
+
+        assert_eq!(manager.buffers.entries.len(), 1);
+        let stored_handle = manager
+            .buffers
+            .get_ref(manager.buffers.entries[0])
+            .handle;
+        assert_eq!(stored_handle, handle);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn register_time_buffers_binding() {
+        let mut ctx = setup_ctx();
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+        manager.register_time_buffers(&mut ctx);
+
+        let handle = match manager.get("time") {
             Some(ResourceBinding::Uniform(h)) => *h,
             _ => panic!("Expected uniform binding"),
         };
