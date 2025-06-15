@@ -72,3 +72,24 @@ fn shader_without_resources_has_empty_reflection() {
     assert!(info.push_constants.is_empty());
 }
 
+#[test]
+fn reflect_push_constants() {
+    let spirv: Vec<u32> = inline_spirv!(
+        r#"
+        #version 450
+        layout(push_constant) uniform Push {
+            mat4 mvp;
+        } pc;
+        void main() {}
+        "#,
+        vert
+    )
+    .to_vec();
+
+    let info = reflect_shader(&spirv);
+    assert_eq!(info.push_constants.len(), 1);
+    let pc = &info.push_constants[0];
+    assert_eq!(pc.offset, 0);
+    assert_eq!(pc.size, 64);
+}
+
