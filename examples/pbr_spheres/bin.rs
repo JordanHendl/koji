@@ -127,11 +127,23 @@ pub fn run(ctx: &mut Context) {
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
 
-    let (verts, inds) = make_sphere(32, 32);
-    for _ in 0..3 {
+    let (base_verts, inds) = make_sphere(32, 32);
+
+    // Scale spheres down slightly and offset them along the X axis so they
+    // appear side by side. Since the renderer does not support per-mesh
+    // transforms, we apply the offsets directly to each mesh's vertices.
+    let scale = 0.3f32;
+    for i in 0..3 {
+        let offset_x = (i as f32 - 1.0) * 0.7;
+        let mut verts = base_verts.clone();
+        for v in &mut verts {
+            v.position[0] = v.position[0] * scale + offset_x;
+            v.position[1] *= scale;
+            v.position[2] *= scale;
+        }
         let mesh = StaticMesh {
             material_id: "pbr".into(),
-            vertices: verts.clone(),
+            vertices: verts,
             indices: Some(inds.clone()),
             vertex_buffer: None,
             index_buffer: None,
