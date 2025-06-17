@@ -150,6 +150,7 @@ pub struct PipelineBuilder<'a> {
     vert_spirv: &'a [u32],
     frag_spirv: &'a [u32],
     render_pass: Option<Handle<RenderPass>>,
+    resources: Option<&'a mut ResourceManager>,
     pipeline_name: &'static str,
     depth_enable: bool,
     cull_mode: CullMode,
@@ -335,6 +336,7 @@ impl<'a> PipelineBuilder<'a> {
             subpass: 0,
             depth_enable: false,
             cull_mode: CullMode::None,
+            resources: None,
         }
     }
 
@@ -366,6 +368,12 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
+    /// Provide a [`ResourceManager`] for automatic resource registration.
+    pub fn resources(mut self, res: &'a mut ResourceManager) -> Self {
+        self.resources = Some(res);
+        self
+    }
+
     /// Build and return the graphics pipeline handle
     pub fn build(self) -> PSO {
         let rp = self
@@ -374,6 +382,20 @@ impl<'a> PipelineBuilder<'a> {
 
         let vert_info = reflect_shader(self.vert_spirv);
         let frag_info = reflect_shader(self.frag_spirv);
+
+        if let Some(res) = self.resources {
+            let has_time = vert_info
+                .bindings
+                .values()
+                .any(|v| v.iter().any(|b| b.name == "time"))
+                || frag_info
+                    .bindings
+                    .values()
+                    .any(|v| v.iter().any(|b| b.name == "time"));
+            if has_time {
+                res.register_time_buffers(self.ctx);
+            }
+        }
 
         let mut combined: HashMap<u32, Vec<ShaderDescriptorBinding>> = HashMap::new();
         for (set, binds) in vert_info.bindings.into_iter().chain(frag_info.bindings) {

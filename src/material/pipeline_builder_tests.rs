@@ -546,6 +546,44 @@ fn create_bind_groups_multiple_sets() {
     ctx.destroy();
 }
 
+#[test]
+#[serial]
+fn auto_register_time_buffer() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = simple_vertex_spirv();
+    let frag = inline_spirv!(
+        r#"
+        #version 450
+        layout(set=0, binding=0) uniform Time { vec2 t; } time;
+        layout(location=0) out vec4 o;
+        void main(){ o = vec4(time.t, 0.0, 1.0); }
+        "#,
+        frag
+    )
+    .to_vec();
+
+    let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+    let _pso = PipelineBuilder::new(&mut ctx, "time_test")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(rp, 0)
+        .resources(&mut res)
+        .build();
+
+    match res.get("time") {
+        Some(ResourceBinding::Uniform(_)) => {}
+        _ => panic!("time buffer not registered"),
+    }
+
+    ctx.destroy();
+}
+
 #[cfg(feature = "large-tests")]
 #[test]
 #[serial]
