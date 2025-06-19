@@ -4,7 +4,7 @@ mod time_stats;
 pub use time_stats::*;
 
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO};
-use crate::utils::ResourceManager;
+use crate::utils::{ResourceManager, ResourceBinding};
 use dashi::utils::*;
 use crate::render_pass::*;
 use dashi::*;
@@ -42,6 +42,10 @@ pub struct Renderer {
     skeletal_meshes: Vec<(SkeletalMesh, Vec<SkeletalInstance>)>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
+    /// Tracks frame timing statistics for the renderer.
+    time_stats: TimeStats,
+    /// Handle to the GPU uniform buffer storing [`TimeStats`] data.
+    time_buffer: Option<Handle<Buffer>>,
     clear_color: [f32; 4],
     width: u32,
     height: u32,
@@ -75,6 +79,11 @@ impl Renderer {
         let mut resource_manager = ResourceManager::new(&mut ctx, 4096)?;
         let lights = BindlessLights::new();
         lights.register(&mut resource_manager);
+        resource_manager.register_time_buffers(&mut ctx);
+        let time_buffer = match resource_manager.get("time") {
+            Some(ResourceBinding::Uniform(h)) => Some(*h),
+            _ => None,
+        };
 
         Ok(Self {
             ctx,
@@ -92,6 +101,8 @@ impl Renderer {
             lights,
             command_list,
             semaphores,
+            time_stats: TimeStats::new(),
+            time_buffer,
             width,
             height,
             clear_color,
@@ -136,6 +147,15 @@ impl Renderer {
 
     pub fn set_clear_color(&mut self, color: [f32; 4]) {
         self.clear_color = color;
+    }
+
+    /// Access timing statistics updated each frame.
+    ///
+    /// The returned [`TimeStats`] contains the elapsed and delta times in
+    /// seconds. These values are also written to the `time` uniform buffer if
+    /// available.
+    pub fn time_stats(&self) -> &TimeStats {
+        &self.time_stats
     }
 
     pub fn register_pso(
@@ -283,6 +303,14 @@ impl Renderer {
     /// Present one frame to display (for tests or non-interactive draw)
     pub fn present_frame(&mut self) -> Result<(), GPUError> {
         let ctx = self.get_ctx();
+        self.time_stats.update();
+        if let Some(buf) = self.time_buffer {
+            let data = [self.time_stats.total_time, self.time_stats.delta_time];
+            let slice: &mut [u8] = ctx.map_buffer_mut(buf)?;
+            let bytes = bytemuck::bytes_of(&data);
+            slice[..bytes.len()].copy_from_slice(bytes);
+            ctx.unmap_buffer(buf)?;
+        }
         self.lights.upload_all(ctx);
         let (img, acquire_sem, _img_idx, _) = ctx.acquire_new_image(&mut self.display)?;
 
