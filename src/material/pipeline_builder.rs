@@ -1,10 +1,16 @@
 use crate::material::*;
-use crate::utils::{ResourceBinding, Texture};
+use crate::utils::{ResourceBinding, Texture, ResourceManager};
 use bytemuck::Pod;
 use std::collections::HashMap;
 
 use spirv_reflect::types::ReflectFormat;
 use spirv_reflect::ShaderModule;
+
+enum DefaultResource {
+    Time,
+}
+
+const DEFAULT_RESOURCES: &[(&str, DefaultResource)] = &[("KOJI_time", DefaultResource::Time)];
 
 
 /// Map SPIR-V reflect format to shader primitive enum
@@ -366,8 +372,29 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    /// Build and return the graphics pipeline handle
-    pub fn build(self) -> PSO {
+    fn register_default_resources(
+        ctx: &mut Context,
+        descs: &HashMap<String, (usize, u32, u32)>,
+        res: &mut ResourceManager,
+    ) {
+        for (name, def) in DEFAULT_RESOURCES.iter() {
+            if descs.contains_key(&name.to_string()) {
+                match def {
+                    DefaultResource::Time => {
+                        if res.get("KOJI_time").is_none() && res.get("time").is_none() {
+                            res.register_time_buffers(ctx);
+                            if let Some(ResourceBinding::Uniform(h)) = res.get("time") {
+                                let handle = *h;
+                                res.bindings.insert((*name).to_string(), ResourceBinding::Uniform(handle));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn build_internal(mut self, res: Option<&mut ResourceManager>) -> PSO {
         let rp = self
             .render_pass
             .expect("Render pass must be set before build");
@@ -406,6 +433,10 @@ impl<'a> PipelineBuilder<'a> {
             };
             let layout = self.ctx.make_bind_group_layout(&info).unwrap();
             bg_layouts[set as usize] = Some(layout);
+        }
+
+        if let Some(r) = res {
+            Self::register_default_resources(self.ctx, &desc_map, r);
         }
 
         let module = ShaderModule::load_u32_data(self.vert_spirv).unwrap();
@@ -491,6 +522,16 @@ impl<'a> PipelineBuilder<'a> {
             desc_map,
             ctx: self.ctx,
         }
+    }
+
+    /// Build the pipeline without registering default resources
+    pub fn build(self) -> PSO {
+        self.build_internal(None)
+    }
+
+    /// Build the pipeline and register any default resources using the provided ResourceManager
+    pub fn build_with_resources(self, res: &mut ResourceManager) -> PSO {
+        self.build_internal(Some(res))
     }
 }
 

@@ -12,6 +12,7 @@ use crate::{
         ResourceBuffer,
         ResourceBinding,
         Texture,
+        ResourceManager,
     },
 };
 use dashi::builders::RenderPassBuilder;
@@ -542,6 +543,52 @@ fn create_bind_groups_multiple_sets() {
     assert!(set0.buffers.contains_key("b0"));
     let set1 = sets[1].as_ref().unwrap();
     assert!(set1.textures.contains_key("tex"));
+
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn auto_register_time_resource() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = inline_spirv!(
+        r#"
+        #version 450
+        layout(location=0) in vec2 pos;
+        void main(){ gl_Position = vec4(pos,0,1); }
+        "#,
+        vert
+    )
+    .to_vec();
+
+    let frag = inline_spirv!(
+        r#"
+        #version 450
+        layout(set=0,binding=0) uniform Time { vec2 val; } KOJI_time;
+        layout(location=0) out vec4 o;
+        void main(){ o = vec4(KOJI_time.val.x); }
+        "#,
+        frag
+    )
+    .to_vec();
+
+    let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+    let mut pso = PipelineBuilder::new(&mut ctx, "time_test")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(rp, 0)
+        .build_with_resources(&mut res);
+
+    let group = pso.create_bind_group(0, &res).unwrap();
+    assert!(group.bind_group.valid());
+    assert!(res.get("time").is_some());
+    assert!(res.get("KOJI_time").is_some());
 
     ctx.destroy();
 }
