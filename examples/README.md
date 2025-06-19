@@ -7,6 +7,15 @@ Most demos compile shaders from the `assets/shaders/` directory and open a winit
 window. Heavier integrations that were originally tests (such as bindless or
 skeletal rendering) are behind the `gpu_tests` feature flag.
 
+The `assets/shaders/timing.slang` file defines a uniform block providing frame
+timing information. To access it in your own shader add:
+
+```glsl
+#include "timing.slang"
+```
+
+This makes a `KOJI_time` uniform available in set `0`, binding `0`.
+
 ```
 cargo run --example sample                        # run the triangle sample
 cargo run --features gpu_tests --example text2d   # run an example requiring gpu_tests
