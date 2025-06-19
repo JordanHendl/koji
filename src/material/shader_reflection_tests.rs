@@ -72,3 +72,12 @@ fn shader_without_resources_has_empty_reflection() {
     assert!(info.push_constants.is_empty());
 }
 
+#[test]
+fn include_file_uniform_reflected() {
+    use inline_spirv::include_spirv;
+    let spirv: &[u32] = include_spirv!("tests/data/test_timing.frag", frag, glsl);
+    let info = reflect_shader(spirv);
+    let set0 = info.bindings.get(&0).expect("missing set 0");
+    assert!(set0.iter().any(|b| b.name == "KOJI_time" || b.members.iter().any(|m| m.0 == "KOJI_time")));
+}
+
