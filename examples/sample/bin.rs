@@ -86,16 +86,16 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
     )
     .to_vec();
 
-    let mut pso = PipelineBuilder::new(ctx, "sample_pso")
-        .vertex_shader(&vert_spirv)
-        .fragment_shader(&frag_spirv)
-        .render_pass(rp, 0)
-        .build();
-
     // ==== NEW: Use ResourceManager to bind resources by shader name ====
     let mut resources = ResourceManager::new(ctx, 4096).unwrap();
     resources.register_combined("tex", img, view, [1, 1], sampler);
     resources.register_variable("ubo", ctx, uniform_value);
+
+    let mut pso = PipelineBuilder::new(ctx, "sample_pso")
+        .vertex_shader(&vert_spirv)
+        .fragment_shader(&frag_spirv)
+        .render_pass(rp, 0)
+        .build_with_resources(&mut resources);
 
     let bind_group = pso.create_bind_group(0, &resources).unwrap();
 
