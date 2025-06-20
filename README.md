@@ -30,6 +30,18 @@ cargo build
 cargo test
 ```
 
+## Frame Timing
+
+Shaders that reference the `KOJI_time` uniform automatically receive a timing
+buffer when their pipeline is built. The helper file
+`assets/shaders/timing.slang` defines the uniform block and can be included with
+
+```glsl
+#include "timing.slang"
+```
+
+No extra resource registration is necessary.
+
 ## Sample Binaries
 
 Example programs live under the `examples/` directory and can be run with
@@ -37,3 +49,7 @@ Example programs live under the `examples/` directory and can be run with
 window system. Some of the heavier demos are gated behind the `gpu_tests`
 feature flag. See [examples/README.md](examples/README.md) for a description of
 each example and exact commands.
+
+## Contributing
+
+Before submitting a pull request, run `cargo test` and ensure it completes successfully.
