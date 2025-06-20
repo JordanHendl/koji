@@ -1,6 +1,8 @@
 use dashi::utils::*;
 use dashi::*;
 use koji::*;
+use bytemuck;
+use std::time::Instant;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
@@ -54,10 +56,10 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
         .unwrap();
 
     // ==== NEW: Create texture and upload a single-pixel image ====
-    let tex_data: [u8; 4] = [255, 0, 0, 255];
+    let tex_data: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
     let img = ctx.make_image(&ImageInfo {
         debug_name: "sample_tex",
-        dim: [1, 1, 1],
+        dim: [3, 1, 1],
         format: Format::RGBA8,
         mip_levels: 1,
         layers: 1,
@@ -86,16 +88,26 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
     )
     .to_vec();
 
+    // ==== NEW: Use ResourceManager to bind resources by shader name ====
+    let mut resources = ResourceManager::new(ctx, 4096).unwrap();
+
     let mut pso = PipelineBuilder::new(ctx, "sample_pso")
         .vertex_shader(&vert_spirv)
         .fragment_shader(&frag_spirv)
         .render_pass(rp, 0)
-        .build();
+        .build_with_resources(&mut resources);
 
-    // ==== NEW: Use ResourceManager to bind resources by shader name ====
-    let mut resources = ResourceManager::new(ctx, 4096).unwrap();
     resources.register_combined("tex", img, view, [1, 1], sampler);
     resources.register_variable("ubo", ctx, uniform_value);
+
+    // Retrieve the automatically injected timing buffer
+    let time_buf = match resources.get("time") {
+        Some(ResourceBinding::Uniform(h)) => *h,
+        _ => panic!("time buffer missing"),
+    };
+
+    let mut start = Instant::now();
+    let mut prev = start;
 
     let bind_group = pso.create_bind_group(0, &resources).unwrap();
 
@@ -122,6 +134,18 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
         }
         if should_exit {
             break 'running;
+        }
+
+        let now = Instant::now();
+        let total = (now - start).as_secs_f32() * 1000.0;
+        let delta = (now - prev).as_secs_f32() * 1000.0;
+        prev = now;
+        let data = [total, delta];
+        {
+            let slice: &mut [u8] = ctx.map_buffer_mut(time_buf).unwrap();
+            let bytes = bytemuck::bytes_of(&data);
+            slice[..bytes.len()].copy_from_slice(bytes);
+            ctx.unmap_buffer(time_buf).unwrap();
         }
 
         let (img, acquire_sem, _img_idx, _ok) = ctx.acquire_new_image(&mut display).unwrap();

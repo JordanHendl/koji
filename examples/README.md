@@ -8,13 +8,16 @@ window. Heavier integrations that were originally tests (such as bindless or
 skeletal rendering) are behind the `gpu_tests` feature flag.
 
 The `assets/shaders/timing.slang` file defines a uniform block providing frame
-timing information. To access it in your own shader add:
+timing information. Any shader referencing the `KOJI_time` uniform will
+automatically receive a timing buffer when its pipeline is built.
+To access this uniform add:
 
 ```glsl
 #include "timing.slang"
 ```
 
-This makes a `KOJI_time` uniform available in set `0`, binding `0`.
+This makes a `KOJI_time` uniform available in set `0`, binding `0` without any
+additional setup.
 
 ```
 cargo run --example sample                        # run the triangle sample
@@ -23,7 +26,7 @@ cargo run --features gpu_tests --example text2d   # run an example requiring gpu
 
 ## Available Examples
 
-- **sample** – draw a single triangle
+- **sample** – draw a single triangle and animate its color using `KOJI_time`
 - **deferred_sample** – basic deferred rendering
 - **shadow_sample** – cascaded shadow maps
 - **pbr_spheres** – grid of spheres with PBR shading
