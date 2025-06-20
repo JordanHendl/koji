@@ -52,4 +52,4 @@ each example and exact commands.
 
 ## Contributing
 
-Before submitting a pull request, ensure that `cargo test` completes successfully.
+Before submitting a pull request, run `cargo test` and ensure it completes successfully.
