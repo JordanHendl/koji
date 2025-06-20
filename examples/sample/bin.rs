@@ -2,6 +2,7 @@ use dashi::*;
 use inline_spirv::include_spirv;
 use koji::renderer::*;
 use koji::material::*;
+use koji::ResourceBinding;
 
 pub fn run(ctx: &mut Context) {
     // Initialize renderer
@@ -46,6 +47,11 @@ pub fn run(ctx: &mut Context) {
     let res = renderer.resources();
     res.register_combined("tex", img, view, [1, 1], sampler);
     res.register_variable("ubo", ctx, 0.7f32);
+    if res.get("KOJI_time").is_none() {
+        if let Some(ResourceBinding::Uniform(h)) = res.get("time") {
+            res.register_ubo("KOJI_time", *h);
+        }
+    }
 
     // Create bind groups
     let bgr = pso.create_bind_groups(res).unwrap();
