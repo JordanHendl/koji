@@ -191,6 +191,8 @@ impl ResourceManager {
         self.buffers.push(buf.clone());
         self.bindings
             .insert("time".into(), ResourceBinding::Uniform(buf.handle));
+        self.bindings
+            .insert("KOJI_time".into(), ResourceBinding::Uniform(buf.handle));
     }
 
       pub fn register_ubo(&mut self, key: impl Into<String>, handle: Handle<Buffer>) {
