@@ -56,10 +56,10 @@ pub fn render_sample_model(ctx: &mut Context, rp: Handle<RenderPass>, targets: &
         .unwrap();
 
     // ==== NEW: Create texture and upload a single-pixel image ====
-    let tex_data: [u8; 4] = [255, 0, 0, 255];
+    let tex_data: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
     let img = ctx.make_image(&ImageInfo {
         debug_name: "sample_tex",
-        dim: [1, 1, 1],
+        dim: [3, 1, 1],
         format: Format::RGBA8,
         mip_levels: 1,
         layers: 1,
