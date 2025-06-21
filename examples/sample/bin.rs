@@ -79,7 +79,7 @@ pub fn run(ctx: &mut Context) {
     };
     renderer.register_static_mesh(mesh, None, "color".into());
 
-    renderer.render_loop(|_r| {});
+    renderer.render_loop(|_r, _event| {});
 }
 
 pub fn main() {
