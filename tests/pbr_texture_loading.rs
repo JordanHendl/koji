@@ -3,6 +3,7 @@ use koji::renderer::*;
 use koji::texture_manager as texman;
 use dashi::*;
 use dashi::gpu;
+use koji::utils::ResourceManager;
 use dashi::utils::Handle;
 use inline_spirv::include_spirv;
 use image::{ImageBuffer, Rgba, ImageOutputFormat};
@@ -31,7 +32,12 @@ fn quad_indices() -> Vec<u32> {
     vec![0, 1, 2, 2, 3, 0]
 }
 
-fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
+fn build_pbr_pipeline(
+    ctx: &mut Context,
+    rp: Handle<RenderPass>,
+    subpass: u32,
+    res: &mut ResourceManager,
+) -> PSO {
     let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr_pipeline")
@@ -40,7 +46,7 @@ fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -
         .render_pass(rp, subpass)
         .depth_enable(true)
         .cull_mode(CullMode::Back)
-        .build()
+        .build_with_resources(res)
 }
 
 fn png_bytes(color: [u8; 4]) -> Vec<u8> {
@@ -54,8 +60,6 @@ fn png_bytes(color: [u8; 4]) -> Vec<u8> {
 pub fn run() {
     let mut ctx = gpu::Context::headless(&Default::default()).unwrap();
     let mut renderer = Renderer::new(64, 64, "pbr_tex", &mut ctx).unwrap();
-
-    let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(), 0);
 
     let colors = [
         [255, 0, 0, 255],
@@ -76,6 +80,8 @@ pub fn run() {
         let tex = *renderer.resources().textures.get_ref(handle);
         renderer.resources().register_combined(key, tex.handle, tex.view, tex.dim, sampler);
     }
+
+    let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(), 0, renderer.resources());
 
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);

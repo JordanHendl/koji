@@ -125,7 +125,7 @@ fn render_triangle_and_cube() {
     renderer.register_static_mesh(cube_mesh, None, "color".into());
 
     // Main loop: just draw both objects with same pipeline/PSO/bind group
-    renderer.render_loop(|_r| {
+    renderer.render_loop(|_r, _event| {
         // Nothing to update per frame in this simple test
     });
 }
