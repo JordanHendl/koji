@@ -394,7 +394,10 @@ impl<'a> PipelineBuilder<'a> {
         }
     }
 
-    fn build_internal(mut self, res: Option<&mut ResourceManager>) -> PSO {
+    fn build_internal(
+        mut self,
+        res: Option<&mut ResourceManager>,
+    ) -> Result<PSO, PipelineError> {
         let rp = self
             .render_pass
             .expect("Render pass must be set before build");
@@ -405,6 +408,11 @@ impl<'a> PipelineBuilder<'a> {
         let mut combined: HashMap<u32, Vec<ShaderDescriptorBinding>> = HashMap::new();
         for (set, binds) in vert_info.bindings.into_iter().chain(frag_info.bindings) {
             combined.entry(set).or_default().extend(binds);
+        }
+        // Deduplicate descriptors that appear in multiple shader stages
+        for binds in combined.values_mut() {
+            binds.sort_by_key(|b| b.binding);
+            binds.dedup_by(|a, b| a.binding == b.binding && a.ty == b.ty);
         }
 
         let mut desc_map = HashMap::new();
@@ -437,6 +445,11 @@ impl<'a> PipelineBuilder<'a> {
 
         if let Some(r) = res {
             Self::register_default_resources(self.ctx, &desc_map, r);
+            for name in desc_map.keys() {
+                if r.get(name).is_none() {
+                    return Err(PipelineError::MissingResource(name.clone()));
+                }
+            }
         }
 
         let module = ShaderModule::load_u32_data(self.vert_spirv).unwrap();
@@ -515,22 +528,22 @@ impl<'a> PipelineBuilder<'a> {
             })
             .unwrap();
 
-        PSO {
+        Ok(PSO {
             pipeline: pipeline_handle,
             layout,
             bind_group_layouts: bg_layouts,
             desc_map,
             ctx: self.ctx,
-        }
+        })
     }
 
     /// Build the pipeline without registering default resources
     pub fn build(self) -> PSO {
-        self.build_internal(None)
+        self.build_internal(None).unwrap()
     }
 
     /// Build the pipeline and register any default resources using the provided ResourceManager
-    pub fn build_with_resources(self, res: &mut ResourceManager) -> PSO {
+    pub fn build_with_resources(self, res: &mut ResourceManager) -> Result<PSO, PipelineError> {
         self.build_internal(Some(res))
     }
 }
