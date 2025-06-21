@@ -252,6 +252,7 @@ impl Renderer {
     {
         'running: loop {
             let mut should_exit = false;
+            let mut events: Vec<Event<'static, ()>> = Vec::new();
             {
                 let event_loop = self.display.winit_event_loop();
                 event_loop.run_return(|event, _, control_flow| {
@@ -272,8 +273,13 @@ impl Renderer {
                             should_exit = true;
                         }
                     }
-                    draw_fn(self, event);
+                    if let Some(evt) = event.to_static() {
+                        events.push(evt);
+                    }
                 });
+            }
+            for event in events {
+                draw_fn(self, event);
             }
             if should_exit {
                 break 'running;
