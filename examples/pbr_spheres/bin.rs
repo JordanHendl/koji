@@ -4,7 +4,7 @@ use inline_spirv::include_spirv;
 use koji::material::*;
 use koji::renderer::*;
 use koji::texture_manager;
-use koji::utils::ResourceManager;
+use koji::utils::{ResourceManager, ResourceBinding};
 use glam::*;
 #[cfg(feature = "gpu_tests")]
 use std::path::Path;
@@ -132,9 +132,9 @@ pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(1920, 1080, "pbr_spheres", ctx).unwrap();
     register_textures(ctx, renderer.resources());
 
+    let proj = Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
     let cam_pos = Vec3::new(0.0, 0.0, 5.0);
     let view = Mat4::look_at_rh(cam_pos, Vec3::ZERO, Vec3::Y);
-    let proj = Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
     let camera = CameraUniform { view_proj: proj * view, cam_pos: cam_pos.into(), _pad: 0.0 };
     renderer
         .resources()
@@ -167,8 +167,20 @@ pub fn run(ctx: &mut Context) {
         renderer.register_static_mesh(mesh, None, "pbr".into());
     }
 
-    renderer.render_loop(|_r| {
-        // No per-frame updates required for this sample
+    let mut angle: f32 = 0.0;
+    renderer.render_loop(|r| {
+        angle += r.time_stats().delta_time * 0.001;
+        let radius = 5.0;
+        let eye = Vec3::new(angle.cos() * radius, 0.0, angle.sin() * radius);
+        let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
+        let view_proj = proj * view;
+        if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("Camera") {
+            let camera = CameraUniform { view_proj, cam_pos: eye.into(), _pad: 0.0 };
+            let slice = ctx.map_buffer_mut(*buf).unwrap();
+            let bytes = bytemuck::bytes_of(&camera);
+            slice[..bytes.len()].copy_from_slice(bytes);
+            ctx.unmap_buffer(*buf).unwrap();
+        }
     });
 }
 
