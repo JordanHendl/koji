@@ -38,8 +38,8 @@ impl TimeStats {
     /// `delta_time` is the time since the last `update`.
     pub fn update(&mut self) {
         let now = Instant::now();
-        self.total_time = (now - self.start_time).as_secs_f32();
-        self.delta_time = (now - self.prev_frame).as_secs_f32();
+        self.total_time = (now - self.start_time).as_secs_f32() * 1000.0;
+        self.delta_time = (now - self.prev_frame).as_secs_f32() * 1000.0;
         self.prev_frame = now;
     }
 }
