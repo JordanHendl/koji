@@ -6,10 +6,18 @@ use koji::renderer::*;
 use koji::texture_manager;
 use koji::utils::{ResourceManager, ResourceBinding};
 use glam::*;
+use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use winit::event_loop::ControlFlow;
+use winit::platform::run_return::EventLoopExtRunReturn;
 #[cfg(feature = "gpu_tests")]
 use std::path::Path;
 
-fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
+fn build_pbr_pipeline(
+    ctx: &mut Context,
+    rp: Handle<RenderPass>,
+    subpass: u32,
+    res: &mut ResourceManager,
+) -> PSO {
     let vert: &[u32] = include_spirv!("assets/shaders/pbr_spheres.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("assets/shaders/pbr_spheres.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr")
@@ -18,7 +26,7 @@ fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -
         .render_pass(rp, subpass)
         .depth_enable(true)
         .cull_mode(CullMode::Back)
-        .build()
+        .build_with_resources(res)
 }
 
 fn make_sphere(lat: u32, long: u32) -> (Vec<Vertex>, Vec<u32>) {
@@ -132,7 +140,7 @@ pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(1920, 1080, "pbr_spheres", ctx).unwrap();
     register_textures(ctx, renderer.resources());
 
-    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
+    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0, renderer.resources());
 
     let proj =
         Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
@@ -147,8 +155,9 @@ pub fn run(ctx: &mut Context) {
         .resources()
         .register_variable("Camera", ctx, camera);
 
-    let light = LightDesc {
-        position: [0.0, 0.0, 5.0],
+    let mut light_pos = Vec3::new(0.0, 0.0, 5.0);
+    let mut light = LightDesc {
+        position: light_pos.into(),
         intensity: 1.0,
         ..Default::default()
     };
@@ -179,18 +188,54 @@ pub fn run(ctx: &mut Context) {
     }
 
     let mut angle: f32 = 0.0;
-    renderer.render_loop(|r| {
-        angle += r.time_stats().delta_time * 0.001;
-        let radius = 5.0;
-        let eye = Vec3::new(angle.cos() * radius, 0.0, angle.sin() * radius);
-        let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
-        let view_proj = proj * view;
-        if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("Camera") {
-            let camera = CameraUniform { view_proj, cam_pos: eye.into(), _pad: 0.0 };
-            let slice = ctx.map_buffer_mut(*buf).unwrap();
-            let bytes = bytemuck::bytes_of(&camera);
-            slice[..bytes.len()].copy_from_slice(bytes);
-            ctx.unmap_buffer(*buf).unwrap();
+
+    renderer.render_loop(|r, event| {
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(key),
+                            state: ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => match key {
+                    VirtualKeyCode::Left => light_pos.x -= 0.2,
+                    VirtualKeyCode::Right => light_pos.x += 0.2,
+                    VirtualKeyCode::Up => light_pos.y += 0.2,
+                    VirtualKeyCode::Down => light_pos.y -= 0.2,
+                    _ => {}
+                },
+                _ => {}
+            },
+            Event::MainEventsCleared => {
+                angle += r.time_stats().delta_time;
+                let radius = 5.0;
+                let eye = Vec3::new(angle.cos() * radius, 0.0, angle.sin() * radius);
+                let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
+                let view_proj = proj * view;
+                if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("Camera") {
+                    let camera = CameraUniform {
+                        view_proj,
+                        cam_pos: eye.into(),
+                        _pad: 0.0,
+                    };
+                    let slice = ctx.map_buffer_mut(*buf).unwrap();
+                    let bytes = bytemuck::bytes_of(&camera);
+                    slice[..bytes.len()].copy_from_slice(bytes);
+                    ctx.unmap_buffer(*buf).unwrap();
+                }
+
+                if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("SceneLight") {
+                    light.position = light_pos.into();
+                    let slice = ctx.map_buffer_mut(*buf).unwrap();
+                    let bytes = bytemuck::bytes_of(&light);
+                    slice[..bytes.len()].copy_from_slice(bytes);
+                    ctx.unmap_buffer(*buf).unwrap();
+                }
+            }
+            _ => {}
         }
     });
 }
