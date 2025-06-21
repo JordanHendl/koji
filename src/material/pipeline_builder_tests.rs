@@ -511,6 +511,32 @@ fn create_bind_group_missing_resource() {
 
 #[test]
 #[serial]
+fn build_with_resources_missing_resource() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+    res.register_variable("b0", &mut ctx, 1u32);
+
+    let result = PipelineBuilder::new(&mut ctx, "build_missing")
+        .vertex_shader(&simple_vert2())
+        .fragment_shader(&simple_frag2())
+        .render_pass(rp, 0)
+        .build_with_resources(&mut res);
+
+    match result {
+        Err(PipelineError::MissingResource(name)) => assert_eq!(name, "tex"),
+        _ => panic!("expected missing resource error"),
+    }
+
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
 fn create_bind_groups_multiple_sets() {
     let mut ctx = make_ctx();
     let rp = RenderPassBuilder::new("rp", Viewport::default())
@@ -583,7 +609,8 @@ fn auto_register_time_resource() {
         .vertex_shader(&vert)
         .fragment_shader(&frag)
         .render_pass(rp, 0)
-        .build_with_resources(&mut res);
+        .build_with_resources(&mut res)
+        .unwrap();
 
     let group = pso.create_bind_group(0, &res).unwrap();
     assert!(group.bind_group.valid());

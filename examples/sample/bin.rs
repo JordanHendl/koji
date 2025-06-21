@@ -13,7 +13,8 @@ pub fn run(ctx: &mut Context) {
         .vertex_shader(vert)
         .fragment_shader(frag)
         .render_pass(renderer.render_pass(), 0)
-        .build_with_resources(renderer.resources());
+        .build_with_resources(renderer.resources())
+        .unwrap();
 
     let tex_data: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
     let img = ctx
