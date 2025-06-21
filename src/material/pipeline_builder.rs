@@ -406,6 +406,11 @@ impl<'a> PipelineBuilder<'a> {
         for (set, binds) in vert_info.bindings.into_iter().chain(frag_info.bindings) {
             combined.entry(set).or_default().extend(binds);
         }
+        // Deduplicate descriptors that appear in multiple shader stages
+        for binds in combined.values_mut() {
+            binds.sort_by_key(|b| b.binding);
+            binds.dedup_by(|a, b| a.binding == b.binding);
+        }
 
         let mut desc_map = HashMap::new();
         let mut bg_layouts: [Option<Handle<BindGroupLayout>>; 4] = [None, None, None, None];
