@@ -132,20 +132,31 @@ pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(1920, 1080, "pbr_spheres", ctx).unwrap();
     register_textures(ctx, renderer.resources());
 
-    let proj = Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
+    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
+
+    let proj =
+        Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
     let cam_pos = Vec3::new(0.0, 0.0, 5.0);
     let view = Mat4::look_at_rh(cam_pos, Vec3::ZERO, Vec3::Y);
-    let camera = CameraUniform { view_proj: proj * view, cam_pos: cam_pos.into(), _pad: 0.0 };
+    let camera = CameraUniform {
+        view_proj: proj * view,
+        cam_pos: cam_pos.into(),
+        _pad: 0.0,
+    };
     renderer
         .resources()
         .register_variable("Camera", ctx, camera);
 
-    let light = LightDesc { position: [0.0, 0.0, 5.0], intensity: 1.0, ..Default::default() };
+    let light = LightDesc {
+        position: [0.0, 0.0, 5.0],
+        intensity: 1.0,
+        ..Default::default()
+    };
     renderer
         .resources()
         .register_variable("SceneLight", ctx, light);
 
-    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
+    // Create bind groups now that all resources are registered
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
 
