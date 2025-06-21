@@ -5,12 +5,13 @@ use koji::material::*;
 use koji::renderer::*;
 use koji::texture_manager;
 use koji::utils::ResourceManager;
+use glam::*;
 #[cfg(feature = "gpu_tests")]
 use std::path::Path;
 
 fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
-    let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
-    let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
+    let vert: &[u32] = include_spirv!("assets/shaders/pbr_spheres.vert", vert, glsl);
+    let frag: &[u32] = include_spirv!("assets/shaders/pbr_spheres.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr")
         .vertex_shader(vert)
         .fragment_shader(frag)
@@ -119,9 +120,30 @@ fn register_textures(ctx: &mut Context, res: &mut ResourceManager) {
     }
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct CameraUniform {
+    view_proj: Mat4,
+    cam_pos: [f32; 3],
+    _pad: f32,
+}
+
 pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(1920, 1080, "pbr_spheres", ctx).unwrap();
     register_textures(ctx, renderer.resources());
+
+    let cam_pos = Vec3::new(0.0, 0.0, 5.0);
+    let view = Mat4::look_at_rh(cam_pos, Vec3::ZERO, Vec3::Y);
+    let proj = Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
+    let camera = CameraUniform { view_proj: proj * view, cam_pos: cam_pos.into(), _pad: 0.0 };
+    renderer
+        .resources()
+        .register_variable("Camera", ctx, camera);
+
+    let light = LightDesc { position: [0.0, 0.0, 5.0], intensity: 1.0, ..Default::default() };
+    renderer
+        .resources()
+        .register_variable("SceneLight", ctx, light);
 
     let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
