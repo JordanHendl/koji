@@ -243,26 +243,42 @@ impl Renderer {
         &mut self.resource_manager
     }
 
-    /// Main render pass, returns false if quit requested
-    pub fn render_loop<F: FnMut(&mut Renderer)>(&mut self, mut draw_fn: F) {
+    /// Main render pass. The provided callback receives all window events as well
+    /// as a final [`Event::MainEventsCleared`] each frame so the caller can
+    /// update and draw.
+    pub fn render_loop<F>(&mut self, mut draw_fn: F)
+    where
+        for<'a> F: FnMut(&mut Renderer, Event<'a, ()>),
+    {
         'running: loop {
             let mut should_exit = false;
             {
                 let event_loop = self.display.winit_event_loop();
                 event_loop.run_return(|event, _, control_flow| {
                     *control_flow = ControlFlow::Exit;
-                    if let Event::WindowEvent { event, .. } = event {
-                        match event {
-                            WindowEvent::CloseRequested |
-                            WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), state: ElementState::Pressed, .. }, .. } =>
-                                should_exit = true,
-                            _ => {}
+                    if let Event::WindowEvent { event: ref win_event, .. } = event {
+                        if matches!(
+                            win_event,
+                            WindowEvent::CloseRequested
+                                | WindowEvent::KeyboardInput {
+                                    input: KeyboardInput {
+                                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                                        state: ElementState::Pressed,
+                                        ..
+                                    },
+                                    ..
+                                }
+                        ) {
+                            should_exit = true;
                         }
                     }
+                    draw_fn(self, event);
                 });
             }
-            if should_exit { break 'running; }
-            draw_fn(self);
+            if should_exit {
+                break 'running;
+            }
+            draw_fn(self, Event::MainEventsCleared);
             self.present_frame().unwrap();
         }
     }
