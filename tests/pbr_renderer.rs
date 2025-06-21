@@ -1,5 +1,6 @@
 use koji::material::*;
 use koji::renderer::*;
+use koji::utils::ResourceManager;
 use dashi::*;
 
 use inline_spirv::include_spirv;
@@ -26,7 +27,12 @@ fn quad_vertices() -> Vec<Vertex> {
 
 fn quad_indices() -> Vec<u32> { vec![0,1,2,2,3,0] }
 
-fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
+fn build_pbr_pipeline(
+    ctx: &mut Context,
+    rp: Handle<RenderPass>,
+    subpass: u32,
+    res: &mut ResourceManager,
+) -> PSO {
     let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr_pipeline")
@@ -35,7 +41,7 @@ fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -
         .render_pass(rp, subpass)
         .depth_enable(true)
         .cull_mode(CullMode::Back)
-        .build()
+        .build_with_resources(res)
 }
 
 #[cfg(feature = "gpu_tests")]
@@ -44,7 +50,7 @@ pub fn run() {
     let mut ctx = Context::new(&ContextInfo{ device }).unwrap();
     let mut renderer = Renderer::new(320,240,"pbr", &mut ctx).expect("renderer");
 
-    let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(),0);
+    let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(), 0, renderer.resources());
 
     // register textures before creating bind groups
     let white: [u8;4] = [255,255,255,255];
