@@ -409,7 +409,7 @@ impl<'a> PipelineBuilder<'a> {
         // Deduplicate descriptors that appear in multiple shader stages
         for binds in combined.values_mut() {
             binds.sort_by_key(|b| b.binding);
-            binds.dedup_by(|a, b| a.binding == b.binding);
+            binds.dedup_by(|a, b| a.binding == b.binding && a.ty == b.ty);
         }
 
         let mut desc_map = HashMap::new();
