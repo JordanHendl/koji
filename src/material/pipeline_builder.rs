@@ -425,13 +425,13 @@ impl<'a> PipelineBuilder<'a> {
             for b in binds.iter() {
                 if b.name.is_empty() {
                     panic!(
-                        "Descriptor at set {} binding {} has no name. Provide an instance name in GLSL.",
+                        "Descriptor at set {} binding {} has no name. Provide an instance name in the shader source.",
                         set, b.binding
                     );
                 }
                 if desc_map.contains_key(&b.name) {
                     panic!(
-                        "Descriptor name '{}' already used by another binding. Provide unique instance names in GLSL.",
+                        "Descriptor name '{}' already used by another binding. Provide unique instance names in the shader source.",
                         b.name
                     );
                 }
