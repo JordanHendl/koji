@@ -138,6 +138,75 @@ fn out_of_range_descriptor_set_panics() {
     ctx.destroy();
 }
 
+#[test]
+#[serial]
+#[should_panic]
+fn empty_descriptor_name_panics() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = inline_spirv!(
+        r#"
+        #version 450
+        layout(location=0) in vec2 pos;
+        layout(set=0, binding=0) uniform U { float x; };
+        void main(){ gl_Position = vec4(pos,0,1); }
+        "#,
+        vert
+    )
+    .to_vec();
+
+    let frag = simple_fragment_spirv();
+
+    let _ = PipelineBuilder::new(&mut ctx, "empty_name")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(rp, 0)
+        .build();
+}
+
+#[test]
+#[serial]
+#[should_panic]
+fn duplicate_descriptor_name_panics() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = inline_spirv!(
+        r#"
+        #version 450
+        layout(location=0) in vec2 pos;
+        layout(set=0, binding=0) uniform U0 { float x; } dup;
+        void main(){ gl_Position = vec4(pos,0,1); }
+        "#,
+        vert
+    )
+    .to_vec();
+
+    let frag = inline_spirv!(
+        r#"
+        #version 450
+        layout(set=0, binding=1) uniform sampler2D dup;
+        layout(location=0) out vec4 o;
+        void main(){ o = texture(dup, vec2(0.5)); }
+        "#,
+        frag
+    )
+    .to_vec();
+
+    let _ = PipelineBuilder::new(&mut ctx, "dup_name")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(rp, 0)
+        .build();
+}
+
 fn setup_ctx() -> gpu::Context {
     gpu::Context::headless(&Default::default()).unwrap()
 }

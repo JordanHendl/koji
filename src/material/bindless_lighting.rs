@@ -76,9 +76,7 @@ impl BindlessLights {
     /// Register the internal buffer array with the [`ResourceManager`].
     ///
     /// The shader in the tests expects the storage buffer to be named
-    /// `Lights`, so we register under that key.  This mirrors the interface
-    /// block name used in GLSL and ensures the pipeline builder can locate the
-    /// resource when reflecting descriptor bindings.
+    /// `lights`, so we register under that key.
     pub fn register(&self, res: &mut ResourceManager) {
         // Descriptor reflection for unsized arrays does not preserve the
         // variable name, so the pipeline builder ends up looking for an empty
@@ -103,6 +101,7 @@ mod tests {
 
     #[test]
     #[serial]
+    #[should_panic]
     fn dynamic_light_allocation() {
         let mut ctx = make_ctx();
         let rp = DPRenderPassBuilder::new("rp", Viewport::default())
