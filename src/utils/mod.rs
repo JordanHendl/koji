@@ -1,7 +1,35 @@
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use dashi::*;
+use dashi::BufferUsage as DashiBufferUsage;
 use utils::Handle;
+
+#[derive(Clone, Copy)]
+struct BufferUsage(u8);
+
+impl BufferUsage {
+    const STORAGE: Self = Self(1 << 0);
+    const UNIFORM: Self = Self(1 << 1);
+}
+
+impl std::ops::BitOr for BufferUsage {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        BufferUsage(self.0 | rhs.0)
+    }
+}
+
+impl From<BufferUsage> for DashiBufferUsage {
+    fn from(value: BufferUsage) -> Self {
+        match value.0 {
+            x if x == BufferUsage::STORAGE.0 => DashiBufferUsage::STORAGE,
+            x if x == BufferUsage::UNIFORM.0 => DashiBufferUsage::UNIFORM,
+            x if x == (BufferUsage::STORAGE.0 | BufferUsage::UNIFORM.0) => DashiBufferUsage::ALL,
+            _ => DashiBufferUsage::ALL,
+        }
+    }
+}
 
 pub mod allocator;
 pub mod resource_list;
@@ -117,7 +145,8 @@ pub struct ResourceManager {
 
 impl ResourceManager {
     pub fn new(ctx: &mut Context, byte_size: u64) -> Result<Self, GPUError> {
-        let allocator = GpuAllocator::new(ctx, byte_size, BufferUsage::STORAGE, 256)?;
+        let usage: DashiBufferUsage = (BufferUsage::STORAGE | BufferUsage::UNIFORM).into();
+        let allocator = GpuAllocator::new(ctx, byte_size, usage, 256)?;
         Ok(Self {
             allocator,
             textures: Default::default(),
@@ -417,7 +446,7 @@ mod tests {
                 debug_name: "ubo_test",
                 byte_size: 16,
                 visibility: MemoryVisibility::CpuAndGpu,
-                usage: BufferUsage::UNIFORM,
+                usage: DashiBufferUsage::UNIFORM,
                 initial_data: None,
             })
             .unwrap();
@@ -442,7 +471,7 @@ mod tests {
                 debug_name: "storage_test",
                 byte_size: 16,
                 visibility: MemoryVisibility::CpuAndGpu,
-                usage: BufferUsage::STORAGE,
+                usage: DashiBufferUsage::STORAGE,
                 initial_data: None,
             })
             .unwrap();
