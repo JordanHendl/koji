@@ -6,6 +6,9 @@ use koji::renderer::*;
 use koji::texture_manager;
 use koji::utils::{ResourceManager, ResourceBinding};
 use glam::*;
+use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use winit::event_loop::ControlFlow;
+use winit::platform::run_return::EventLoopExtRunReturn;
 #[cfg(feature = "gpu_tests")]
 use std::path::Path;
 
@@ -147,8 +150,9 @@ pub fn run(ctx: &mut Context) {
         .resources()
         .register_variable("Camera", ctx, camera);
 
-    let light = LightDesc {
-        position: [0.0, 0.0, 5.0],
+    let mut light_pos = Vec3::new(0.0, 0.0, 5.0);
+    let mut light = LightDesc {
+        position: light_pos.into(),
         intensity: 1.0,
         ..Default::default()
     };
@@ -179,18 +183,54 @@ pub fn run(ctx: &mut Context) {
     }
 
     let mut angle: f32 = 0.0;
-    renderer.render_loop(|r| {
-        angle += r.time_stats().delta_time * 0.001;
-        let radius = 5.0;
-        let eye = Vec3::new(angle.cos() * radius, 0.0, angle.sin() * radius);
-        let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
-        let view_proj = proj * view;
-        if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("Camera") {
-            let camera = CameraUniform { view_proj, cam_pos: eye.into(), _pad: 0.0 };
-            let slice = ctx.map_buffer_mut(*buf).unwrap();
-            let bytes = bytemuck::bytes_of(&camera);
-            slice[..bytes.len()].copy_from_slice(bytes);
-            ctx.unmap_buffer(*buf).unwrap();
+
+    renderer.render_loop(|r, event| {
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(key),
+                            state: ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => match key {
+                    VirtualKeyCode::Left => light_pos.x -= 0.2,
+                    VirtualKeyCode::Right => light_pos.x += 0.2,
+                    VirtualKeyCode::Up => light_pos.y += 0.2,
+                    VirtualKeyCode::Down => light_pos.y -= 0.2,
+                    _ => {}
+                },
+                _ => {}
+            },
+            Event::MainEventsCleared => {
+                angle += r.time_stats().delta_time;
+                let radius = 5.0;
+                let eye = Vec3::new(angle.cos() * radius, 0.0, angle.sin() * radius);
+                let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
+                let view_proj = proj * view;
+                if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("Camera") {
+                    let camera = CameraUniform {
+                        view_proj,
+                        cam_pos: eye.into(),
+                        _pad: 0.0,
+                    };
+                    let slice = ctx.map_buffer_mut(*buf).unwrap();
+                    let bytes = bytemuck::bytes_of(&camera);
+                    slice[..bytes.len()].copy_from_slice(bytes);
+                    ctx.unmap_buffer(*buf).unwrap();
+                }
+
+                if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("SceneLight") {
+                    light.position = light_pos.into();
+                    let slice = ctx.map_buffer_mut(*buf).unwrap();
+                    let bytes = bytemuck::bytes_of(&light);
+                    slice[..bytes.len()].copy_from_slice(bytes);
+                    ctx.unmap_buffer(*buf).unwrap();
+                }
+            }
+            _ => {}
         }
     });
 }

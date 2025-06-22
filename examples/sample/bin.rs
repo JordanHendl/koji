@@ -9,12 +9,6 @@ pub fn run(ctx: &mut Context) {
     let vert: &[u32] = include_spirv!("assets/shaders/sample.vert", vert);
     let frag: &[u32] = include_spirv!("assets/shaders/sample.frag", frag);
 
-    let mut pso = PipelineBuilder::new(ctx, "sample_pso")
-        .vertex_shader(vert)
-        .fragment_shader(frag)
-        .render_pass(renderer.render_pass(), 0)
-        .build_with_resources(renderer.resources());
-
     let tex_data: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
     let img = ctx
         .make_image(&ImageInfo {
@@ -41,6 +35,13 @@ pub fn run(ctx: &mut Context) {
     renderer
         .resources()
         .register_variable("ubo", ctx, 0.7f32);
+
+    let mut pso = PipelineBuilder::new(ctx, "sample_pso")
+        .vertex_shader(vert)
+        .fragment_shader(frag)
+        .render_pass(renderer.render_pass(), 0)
+        .build_with_resources(renderer.resources())
+        .unwrap();
 
     let bind_groups = pso
         .create_bind_groups(renderer.resources())
@@ -79,7 +80,7 @@ pub fn run(ctx: &mut Context) {
     };
     renderer.register_static_mesh(mesh, None, "color".into());
 
-    renderer.render_loop(|_r| {});
+    renderer.render_loop(|_r, _event| {});
 }
 
 pub fn main() {

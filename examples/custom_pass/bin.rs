@@ -66,7 +66,7 @@ subpasses:
     renderer.register_static_mesh(mesh, None, "color".into());
 
     // Render loop - nothing changes per frame in this simple sample
-    renderer.render_loop(|_r| {
+    renderer.render_loop(|_r, _event| {
         // No dynamic updates
     });
 }
