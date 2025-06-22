@@ -371,6 +371,14 @@ impl Renderer {
 
         self.command_list.record(|list| {
             for target in &self.targets {
+                // Collect attachments for drawing. Include depth if present.
+                let attachments: Vec<Attachment> = {
+                    let mut atts = target.colors.iter().map(|a| a.attachment).collect::<Vec<_>>();
+                    if let Some(depth) = &target.depth {
+                        atts.push(depth.attachment);
+                    }
+                    atts
+                };
                 let mut started = false;
                 for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
                     let (pso, bind_groups) = if let Some(entry) =
@@ -398,11 +406,7 @@ impl Renderer {
                                 ..Default::default()
                             },
                             pipeline: pso.pipeline,
-                            attachments: &target
-                                .colors
-                                .iter()
-                                .map(|a| a.attachment)
-                                .collect::<Vec<_>>(),
+                            attachments: &attachments,
                         })
                         .unwrap();
                         started = true;
@@ -422,11 +426,7 @@ impl Renderer {
                                 ..Default::default()
                             },
                             pipeline: pso.pipeline,
-                            attachments: &target
-                                .colors
-                                .iter()
-                                .map(|a| a.attachment)
-                                .collect::<Vec<_>>(),
+                            attachments: &attachments,
                         })
                         .unwrap();
                     }
@@ -484,11 +484,7 @@ impl Renderer {
                             ..Default::default()
                         },
                         pipeline: pso.pipeline,
-                        attachments: &target
-                            .colors
-                            .iter()
-                            .map(|a| a.attachment)
-                            .collect::<Vec<_>>(),
+                        attachments: &attachments,
 
                     }).unwrap();
 
@@ -572,11 +568,7 @@ impl Renderer {
                                     ..Default::default()
                                 },
                                 pipeline: pso.pipeline,
-                                attachments: &target
-                                    .colors
-                                    .iter()
-                                    .map(|a| a.attachment)
-                                    .collect::<Vec<_>>(),
+                                attachments: &attachments,
                             })
                             .unwrap();
                             started = true;
@@ -596,11 +588,7 @@ impl Renderer {
                                     ..Default::default()
                                 },
                                 pipeline: pso.pipeline,
-                                attachments: &target
-                                    .colors
-                                    .iter()
-                                    .map(|a| a.attachment)
-                                    .collect::<Vec<_>>(),
+                                attachments: &attachments,
                             })
                             .unwrap();
                         }
