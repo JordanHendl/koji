@@ -9,17 +9,17 @@ layout(set = 0, binding = 1) uniform sampler2D normal_map;
 layout(set = 0, binding = 2) uniform sampler2D metallic_map;
 layout(set = 0, binding = 3) uniform sampler2D roughness_map;
 
-layout(set = 0, binding = 4) uniform Camera {
+layout(set = 0, binding = 4) uniform CameraBlock {
     mat4 view_proj;
     vec3 cam_pos;
-};
+} Camera;
 
 struct Light {
     vec3 position;
     float intensity;
 };
 
-layout(set = 0, binding = 5) uniform SceneLight { Light light; };
+layout(set = 0, binding = 5) uniform SceneLightBlock { Light light; } SceneLight;
 
 layout(location = 0) out vec4 outColor;
 
@@ -52,8 +52,8 @@ void main() {
     vec3 albedo = pow(texture(albedo_map, vUV).rgb, vec3(2.2));
     vec3 normalSample = texture(normal_map, vUV).xyz * 2.0 - 1.0;
     vec3 N = normalize(normalSample);
-    vec3 V = normalize(cam_pos - vWorldPos);
-    vec3 L = normalize(light.position - vWorldPos);
+    vec3 V = normalize(Camera.cam_pos - vWorldPos);
+    vec3 L = normalize(SceneLight.light.position - vWorldPos);
     vec3 H = normalize(V + L);
 
     float roughness = texture(roughness_map, vUV).r;
@@ -76,7 +76,7 @@ void main() {
     vec3 kD = (1.0 - kS) * (1.0 - metallic);
 
     vec3 diffuse = kD * albedo / 3.141592;
-    vec3 color = (diffuse + specular) * NdotL * light.intensity;
+    vec3 color = (diffuse + specular) * NdotL * SceneLight.light.intensity;
 
     color = pow(color, vec3(1.0 / 2.2));
     outColor = vec4(color, 1.0);
