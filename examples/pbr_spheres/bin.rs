@@ -153,6 +153,7 @@ pub fn run(ctx: &mut Context) {
         .subpass("main", ["color"], &[] as &[&str]);
 
     let mut renderer = Renderer::with_render_pass(1920, 1080, ctx, builder).unwrap();
+    renderer.set_clear_depth(1.0);
     register_textures(ctx, renderer.resources());
 
     let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);

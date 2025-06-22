@@ -47,6 +47,7 @@ pub struct Renderer {
     /// Handle to the GPU uniform buffer storing [`TimeStats`] data.
     time_buffer: Option<Handle<Buffer>>,
     clear_color: [f32; 4],
+    clear_depth: f32,
     width: u32,
     height: u32,
 }
@@ -63,13 +64,26 @@ impl Renderer {
         builder: RenderPassBuilder,
     ) -> Result<Self, GPUError> {
         let clear_color = [0.1, 0.2, 0.3, 1.0];
+        let clear_depth = 1.0_f32;
 
         let ptr: *mut Context = ctx;
         let mut ctx: &mut Context = unsafe { &mut *ptr };
         let display = ctx.make_display(&DisplayInfo { ..Default::default() })?;
 
         let builder = builder.extent([width, height]);
-        let (render_pass, targets, _attachments) = builder.build_with_images(&mut ctx)?;
+        let (render_pass, mut targets, _attachments) = builder.build_with_images(&mut ctx)?;
+
+        for target in &mut targets {
+            for color in &mut target.colors {
+                color.attachment.clear = ClearValue::Color(clear_color);
+            }
+            if let Some(depth) = &mut target.depth {
+                depth.attachment.clear = ClearValue::DepthStencil {
+                    depth: clear_depth,
+                    stencil: 0,
+                };
+            }
+        }
 
         assert!(render_pass.valid());
 
@@ -106,6 +120,7 @@ impl Renderer {
             width,
             height,
             clear_color,
+            clear_depth,
         })
     }
 
@@ -147,6 +162,20 @@ impl Renderer {
 
     pub fn set_clear_color(&mut self, color: [f32; 4]) {
         self.clear_color = color;
+        for target in &mut self.targets {
+            for att in &mut target.colors {
+                att.attachment.clear = ClearValue::Color(color);
+            }
+        }
+    }
+
+    pub fn set_clear_depth(&mut self, depth: f32) {
+        self.clear_depth = depth;
+        for target in &mut self.targets {
+            if let Some(ref mut att) = target.depth {
+                att.attachment.clear = ClearValue::DepthStencil { depth, stencil: 0 };
+            }
+        }
     }
 
     /// Access timing statistics updated each frame.

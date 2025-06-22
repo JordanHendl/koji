@@ -5,6 +5,7 @@ use koji::renderer::*;
 
 pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(640, 480, "sample", ctx).unwrap();
+    renderer.set_clear_depth(1.0);
 
     let vert: &[u32] = include_spirv!("assets/shaders/sample.vert", vert);
     let frag: &[u32] = include_spirv!("assets/shaders/sample.frag", frag);

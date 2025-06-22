@@ -27,6 +27,7 @@ subpasses:
     let builder = RenderPassBuilder::from_yaml(config);
 
     let mut renderer = Renderer::with_render_pass(640, 480, ctx, builder).unwrap();
+    renderer.set_clear_depth(1.0);
 
     // Shaders for a colored triangle
     let vert = include_spirv!("assets/shaders/test_triangle.vert", vert);
