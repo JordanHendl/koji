@@ -4,15 +4,15 @@ mod time_stats;
 pub use time_stats::*;
 
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO};
-use crate::utils::{ResourceManager, ResourceBinding};
-use dashi::utils::*;
 use crate::render_pass::*;
+use crate::utils::{ResourceBinding, ResourceManager};
+use dashi::utils::*;
 use dashi::*;
 use glam::Mat4;
-use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use std::collections::HashMap;
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::platform::run_return::EventLoopExtRunReturn;
-use std::collections::HashMap;
 /// Render pipeline stage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RenderStage {
@@ -27,7 +27,7 @@ pub struct PipelineEntry {
 }
 
 pub struct Renderer {
-    ctx: * mut Context,
+    ctx: *mut Context,
     display: Display,
     render_pass: Handle<RenderPass>,
     targets: Vec<RenderTarget>,
@@ -54,7 +54,7 @@ pub struct Renderer {
 
 impl Renderer {
     fn get_ctx(&mut self) -> &'static mut Context {
-       unsafe{&mut *self.ctx}
+        unsafe { &mut *self.ctx }
     }
 
     pub fn with_render_pass(
@@ -68,11 +68,17 @@ impl Renderer {
 
         let ptr: *mut Context = ctx;
         let mut ctx: &mut Context = unsafe { &mut *ptr };
-        let display = ctx.make_display(&DisplayInfo { ..Default::default() })?;
+        let display = ctx.make_display(&DisplayInfo {
+            window: WindowInfo {
+                title: "KOJI-Renderer".to_string(),
+                size: [width, height],
+                ..Default::default()
+            },
+            ..Default::default()
+        })?;
 
         let builder = builder.extent([width, height]);
-        let (render_pass, mut targets, _attachments) =
-            builder.build_with_images(&mut ctx)?;
+        let (render_pass, mut targets, _attachments) = builder.build_with_images(&mut ctx)?;
 
         assert!(render_pass.valid());
 
@@ -156,8 +162,8 @@ impl Renderer {
         ctx: &mut Context,
         path: &str,
     ) -> Result<Self, GPUError> {
-        let builder = RenderPassBuilder::from_yaml_file(path)
-            .map_err(|_| GPUError::LibraryError())?;
+        let builder =
+            RenderPassBuilder::from_yaml_file(path).map_err(|_| GPUError::LibraryError())?;
         Self::with_render_pass(width, height, ctx, builder)
     }
     pub fn render_pass(&self) -> Handle<RenderPass> {
@@ -197,7 +203,8 @@ impl Renderer {
         pso: PSO,
         bind_group_resources: [Option<PSOBindGroupResources>; 4],
     ) {
-        self.stage_pipelines.insert(stage, (pso, bind_group_resources));
+        self.stage_pipelines
+            .insert(stage, (pso, bind_group_resources));
     }
 
     pub fn register_pipeline_for_pass(
@@ -206,7 +213,8 @@ impl Renderer {
         pso: PSO,
         bind_group_resources: [Option<PSOBindGroupResources>; 4],
     ) {
-        self.pipelines.insert(pass.to_string(), (pso, bind_group_resources));
+        self.pipelines
+            .insert(pass.to_string(), (pso, bind_group_resources));
     }
 
     pub fn register_skeletal_pso(
@@ -243,7 +251,7 @@ impl Renderer {
         mesh.upload(self.get_ctx())
             .expect("Failed to upload text mesh to GPU");
         self.text_drawables.push(mesh);
-   }
+    }
 
     /// Upload a skeletal mesh and its instances.
     pub fn register_skeletal_mesh(
@@ -256,11 +264,12 @@ impl Renderer {
         mesh.upload(self.get_ctx())
             .expect("Failed to upload skeletal mesh to GPU");
         for inst in &instances {
-            self.resource_manager.register_storage("bone_buf", inst.bone_buffer);
+            self.resource_manager
+                .register_storage("bone_buf", inst.bone_buffer);
         }
         self.skeletal_meshes.push((mesh, instances));
     }
-  
+
     pub fn add_light(&mut self, light: LightDesc) -> u32 {
         let ctx = self.get_ctx();
         let res = &mut self.resource_manager;
@@ -290,7 +299,11 @@ impl Renderer {
                 let event_loop = self.display.winit_event_loop();
                 event_loop.run_return(|event, _, control_flow| {
                     *control_flow = ControlFlow::Exit;
-                    if let Event::WindowEvent { event: ref win_event, .. } = event {
+                    if let Event::WindowEvent {
+                        event: ref win_event,
+                        ..
+                    } = event
+                    {
                         if matches!(
                             win_event,
                             WindowEvent::CloseRequested
@@ -325,7 +338,7 @@ impl Renderer {
         if let Some(mesh) = self.drawables.get_mut(idx) {
             mesh.0.vertices = vertices.to_vec();
             mesh.0
-                .upload(unsafe{&mut *self.ctx})
+                .upload(unsafe { &mut *self.ctx })
                 .expect("Failed to update mesh to GPU");
         }
     }
@@ -371,17 +384,29 @@ impl Renderer {
 
         self.command_list.record(|list| {
             for target in &self.targets {
+                // Collect attachments for drawing. Include depth if present.Add commentMore actions
+                let attachments: Vec<Attachment> = {
+                    let mut atts = target
+                        .colors
+                        .iter()
+                        .map(|a| a.attachment)
+                        .collect::<Vec<_>>();
+                    if let Some(depth) = &target.depth {
+                        atts.push(depth.attachment);
+                    }
+                    atts
+                };
+
                 let mut started = false;
                 for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
-                    let (pso, bind_groups) = if let Some(entry) =
-                        self.material_pipelines.get(&mesh.material_id)
-                    {
-                        entry
-                    } else if let Some(entry) = self.pipelines.get(&target.name) {
-                        entry
-                    } else {
-                        continue;
-                    };
+                    let (pso, bind_groups) =
+                        if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
+                            entry
+                        } else if let Some(entry) = self.pipelines.get(&target.name) {
+                            entry
+                        } else {
+                            continue;
+                        };
                     if !started {
                         list.begin_drawing(&DrawBegin {
                             viewport: Viewport {
@@ -398,11 +423,7 @@ impl Renderer {
                                 ..Default::default()
                             },
                             pipeline: pso.pipeline,
-                            attachments: &target
-                                .colors
-                                .iter()
-                                .map(|a| a.attachment)
-                                .collect::<Vec<_>>(),
+                            attachments: &attachments,
                         })
                         .unwrap();
                         started = true;
@@ -467,7 +488,6 @@ impl Renderer {
                     list.end_drawing().unwrap();
                 }
 
-
                 if let Some((pso, bind_groups)) = self.stage_pipelines.get(&RenderStage::Text) {
                     list.begin_drawing(&DrawBegin {
                         viewport: Viewport {
@@ -489,8 +509,8 @@ impl Renderer {
                             .iter()
                             .map(|a| a.attachment)
                             .collect::<Vec<_>>(),
-
-                    }).unwrap();
+                    })
+                    .unwrap();
 
                     for mesh in &self.text_drawables {
                         let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
@@ -515,7 +535,6 @@ impl Renderer {
                                 instance_count: 1,
                                 vertices: vb,
                                 bind_groups: [
-
                                     bind_groups[0].as_ref().map(|b| b.bind_group),
                                     bind_groups[1].as_ref().map(|b| b.bind_group),
                                     bind_groups[2].as_ref().map(|b| b.bind_group),
@@ -531,15 +550,14 @@ impl Renderer {
                 }
 
                 for (mesh, instances) in &mut self.skeletal_meshes {
-                    let (pso, bind_groups) = if let Some(entry) =
-                        self.material_pipelines.get(&mesh.material_id)
-                    {
-                        entry
-                    } else if let Some(entry) = &self.skeletal_pipeline {
-                        entry
-                    } else {
-                        continue;
-                    };
+                    let (pso, bind_groups) =
+                        if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
+                            entry
+                        } else if let Some(entry) = &self.skeletal_pipeline {
+                            entry
+                        } else {
+                            continue;
+                        };
                     let layout = pso.bind_group_layouts[0].expect("layout");
                     let mut started = false;
                     for inst in instances.iter_mut() {
@@ -641,7 +659,7 @@ impl Renderer {
                         list.end_drawing().unwrap();
                     }
                 }
-              
+
                 list.blit_image(ImageBlit {
                     src: target.colors[0].attachment.img,
                     dst: img,
@@ -656,7 +674,8 @@ impl Renderer {
             signal_sems: &self.semaphores,
         });
 
-        self.get_ctx().present_display(&self.display, &self.semaphores)?;
+        self.get_ctx()
+            .present_display(&self.display, &self.semaphores)?;
         Ok(())
     }
 }
@@ -664,8 +683,8 @@ impl Renderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
     use dashi::gpu;
+    use serial_test::serial;
 
     #[test]
     #[serial]
@@ -714,7 +733,10 @@ mod tests {
             if let Some(ref depth) = target.depth {
                 assert_eq!(
                     depth.attachment.clear,
-                    ClearValue::DepthStencil { depth: 0.25, stencil: 0 }
+                    ClearValue::DepthStencil {
+                        depth: 0.25,
+                        stencil: 0
+                    }
                 );
             }
         }

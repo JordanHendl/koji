@@ -226,9 +226,9 @@ pub fn run(ctx: &mut Context) {
                 _ => {}
             },
             Event::MainEventsCleared => {
-                angle += r.time_stats().delta_time;
-                let radius = 5.0;
-                let eye = Vec3::new(angle.cos() * radius, 0.0, angle.sin() * radius);
+                angle += r.time_stats().delta_time * 0.25;
+                let radius = 10.0;
+                let eye = Vec3::new(angle.cos() * radius, -2.0, angle.sin() * radius);
                 let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
                 let view_proj = proj * view;
                 if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("Camera") {

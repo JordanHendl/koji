@@ -19,7 +19,9 @@ struct Light {
     float intensity;
 };
 
-layout(set = 0, binding = 5) uniform SceneLightBlock { Light light; } SceneLight;
+layout(set = 0, binding = 5) uniform SceneLightBlock {
+    Light light;
+} SceneLight;
 
 layout(location = 0) out vec4 outColor;
 
@@ -50,14 +52,26 @@ float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 
 void main() {
     vec3 albedo = pow(texture(albedo_map, vUV).rgb, vec3(2.2));
+    float metallic = texture(metallic_map, vUV).r;
+    float roughness = texture(roughness_map, vUV).r;
+
+    // Compute tangent and bitangent from screen-space derivatives
+    vec3 dp1 = dFdx(vWorldPos);
+    vec3 dp2 = dFdy(vWorldPos);
+    vec2 duv1 = dFdx(vUV);
+    vec2 duv2 = dFdy(vUV);
+
+    vec3 tangent = normalize(duv2.y * dp1 - duv1.y * dp2);
+    vec3 bitangent = normalize(-duv2.x * dp1 + duv1.x * dp2);
+    vec3 normal = normalize(cross(tangent, bitangent)); // fallback if needed
+
+    mat3 TBN = mat3(tangent, bitangent, normal);
     vec3 normalSample = texture(normal_map, vUV).xyz * 2.0 - 1.0;
-    vec3 N = normalize(normalSample);
+    vec3 N = normalize(TBN * normalSample);
+
     vec3 V = normalize(Camera.cam_pos - vWorldPos);
     vec3 L = normalize(SceneLight.light.position - vWorldPos);
     vec3 H = normalize(V + L);
-
-    float roughness = texture(roughness_map, vUV).r;
-    float metallic = texture(metallic_map, vUV).r;
 
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
@@ -69,15 +83,21 @@ void main() {
     float NdotV = max(dot(N, V), 0.0);
 
     vec3 numerator = NDF * G * F;
-    float denom = 4.0 * NdotV * NdotL + 0.001;
+    float denom = max(4.0 * NdotV * NdotL, 0.01); // prevent division artifacts
     vec3 specular = numerator / denom;
 
     vec3 kS = F;
     vec3 kD = (1.0 - kS) * (1.0 - metallic);
 
     vec3 diffuse = kD * albedo / 3.141592;
-    vec3 color = (diffuse + specular) * NdotL * SceneLight.light.intensity;
+    vec3 lighting = (diffuse + specular) * NdotL * SceneLight.light.intensity;
 
-    color = pow(color, vec3(1.0 / 2.2));
+    // Add ambient term
+    vec3 ambient = 0.03 * albedo;
+
+    vec3 color = ambient + lighting;
+    color = pow(color, vec3(1.0 / 2.2)); // gamma correction
+
     outColor = vec4(color, 1.0);
 }
+

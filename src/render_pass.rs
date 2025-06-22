@@ -133,10 +133,28 @@ impl RenderPassBuilder {
             .map(|s| s.to_string())
             .collect();
         let depends_on = depends_on.into_iter().map(|d| d.to_string()).collect();
+
+        let global_depth = self
+            .attachments
+            .keys()
+            .find(|k| {
+                self.subpasses
+                    .iter()
+                    .any(|sp| sp.depth_stencil_attachment.as_ref() == Some(*k))
+            })
+            .or_else(|| {
+                self.attachments
+                    .keys()
+                    .find(|k| matches!(self.attachments.get(*k).unwrap().format, Format::D24S8))
+            });
+
         self.subpasses.push(NamedSubpass {
             name: name.into(),
             color_attachments,
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: match global_depth {
+                Some(a) => Some(a.clone()),
+                None => None,
+            },
             depends_on,
         });
         self
