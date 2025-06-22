@@ -71,19 +71,8 @@ impl Renderer {
         let display = ctx.make_display(&DisplayInfo { ..Default::default() })?;
 
         let builder = builder.extent([width, height]);
-        let (render_pass, mut targets, _attachments) = builder.build_with_images(&mut ctx)?;
-
-        for target in &mut targets {
-            for color in &mut target.colors {
-                color.attachment.clear = ClearValue::Color(clear_color);
-            }
-            if let Some(depth) = &mut target.depth {
-                depth.attachment.clear = ClearValue::DepthStencil {
-                    depth: clear_depth,
-                    stencil: 0,
-                };
-            }
-        }
+        let (render_pass, mut targets, _attachments) =
+            builder.build_with_images(&mut ctx)?;
 
         assert!(render_pass.valid());
 
@@ -99,7 +88,7 @@ impl Renderer {
             _ => None,
         };
 
-        Ok(Self {
+        let mut renderer = Self {
             ctx,
             display,
             render_pass,
@@ -121,7 +110,22 @@ impl Renderer {
             height,
             clear_color,
             clear_depth,
-        })
+        };
+
+        // Initialize attachment clear values
+        for target in &mut renderer.targets {
+            for att in &mut target.colors {
+                att.attachment.clear = ClearValue::Color(renderer.clear_color);
+            }
+            if let Some(depth) = &mut target.depth {
+                depth.attachment.clear = ClearValue::DepthStencil {
+                    depth: renderer.clear_depth,
+                    stencil: 0,
+                };
+            }
+        }
+
+        Ok(renderer)
     }
 
     pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
@@ -654,5 +658,67 @@ impl Renderer {
 
         self.get_ctx().present_display(&self.display, &self.semaphores)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    use dashi::gpu;
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "gpu_tests"), ignore)]
+    fn set_clear_color_updates_attachments() {
+        let device = gpu::DeviceSelector::new()
+            .unwrap()
+            .select(gpu::DeviceFilter::default().add_required_type(gpu::DeviceType::Dedicated))
+            .unwrap_or_default();
+        let mut ctx = gpu::Context::new(&gpu::ContextInfo { device }).unwrap();
+
+        let mut renderer = Renderer::new(64, 64, "clr", &mut ctx).unwrap();
+        renderer.set_clear_color([0.5, 0.5, 0.5, 1.0]);
+
+        for target in &renderer.targets {
+            for att in &target.colors {
+                assert_eq!(
+                    att.attachment.clear,
+                    ClearValue::Color([0.5, 0.5, 0.5, 1.0])
+                );
+            }
+        }
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "gpu_tests"), ignore)]
+    fn set_clear_depth_updates_attachments() {
+        let device = gpu::DeviceSelector::new()
+            .unwrap()
+            .select(gpu::DeviceFilter::default().add_required_type(gpu::DeviceType::Dedicated))
+            .unwrap_or_default();
+        let mut ctx = gpu::Context::new(&gpu::ContextInfo { device }).unwrap();
+
+        let builder = RenderPassBuilder::new()
+            .debug_name("clear_depth")
+            .color_attachment("color", Format::RGBA8)
+            .depth_attachment("depth", Format::D24S8)
+            .subpass("main", ["color"], &[] as &[&str]);
+
+        let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
+        renderer.set_clear_depth(0.25);
+
+        for target in &renderer.targets {
+            if let Some(ref depth) = target.depth {
+                assert_eq!(
+                    depth.attachment.clear,
+                    ClearValue::DepthStencil { depth: 0.25, stencil: 0 }
+                );
+            }
+        }
+
+        ctx.destroy();
     }
 }
