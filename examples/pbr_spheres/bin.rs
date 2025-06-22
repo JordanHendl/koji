@@ -3,6 +3,7 @@ use dashi::*;
 use inline_spirv::include_spirv;
 use koji::material::*;
 use koji::renderer::*;
+use koji::render_pass::*;
 use koji::texture_manager;
 use koji::utils::{ResourceManager, ResourceBinding};
 use glam::*;
@@ -132,7 +133,26 @@ struct CameraUniform {
 }
 
 pub fn run(ctx: &mut Context) {
-    let mut renderer = Renderer::new(1920, 1080, "pbr_spheres", ctx).unwrap();
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .viewport(Viewport {
+            area: FRect2D {
+                w: 1920.0,
+                h: 1080.0,
+                ..Default::default()
+            },
+            scissor: Rect2D {
+                w: 1920,
+                h: 1080,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .color_attachment("color", Format::RGBA8)
+        .depth_attachment("depth", Format::D24S8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(1920, 1080, ctx, builder).unwrap();
     register_textures(ctx, renderer.resources());
 
     let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
