@@ -13,7 +13,12 @@ use winit::platform::run_return::EventLoopExtRunReturn;
 #[cfg(feature = "gpu_tests")]
 use std::path::Path;
 
-fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
+fn build_pbr_pipeline(
+    ctx: &mut Context,
+    rp: Handle<RenderPass>,
+    subpass: u32,
+    res: &mut ResourceManager,
+) -> Result<PSO, PipelineError> {
     let vert: &[u32] = include_spirv!("assets/shaders/pbr_spheres.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("assets/shaders/pbr_spheres.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr")
@@ -22,7 +27,7 @@ fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -
         .render_pass(rp, subpass)
         .depth_enable(true)
         .cull_mode(CullMode::Back)
-        .build()
+        .build_with_resources(res)
 }
 
 fn make_sphere(lat: u32, long: u32) -> (Vec<Vertex>, Vec<u32>) {
@@ -155,8 +160,6 @@ pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::with_render_pass(1920, 1080, ctx, builder).unwrap();
     register_textures(ctx, renderer.resources());
 
-    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
-
     let proj =
         Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
     let cam_pos = Vec3::new(0.0, 0.0, 5.0);
@@ -180,7 +183,16 @@ pub fn run(ctx: &mut Context) {
         .resources()
         .register_variable("SceneLight", ctx, light);
 
-    // Create bind groups now that all resources are registered
+    // Build the pipeline after all resources are registered
+    let mut pso = build_pbr_pipeline(
+        ctx,
+        renderer.render_pass(),
+        0,
+        renderer.resources(),
+    )
+    .expect("failed to build pipeline");
+
+    // Create bind groups now that the pipeline can see all resources
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
 
