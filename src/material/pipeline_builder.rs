@@ -395,7 +395,7 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     fn build_internal(
-        mut self,
+        self,
         res: Option<&mut ResourceManager>,
     ) -> Result<PSO, PipelineError> {
         let rp = self
@@ -429,6 +429,18 @@ impl<'a> PipelineBuilder<'a> {
                     binding: b.binding,
                     count: b.count,
                 });
+                if b.name.is_empty() {
+                    panic!(
+                        "Descriptor in set {} binding {} has no name. Provide an instance name in GLSL.",
+                        set, b.binding
+                    );
+                }
+                if desc_map.contains_key(&b.name) {
+                    panic!(
+                        "Descriptor name '{}' appears more than once. Supply unique instance names in GLSL to disambiguate.",
+                        b.name
+                    );
+                }
                 desc_map.insert(b.name.clone(), (set as usize, b.binding, b.count));
             }
 

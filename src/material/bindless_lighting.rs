@@ -76,14 +76,12 @@ impl BindlessLights {
     /// Register the internal buffer array with the [`ResourceManager`].
     ///
     /// The shader in the tests expects the storage buffer to be named
-    /// `Lights`, so we register under that key.  This mirrors the interface
+    /// `lights_buf`, so we register under that key. This mirrors the interface
     /// block name used in GLSL and ensures the pipeline builder can locate the
     /// resource when reflecting descriptor bindings.
     pub fn register(&self, res: &mut ResourceManager) {
-        // Descriptor reflection for unsized arrays does not preserve the
-        // variable name, so the pipeline builder ends up looking for an empty
-        // string key. Register under an empty name to satisfy that lookup.
-        res.register_buffer_array("", self.lights.clone());
+        // The shader expects the storage buffer to be named `lights_buf`.
+        res.register_buffer_array("lights_buf", self.lights.clone());
     }
 }
 
@@ -121,13 +119,13 @@ mod tests {
         let frag = inline_spirv!(
             r"#version 450
             struct Light { vec3 pos; float intensity; vec3 color; float range; vec3 dir; uint pad; };
-            layout(set=0,binding=0) buffer Lights { Light lights[]; };
-            layout(set=0,binding=1) uniform Count { uint count; };
+            layout(set=0,binding=0) buffer Lights { Light lights[]; } lights_buf;
+            layout(set=0,binding=1) uniform Count { uint count; } count_ubo;
             layout(location=0) out vec4 o;
             void main(){
                 vec3 c = vec3(0.0);
-                for(uint i=0u;i<count;i++) { c += lights[i].color * lights[i].intensity; }
-                o = vec4(c / float(count), 1.0);
+                for(uint i=0u;i<count_ubo.count;i++) { c += lights_buf.lights[i].color * lights_buf.lights[i].intensity; }
+                o = vec4(c / float(count_ubo.count), 1.0);
             }
             ",
             frag
@@ -154,9 +152,7 @@ mod tests {
         }
         let count = lights.lights.lock().unwrap().len() as u32;
         lights.register(&mut res);
-        // For unsized arrays the descriptor name is empty when reflected, so we
-        // register the accompanying uniform under an empty key as well.
-        res.register_variable("", &mut ctx, count);
+        res.register_variable("count_ubo", &mut ctx, count);
 
         let group = pso.create_bind_group(0, &res).unwrap();
         assert!(group.bind_group.valid());
@@ -222,7 +218,7 @@ mod tests {
             let ll = lights.lights.lock().unwrap();
             let handle = ll.entries[0];
             let buf = ll.get_ref(handle);
-            let mut slice = ctx.map_buffer_mut(buf.handle).unwrap();
+            let slice = ctx.map_buffer_mut(buf.handle).unwrap();
             let range = buf.offset as usize..buf.offset as usize + std::mem::size_of::<LightDesc>();
             for b in &mut slice[range] {
                 *b = 0;

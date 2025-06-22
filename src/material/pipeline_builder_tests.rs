@@ -138,6 +138,87 @@ fn out_of_range_descriptor_set_panics() {
     ctx.destroy();
 }
 
+fn dup_vert() -> Vec<u32> {
+    inline_spirv!(
+        r#"
+        #version 450
+        layout(location=0) in vec2 pos;
+        layout(set=0,binding=0) uniform B0 { float x; } res;
+        void main(){ gl_Position = vec4(pos,0,1); }
+        "#,
+        vert
+    )
+    .to_vec()
+}
+
+fn dup_frag() -> Vec<u32> {
+    inline_spirv!(
+        r#"
+        #version 450
+        layout(set=0,binding=1) uniform sampler2D res;
+        layout(location=0) out vec4 o;
+        void main(){ o = texture(res, vec2(0.5)); }
+        "#,
+        frag
+    )
+    .to_vec()
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Descriptor name 'res' appears more than once")]
+fn duplicate_descriptor_names_panics() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = dup_vert();
+    let frag = dup_frag();
+
+    let _ = PipelineBuilder::new(&mut ctx, "dup")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(rp, 0)
+        .build();
+    ctx.destroy();
+}
+
+fn unnamed_vert() -> Vec<u32> {
+    inline_spirv!(
+        r#"
+        #version 450
+        layout(location=0) in vec2 pos;
+        layout(set=0,binding=0) uniform Block { float x; };
+        void main(){ gl_Position = vec4(pos,0,1); }
+        "#,
+        vert
+    )
+    .to_vec()
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "has no name")] 
+fn empty_descriptor_name_panics() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = unnamed_vert();
+    let frag = simple_fragment_spirv();
+
+    let _ = PipelineBuilder::new(&mut ctx, "unnamed")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(rp, 0)
+        .build();
+    ctx.destroy();
+}
+
 fn setup_ctx() -> gpu::Context {
     gpu::Context::headless(&Default::default()).unwrap()
 }
