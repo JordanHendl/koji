@@ -78,7 +78,7 @@ impl Renderer {
         })?;
 
         let builder = builder.extent([width, height]);
-        let (render_pass, mut targets, _attachments) = builder.build_with_images(&mut ctx)?;
+        let (render_pass, targets, _attachments) = builder.build_with_images(&mut ctx)?;
 
         assert!(render_pass.valid());
 

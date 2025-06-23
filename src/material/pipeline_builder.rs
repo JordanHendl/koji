@@ -395,7 +395,7 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     fn build_internal(
-        mut self,
+        self,
         res: Option<&mut ResourceManager>,
     ) -> Result<PSO, PipelineError> {
         let rp = self
