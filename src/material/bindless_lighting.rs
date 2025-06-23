@@ -221,7 +221,7 @@ mod tests {
             let ll = lights.lights.lock().unwrap();
             let handle = ll.entries[0];
             let buf = ll.get_ref(handle);
-            let mut slice = ctx.map_buffer_mut(buf.handle).unwrap();
+            let slice = ctx.map_buffer_mut(buf.handle).unwrap();
             let range = buf.offset as usize..buf.offset as usize + std::mem::size_of::<LightDesc>();
             for b in &mut slice[range] {
                 *b = 0;
