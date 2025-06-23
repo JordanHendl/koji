@@ -8,8 +8,6 @@ use koji::texture_manager;
 use koji::utils::{ResourceManager, ResourceBinding};
 use glam::*;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
-use winit::event_loop::ControlFlow;
-use winit::platform::run_return::EventLoopExtRunReturn;
 #[cfg(feature = "gpu_tests")]
 use std::path::Path;
 
