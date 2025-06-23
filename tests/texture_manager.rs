@@ -24,7 +24,7 @@ fn load_adds_binding_and_texture_entry() {
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let bytes = in_memory_png();
-    let handle = load_from_bytes(&mut ctx, &mut res, "mem_tex", &bytes);
+    let handle = load_from_bytes(&mut ctx, &mut res, "mem_tex", Default::default(), &bytes);
 
     assert_eq!(res.textures.entries.len(), 1);
     assert!(res.bindings.contains_key("mem_tex"));

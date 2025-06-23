@@ -389,7 +389,7 @@ dependencies = [
 [[package]]
 name = "dashi"
 version = "0.1.0"
-source = "git+https://github.com/JordanHendl/dashi#1172216210a8af8ea0f0cd349f4869132ff169fa"
+source = "git+https://github.com/JordanHendl/dashi#0e2968e403ad1ce92744bf1d7cd77575e2f72c5f"
 dependencies = [
  "ash",
  "ash-window",
@@ -602,9 +602,9 @@ dependencies = [
 
 [[package]]
 name = "gif"
-version = "0.13.2"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc37f9a2bfe731e69f1e08d29d91d30604b9ce24bcb2880a961e82d89c6ed89"
+checksum = "4ae047235e33e2829703574b54fdec96bfbad892062d97fed2f76022287de61b"
 dependencies = [
  "color_quant",
  "weezl",
@@ -1278,7 +1278,7 @@ dependencies = [
 [[package]]
 name = "rhai"
 version = "1.22.2"
-source = "git+https://github.com/rhaiscript/rhai#614a3e73d108bd436a3e063bd8d85ee3f168119a"
+source = "git+https://github.com/rhaiscript/rhai#1602dd95c5b9c0342744ed73ffa8f9374c86bce7"
 dependencies = [
  "ahash",
  "bitflags 2.9.1",
@@ -1294,7 +1294,7 @@ dependencies = [
 [[package]]
 name = "rhai_codegen"
 version = "2.2.0"
-source = "git+https://github.com/rhaiscript/rhai#614a3e73d108bd436a3e063bd8d85ee3f168119a"
+source = "git+https://github.com/rhaiscript/rhai#1602dd95c5b9c0342744ed73ffa8f9374c86bce7"
 dependencies = [
  "proc-macro2",
  "quote",

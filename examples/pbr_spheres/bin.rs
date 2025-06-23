@@ -62,29 +62,37 @@ fn make_sphere(lat: u32, long: u32) -> (Vec<Vertex>, Vec<u32>) {
 fn register_textures(ctx: &mut Context, res: &mut ResourceManager) {
     #[cfg(feature = "gpu_tests")]
     {
-        let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+        let sampler = ctx.make_sampler(&SamplerInfo {
+            mag_filter: Filter::Linear,
+            min_filter: Filter::Linear,
+            ..Default::default()
+        }).unwrap();
         let albedo = texture_manager::load_from_file(
             ctx,
             res,
             "albedo_map",
+            Default::default(),
             Path::new("assets/textures/albedo.png"),
         );
         let normal = texture_manager::load_from_file(
             ctx,
             res,
             "normal_map",
+            Format::RGBA8Unorm,
             Path::new("assets/textures/normal.png"),
         );
         let metallic = texture_manager::load_from_file(
             ctx,
             res,
             "metallic_map",
+            Format::RGBA8Unorm,
             Path::new("assets/textures/metallic.png"),
         );
         let roughness = texture_manager::load_from_file(
             ctx,
             res,
             "roughness_map",
+            Format::RGBA8Unorm,
             Path::new("assets/textures/roughness.png"),
         );
 

@@ -73,8 +73,8 @@ void main() {
     vec3 L = normalize(SceneLight.light.position - vWorldPos);
     vec3 H = normalize(V + L);
 
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+//    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), albedo);
 
     float NDF = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, V, L, roughness);
@@ -87,7 +87,8 @@ void main() {
     vec3 specular = numerator / denom;
 
     vec3 kS = F;
-    vec3 kD = (1.0 - kS) * (1.0 - metallic);
+//    vec3 kD = (1.0 - kS) * (1.0 - metallic);
+    vec3 kD = (1.0 - kS) * (1.0);
 
     vec3 diffuse = kD * albedo / 3.141592;
     vec3 lighting = (diffuse + specular) * NdotL * SceneLight.light.intensity;

@@ -256,6 +256,7 @@ impl RenderPassBuilder {
                 Format::BGRA8 => dashi::ClearValue::IntColor([0, 0, 0, 1]),
                 Format::BGRA8Unorm => dashi::ClearValue::IntColor([0, 0, 0, 1]),
                 Format::RGBA8 => dashi::ClearValue::IntColor([0, 0, 0, 1]),
+                Format::RGBA8Unorm => dashi::ClearValue::IntColor([0, 0, 0, 1]),
                 Format::RGBA32F => dashi::ClearValue::Color([0.0, 0.0, 0.0, 1.0]),
                 Format::D24S8 => dashi::ClearValue::DepthStencil {
                     depth: 0.0,
