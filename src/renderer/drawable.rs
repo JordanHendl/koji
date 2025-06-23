@@ -173,7 +173,6 @@ impl SkeletalInstance {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dashi::*;
     use serial_test::serial;
     use crate::animation::Bone;
 
