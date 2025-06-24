@@ -163,7 +163,7 @@ fn load_node(
             let indices = reader.read_indices().map(|i| i.into_u32().collect());
             let joints = reader
                 .read_joints(0)
-                .map(|i| i.into_u16().collect::<Vec<_>>());
+                .map(|i| i.into_u16().map(|j| j.map(|v| v as u32)).collect::<Vec<_>>());
             let weights = reader
                 .read_weights(0)
                 .map(|i| i.into_f32().collect::<Vec<_>>());
