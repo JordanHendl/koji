@@ -361,7 +361,7 @@ impl Renderer {
             if let Some(inst) = instances.get_mut(inst_idx) {
                 if let Some(player) = inst.player.as_mut() {
                     let local = player.advance(dt);
-                    inst.animator.update(&local);
+                    inst.animator.update_from_nodes(&local);
                     let _ = inst.update_gpu(ctx);
                 }
             }
