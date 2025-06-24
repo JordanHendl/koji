@@ -33,6 +33,12 @@ fn make_frag() -> Vec<u32> {
 pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(320, 240, "text", ctx).expect("renderer");
 
+    let font_bytes = load_system_font();
+    let text = TextRenderer2D::new(&font_bytes);
+    let dim = text.upload_text_texture(ctx, renderer.resources(), "glyph_tex", "Hello", 32.0);
+    let mesh = text.make_quad(dim, [-0.5, 0.5]);
+    renderer.register_text_mesh(mesh);
+
     let vert_spv = make_vert();
     let frag_spv = make_frag();
     let mut pso = PipelineBuilder::new(ctx, "text_pso")
@@ -42,12 +48,6 @@ pub fn run(ctx: &mut Context) {
         .build();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
-
-    let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
-    let dim = text.upload_text_texture(ctx, renderer.resources(), "glyph_tex", "Hello", 32.0);
-    let mesh = text.make_quad(dim, [-0.5, 0.5]);
-    renderer.register_text_mesh(mesh);
 
     renderer.present_frame().unwrap();
 }
