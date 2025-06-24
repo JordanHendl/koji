@@ -49,7 +49,7 @@ pub fn run(ctx: &mut Context) {
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
 
-    renderer.present_frame().unwrap();
+    renderer.render_loop(|_r, _event| {});
 }
 
 fn main() {

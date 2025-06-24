@@ -55,20 +55,8 @@ void main() {
     float metallic = texture(metallic_map, vUV).r;
     float roughness = texture(roughness_map, vUV).r;
 
-    // Compute tangent and bitangent from screen-space derivatives
-    vec3 dp1 = dFdx(vWorldPos);
-    vec3 dp2 = dFdy(vWorldPos);
-    vec2 duv1 = dFdx(vUV);
-    vec2 duv2 = dFdy(vUV);
-
-    vec3 tangent = normalize(duv2.y * dp1 - duv1.y * dp2);
-    vec3 bitangent = normalize(-duv2.x * dp1 + duv1.x * dp2);
-    vec3 normal = normalize(cross(tangent, bitangent)); // fallback if needed
-
-    mat3 TBN = mat3(tangent, bitangent, normal);
-    vec3 normalSample = texture(normal_map, vUV).xyz * 2.0 - 1.0;
-    vec3 N = normalize(TBN * normalSample);
-
+    vec3 normal = texture(normal_map, vUV).xyz;
+    vec3 N = normalize(normal);
     vec3 V = normalize(Camera.cam_pos - vWorldPos);
     vec3 L = normalize(SceneLight.light.position - vWorldPos);
     vec3 H = normalize(V + L);
