@@ -3,6 +3,7 @@ use inline_spirv::include_spirv;
 use koji::material::pipeline_builder::PipelineBuilder;
 use koji::renderer::*;
 use koji::text::*;
+use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
 
 fn load_system_font() -> Vec<u8> {
     #[cfg(target_os = "windows")]
@@ -35,9 +36,11 @@ pub fn run(ctx: &mut Context) {
 
     let font_bytes = load_system_font();
     let text = TextRenderer2D::new(&font_bytes);
-    let dim = text.upload_text_texture(ctx, renderer.resources(), "glyph_tex", "Hello", 32.0);
+    let mut input = String::new();
+    let dim = text.upload_text_texture(ctx, renderer.resources(), "glyph_tex", &input, 32.0);
     let mesh = text.make_quad(dim, [-0.5, 0.5]);
     renderer.register_text_mesh(mesh);
+    let mesh_idx = 0usize;
 
     let vert_spv = make_vert();
     let frag_spv = make_frag();
@@ -49,7 +52,40 @@ pub fn run(ctx: &mut Context) {
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Text, pso, bgr);
 
-    renderer.render_loop(|_r, _event| {});
+    renderer.render_loop(|r, event| {
+        let mut changed = false;
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::ReceivedCharacter(c) => {
+                    if !c.is_control() {
+                        input.push(c);
+                        changed = true;
+                    }
+                }
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::Back),
+                            state: ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => {
+                    input.pop();
+                    changed = true;
+                }
+                _ => {}
+            },
+            Event::MainEventsCleared => {}
+            _ => {}
+        }
+
+        if changed {
+            let dim = text.upload_text_texture(ctx, r.resources(), "glyph_tex", &input, 32.0);
+            let mesh = text.make_quad(dim, [-0.5, 0.5]);
+            r.update_text_mesh(mesh_idx, mesh);
+        }
+    });
 }
 
 fn main() {
