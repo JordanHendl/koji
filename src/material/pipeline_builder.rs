@@ -18,6 +18,7 @@ pub(crate) fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPr
     use ReflectFormat::*;
     match fmt {
         R32G32B32A32_SFLOAT => ShaderPrimitiveType::Vec4,
+        R32G32B32A32_SINT | R32G32B32A32_UINT => ShaderPrimitiveType::IVec4,
         R32G32B32_SFLOAT => ShaderPrimitiveType::Vec3,
         R32G32_SFLOAT => ShaderPrimitiveType::Vec2,
         other => panic!("Unsupported vertex input format: {:?}", other),

@@ -31,7 +31,7 @@ pub struct SkeletalVertex {
     pub tangent: [f32; 4],
     pub uv: [f32; 2],
     pub color: [f32; 4],
-    pub joint_indices: [u16; 4],
+    pub joint_indices: [u32; 4],
     pub joint_weights: [f32; 4],
 }
 
