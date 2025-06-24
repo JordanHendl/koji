@@ -56,6 +56,7 @@ fn load_skin(skin: &gltf::Skin, buffers: &[gltf::buffer::Data]) -> Skeleton {
             name: joint.name().unwrap_or("").into(),
             parent: parents[i],
             inverse_bind: inverse[i],
+            node_index: joint.index(),
         });
     }
     Skeleton { bones }
