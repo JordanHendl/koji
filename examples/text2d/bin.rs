@@ -47,7 +47,7 @@ pub fn run(ctx: &mut Context) {
         .render_pass(renderer.render_pass(), 0)
         .build();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
-    renderer.register_pipeline_for_pass("main", pso, bgr);
+    renderer.register_pso(RenderStage::Text, pso, bgr);
 
     renderer.render_loop(|_r, _event| {});
 }
