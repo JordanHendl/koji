@@ -253,6 +253,14 @@ impl Renderer {
         self.text_drawables.push(mesh);
     }
 
+    pub fn update_text_mesh(&mut self, idx: usize, mut mesh: StaticMesh) {
+        let ctx = self.get_ctx();
+        if let Some(slot) = self.text_drawables.get_mut(idx) {
+            mesh.upload(ctx).expect("Failed to upload text mesh to GPU");
+            *slot = mesh;
+        }
+    }
+
     /// Upload a skeletal mesh and its instances.
     pub fn register_skeletal_mesh(
         &mut self,
