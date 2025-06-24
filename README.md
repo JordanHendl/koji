@@ -46,9 +46,17 @@ No extra resource registration is necessary.
 
 Example programs live under the `examples/` directory and can be run with
 `cargo run --example <name>`. These require a Vulkan-capable GPU and a working
-window system. Some of the heavier demos are gated behind the `gpu_tests`
-feature flag. See [examples/README.md](examples/README.md) for a description of
-each example and exact commands.
+window system. Some of the demos are gated behind the `gpu_tests` feature flag.
+
+Available examples:
+
+- `sample` – simple triangle animated with `KOJI_time`
+- `pbr_spheres` – grid of spheres demonstrating PBR shading
+- `bindless_rendering` – textured triangle using bindless descriptors *(gpu_tests)*
+- `skeletal_animation` – animated skeletal mesh *(gpu_tests)*
+- `text2d` – draw 2D text *(gpu_tests)*
+
+See [examples/README.md](examples/README.md) for more information.
 
 ## Contributing
 
