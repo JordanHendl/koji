@@ -1,5 +1,11 @@
 use crate::renderer::{Vertex, StaticMesh};
 use crate::utils::ResourceManager;
+
+mod static_text;
+mod dynamic_text;
+
+pub use static_text::{StaticText, StaticTextCreateInfo};
+pub use dynamic_text::{DynamicText, DynamicTextCreateInfo};
 use rusttype::{Font, Scale, point};
 use dashi::*;
 
