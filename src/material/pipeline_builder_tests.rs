@@ -106,6 +106,10 @@ fn reflect_format_mapping() {
         reflect_format_to_shader_primitive(R32G32_SFLOAT),
         ShaderPrimitiveType::Vec2
     );
+    assert_eq!(
+        reflect_format_to_shader_primitive(R32G32B32A32_UINT),
+        ShaderPrimitiveType::UVec4
+    );
 }
 
 #[test]
