@@ -1,4 +1,4 @@
-use koji::text::{TextRenderer2D, StaticText, StaticTextCreateInfo, DynamicText, DynamicTextCreateInfo};
+use koji::text::{TextRenderer2D, StaticText, StaticTextCreateInfo, DynamicText, DynamicTextCreateInfo, FontRegistry};
 use koji::utils::{ResourceManager, ResourceBinding};
 use dashi::gpu;
 use serial_test::serial;
@@ -38,7 +38,9 @@ fn destroy_combined(ctx: &mut gpu::Context, res: &ResourceManager, key: &str) {
 #[serial]
 fn static_text_new_uploads_texture() {
     let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex" };
@@ -56,7 +58,9 @@ fn static_text_new_uploads_texture() {
 #[ignore]
 fn dynamic_text_update_respects_max_chars() {
     let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let info = DynamicTextCreateInfo { max_chars: 4, text: "hey", scale: 16.0, pos: [0.0, 0.0], key: "dtex" };

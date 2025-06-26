@@ -3,19 +3,23 @@ use crate::utils::ResourceManager;
 
 mod static_text;
 mod dynamic_text;
+mod font_registry;
 
 pub use static_text::{StaticText, StaticTextCreateInfo};
 pub use dynamic_text::{DynamicText, DynamicTextCreateInfo};
+pub use font_registry::FontRegistry;
 use rusttype::{Font, Scale, point};
 use dashi::*;
 
-pub struct TextRenderer2D<'a> {
-    font: Font<'a>,
+pub struct TextRenderer2D {
+    font: Font<'static>,
 }
 
-impl<'a> TextRenderer2D<'a> {
-    pub fn new(font_data: &'a [u8]) -> Self {
-        let font = Font::try_from_bytes(font_data).expect("font");
+impl TextRenderer2D {
+    pub fn new(registry: &FontRegistry, name: &str) -> Self {
+        let font = registry
+            .get(name)
+            .expect("font not found in registry");
         Self { font }
     }
 

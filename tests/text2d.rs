@@ -39,7 +39,8 @@ pub fn run() {
     let mut renderer = Renderer::new(320, 240, "text", &mut ctx).expect("renderer");
 
     let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
+    renderer.fonts_mut().register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(renderer.fonts(), "default");
     let dim = text.upload_text_texture(&mut ctx, renderer.resources(), "glyph_tex", "Hello", 32.0);
     let mesh = text.make_quad(dim, [-0.5, 0.5]);
     renderer.register_text_mesh(mesh);
