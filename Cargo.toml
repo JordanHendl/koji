@@ -56,3 +56,7 @@ path = "examples/skeletal_animation/bin.rs"
 name = "text2d"
 path = "examples/text2d/bin.rs"
 
+[[example]]
+name = "text3d"
+path = "examples/text3d/bin.rs"
+

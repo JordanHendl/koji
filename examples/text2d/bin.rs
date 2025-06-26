@@ -1,9 +1,14 @@
 use dashi::*;
+use dashi::utils::Handle;
 use inline_spirv::include_spirv;
 use koji::material::pipeline_builder::PipelineBuilder;
 use koji::renderer::*;
 use koji::text::*;
-use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use std::cell::RefCell;
+use std::rc::Rc;
+use winit::event::{
+    ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent,
+};
 
 fn load_system_font() -> Vec<u8> {
     #[cfg(target_os = "windows")]
@@ -30,6 +35,22 @@ fn make_frag() -> Vec<u32> {
     include_spirv!("assets/shaders/text.frag", frag).to_vec()
 }
 
+struct SharedDynamic(Rc<RefCell<DynamicText>>);
+
+impl TextRenderable for SharedDynamic {
+    fn vertex_buffer(&self) -> Handle<Buffer> {
+        self.0.borrow().vertex_buffer()
+    }
+
+    fn index_buffer(&self) -> Option<Handle<Buffer>> {
+        Some(self.0.borrow().index_buffer())
+    }
+
+    fn index_count(&self) -> usize {
+        self.0.borrow().index_count
+    }
+}
+
 #[cfg(feature = "gpu_tests")]
 pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(320, 240, "text", ctx).expect("renderer");
@@ -37,11 +58,38 @@ pub fn run(ctx: &mut Context) {
     let font_bytes = load_system_font();
     renderer.fonts_mut().register_font("default", &font_bytes);
     let text = TextRenderer2D::new(renderer.fonts(), "default");
+    // Static text shown at the top left
+    let static_text = StaticText::new(
+        ctx,
+        renderer.resources(),
+        &text,
+        StaticTextCreateInfo {
+            text: "Static text", 
+            scale: 32.0, 
+            pos: [-0.9, 0.9],
+            key: "static_tex",
+        },
+    ).unwrap();
+    renderer.register_text_mesh(static_text);
+
+    // Dynamic text that updates with user input
+    let dynamic = Rc::new(RefCell::new(
+        DynamicText::new(
+            ctx,
+            &text,
+            renderer.resources(),
+            DynamicTextCreateInfo {
+                max_chars: 64,
+                text: "",
+                scale: 32.0,
+                pos: [-0.5, 0.5],
+                key: "dyn_tex",
+            },
+        )
+        .unwrap(),
+    ));
+    renderer.register_text_mesh(SharedDynamic(dynamic.clone()));
     let mut input = String::new();
-    let dim = text.upload_text_texture(ctx, renderer.resources(), "glyph_tex", &input, 32.0);
-    let mesh = text.make_quad(dim, [-0.5, 0.5]);
-    renderer.register_text_mesh(mesh);
-    let mesh_idx = 0usize;
 
     let vert_spv = make_vert();
     let frag_spv = make_frag();
@@ -82,9 +130,10 @@ pub fn run(ctx: &mut Context) {
         }
 
         if changed {
-            let dim = text.upload_text_texture(ctx, r.resources(), "glyph_tex", &input, 32.0);
-            let mesh = text.make_quad(dim, [-0.5, 0.5]);
-            r.update_text_mesh(mesh_idx, mesh);
+            dynamic
+                .borrow_mut()
+                .update_text(ctx, r.resources(), &text, &input, 32.0, [-0.5, 0.5])
+                .unwrap();
         }
     });
 }
