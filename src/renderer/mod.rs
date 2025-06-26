@@ -6,7 +6,7 @@ pub use time_stats::*;
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO};
 use crate::render_pass::*;
 use crate::utils::{ResourceBinding, ResourceManager};
-use crate::text::FontRegistry;
+use crate::text::{FontRegistry, TextRenderable};
 use dashi::utils::*;
 use dashi::*;
 use glam::Mat4;
@@ -40,7 +40,7 @@ pub struct Renderer {
     fonts: FontRegistry,
     lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
-    text_drawables: Vec<StaticMesh>,
+    text_drawables: Vec<Box<dyn TextRenderable>>, 
     skeletal_meshes: Vec<(SkeletalMesh, Vec<SkeletalInstance>)>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
@@ -250,17 +250,13 @@ impl Renderer {
         self.drawables.push((mesh, dynamic_buffers));
     }
 
-    pub fn register_text_mesh(&mut self, mut mesh: StaticMesh) {
-        mesh.upload(self.get_ctx())
-            .expect("Failed to upload text mesh to GPU");
-        self.text_drawables.push(mesh);
+    pub fn register_text_mesh<T: TextRenderable + 'static>(&mut self, mesh: T) {
+        self.text_drawables.push(Box::new(mesh));
     }
 
-    pub fn update_text_mesh(&mut self, idx: usize, mut mesh: StaticMesh) {
-        let ctx = self.get_ctx();
+    pub fn update_text_mesh<T: TextRenderable + 'static>(&mut self, idx: usize, mesh: T) {
         if let Some(slot) = self.text_drawables.get_mut(idx) {
-            mesh.upload(ctx).expect("Failed to upload text mesh to GPU");
-            *slot = mesh;
+            *slot = Box::new(mesh);
         }
     }
 
@@ -532,11 +528,11 @@ impl Renderer {
                     .unwrap();
 
                     for mesh in &self.text_drawables {
-                        let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
-                        let ib = mesh.index_buffer;
+                        let vb = mesh.vertex_buffer();
+                        let ib = mesh.index_buffer();
                         let draw = if let Some(ib) = ib {
                             Command::DrawIndexed(DrawIndexed {
-                                index_count: mesh.index_count as u32,
+                                index_count: mesh.index_count() as u32,
                                 instance_count: 1,
                                 vertices: vb,
                                 indices: ib,
@@ -550,7 +546,7 @@ impl Renderer {
                             })
                         } else {
                             Command::Draw(Draw {
-                                count: mesh.index_count as u32,
+                                count: mesh.index_count() as u32,
                                 instance_count: 1,
                                 vertices: vb,
                                 bind_groups: [

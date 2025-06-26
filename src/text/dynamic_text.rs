@@ -1,5 +1,5 @@
 use crate::renderer::Vertex;
-use crate::text::TextRenderer2D;
+use crate::text::{TextRenderer2D, TextRenderable};
 use crate::utils::{GpuAllocator, ResourceManager};
 use crate::utils::allocator::Allocation;
 use dashi::utils::Handle;
@@ -28,6 +28,20 @@ pub struct DynamicText {
     pub index_count: usize,
     pub max_chars: usize,
     pub texture_key: String,
+}
+
+impl TextRenderable for DynamicText {
+    fn vertex_buffer(&self) -> Handle<Buffer> {
+        self.vertex_alloc.buffer
+    }
+
+    fn index_buffer(&self) -> Option<Handle<Buffer>> {
+        Some(self.index_alloc.buffer)
+    }
+
+    fn index_count(&self) -> usize {
+        self.index_count
+    }
 }
 
 impl DynamicText {

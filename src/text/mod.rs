@@ -1,5 +1,7 @@
 use crate::renderer::{Vertex, StaticMesh};
 use crate::utils::ResourceManager;
+use glam::{Mat4, Vec3};
+use dashi::utils::Handle;
 
 mod static_text;
 mod dynamic_text;
@@ -10,6 +12,12 @@ pub use dynamic_text::{DynamicText, DynamicTextCreateInfo};
 pub use font_registry::FontRegistry;
 use rusttype::{Font, Scale, point};
 use dashi::*;
+
+pub trait TextRenderable {
+    fn vertex_buffer(&self) -> Handle<Buffer>;
+    fn index_buffer(&self) -> Option<Handle<Buffer>>;
+    fn index_count(&self) -> usize;
+}
 
 pub struct TextRenderer2D {
     font: Font<'static>,
@@ -101,4 +109,59 @@ impl TextRenderer2D {
             index_count: 0,
         }
     }
+
+    /// Create a quad mesh transformed by `mat`.
+    pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4) -> StaticMesh {
+        let w = dim[0] as f32;
+        let h = dim[1] as f32;
+        let base = [
+            Vec3::new(0.0, -h, 0.0),
+            Vec3::new(w, -h, 0.0),
+            Vec3::new(w, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+        let verts: Vec<_> = base
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let pos = mat.transform_point3(*p);
+                let uv = match i {
+                    0 => [0.0, 1.0],
+                    1 => [1.0, 1.0],
+                    2 => [1.0, 0.0],
+                    _ => [0.0, 0.0],
+                };
+                Vertex {
+                    position: pos.into(),
+                    normal: [0.0; 3],
+                    tangent: [1.0, 0.0, 0.0, 1.0],
+                    uv,
+                    color: [1.0; 4],
+                }
+            })
+            .collect();
+        let indices = vec![0u32, 1, 2, 2, 3, 0];
+        StaticMesh {
+            material_id: "text".into(),
+            vertices: verts,
+            indices: Some(indices),
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+        }
+    }
+
+    /// Create a text mesh either in 2D or 3D space.
+    pub fn make_text_mesh(&self, dim: [u32; 2], space: TextSpace) -> StaticMesh {
+        match space {
+            TextSpace::Dim2(p) => self.make_quad(dim, p),
+            TextSpace::Dim3(m) => self.make_quad_3d(dim, m),
+        }
+    }
+}
+
+/// Specify whether text is positioned in 2D or 3D space.
+pub enum TextSpace {
+    Dim2([f32; 2]),
+    Dim3(Mat4),
 }
