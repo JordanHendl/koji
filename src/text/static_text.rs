@@ -1,7 +1,8 @@
 use crate::renderer::StaticMesh;
-use crate::text::TextRenderer2D;
+use crate::text::{TextRenderer2D, TextRenderable};
 use crate::utils::ResourceManager;
 use dashi::*;
+use dashi::utils::Handle;
 
 /// Parameters for constructing [`StaticText`].
 pub struct StaticTextCreateInfo<'a> {
@@ -23,6 +24,20 @@ pub struct StaticText {
     pub texture_key: String,
     /// Dimensions of the generated texture
     pub dim: [u32; 2],
+}
+
+impl TextRenderable for StaticText {
+    fn vertex_buffer(&self) -> Handle<Buffer> {
+        self.mesh.vertex_buffer.expect("text vertex buffer")
+    }
+
+    fn index_buffer(&self) -> Option<Handle<Buffer>> {
+        self.mesh.index_buffer
+    }
+
+    fn index_count(&self) -> usize {
+        self.mesh.index_count
+    }
 }
 
 impl StaticText {
