@@ -6,6 +6,7 @@ pub use time_stats::*;
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO};
 use crate::render_pass::*;
 use crate::utils::{ResourceBinding, ResourceManager};
+use crate::text::FontRegistry;
 use dashi::utils::*;
 use dashi::*;
 use glam::Mat4;
@@ -36,6 +37,7 @@ pub struct Renderer {
     material_pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
     skeletal_pipeline: Option<(PSO, [Option<PSOBindGroupResources>; 4])>,
     resource_manager: ResourceManager,
+    fonts: FontRegistry,
     lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
     text_drawables: Vec<StaticMesh>,
@@ -107,6 +109,7 @@ impl Renderer {
             text_drawables: Vec::new(),
             skeletal_meshes: Vec::new(),
             resource_manager,
+            fonts: FontRegistry::new(),
             lights,
             command_list,
             semaphores,
@@ -291,6 +294,14 @@ impl Renderer {
 
     pub fn resources(&mut self) -> &mut ResourceManager {
         &mut self.resource_manager
+    }
+
+    pub fn fonts(&self) -> &FontRegistry {
+        &self.fonts
+    }
+
+    pub fn fonts_mut(&mut self) -> &mut FontRegistry {
+        &mut self.fonts
     }
 
     /// Main render pass. The provided callback receives all window events as well

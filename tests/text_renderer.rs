@@ -1,4 +1,4 @@
-use koji::text::TextRenderer2D;
+use koji::text::{TextRenderer2D, FontRegistry};
 use koji::utils::{ResourceManager, ResourceBinding};
 use dashi::gpu;
 use rusttype::{Font, Scale, point};
@@ -56,7 +56,9 @@ fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
 #[serial]
 fn new_loads_font_bytes() {
     let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let dim = text.upload_text_texture(&mut ctx, &mut res, "hello", "Hi", 20.0);
@@ -69,7 +71,9 @@ fn new_loads_font_bytes() {
 #[serial]
 fn upload_registers_texture_with_expected_dims() {
     let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
 
@@ -89,7 +93,9 @@ fn upload_registers_texture_with_expected_dims() {
 #[test]
 fn make_quad_generates_correct_vertices() {
     let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
     let dim = [16, 8];
     let pos = [1.0, 2.0];
     let mesh = text.make_quad(dim, pos);
@@ -115,7 +121,9 @@ fn make_quad_generates_correct_vertices() {
 #[should_panic]
 fn upload_empty_string_zero_texture() {
     let font_bytes = load_system_font();
-    let text = TextRenderer2D::new(&font_bytes);
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let dim = text.upload_text_texture(&mut ctx, &mut res, "empty", "", 16.0);
