@@ -170,6 +170,11 @@ impl Renderer {
         self.render_pass
     }
 
+    /// Current window size in pixels.
+    pub fn window_size(&self) -> [u32; 2] {
+        [self.width, self.height]
+    }
+
     pub fn set_clear_color(&mut self, color: [f32; 4]) {
         self.clear_color = color;
         for target in &mut self.targets {

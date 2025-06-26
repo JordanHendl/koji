@@ -90,7 +90,7 @@ fn upload_registers_texture_with_expected_dims() {
 fn make_quad_generates_correct_vertices() {
     let font_bytes = load_system_font();
     let text = TextRenderer2D::new(&font_bytes);
-    let dim = [16, 8];
+    let dim = [16.0, 8.0];
     let pos = [1.0, 2.0];
     let mesh = text.make_quad(dim, pos);
     let positions: Vec<[f32; 3]> = mesh.vertices.iter().map(|v| v.position).collect();

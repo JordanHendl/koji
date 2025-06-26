@@ -37,7 +37,12 @@ pub fn run(ctx: &mut Context) {
     let font_bytes = load_system_font();
     let text = TextRenderer2D::new(&font_bytes);
     let mut input = String::new();
-    let dim = text.upload_text_texture(ctx, renderer.resources(), "glyph_tex", &input, 32.0);
+    let dim_px = text.upload_text_texture(ctx, renderer.resources(), "glyph_tex", &input, 32.0);
+    let win = renderer.window_size();
+    let dim = [
+        dim_px[0] as f32 / win[0] as f32 * 2.0,
+        dim_px[1] as f32 / win[1] as f32 * 2.0,
+    ];
     let mesh = text.make_quad(dim, [-0.5, 0.5]);
     renderer.register_text_mesh(mesh);
     let mesh_idx = 0usize;
@@ -81,7 +86,12 @@ pub fn run(ctx: &mut Context) {
         }
 
         if changed {
-            let dim = text.upload_text_texture(ctx, r.resources(), "glyph_tex", &input, 32.0);
+            let dim_px = text.upload_text_texture(ctx, r.resources(), "glyph_tex", &input, 32.0);
+            let win = r.window_size();
+            let dim = [
+                dim_px[0] as f32 / win[0] as f32 * 2.0,
+                dim_px[1] as f32 / win[1] as f32 * 2.0,
+            ];
             let mesh = text.make_quad(dim, [-0.5, 0.5]);
             r.update_text_mesh(mesh_idx, mesh);
         }

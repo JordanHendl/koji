@@ -34,14 +34,15 @@ impl StaticText {
         renderer: &TextRenderer2D,
         info: StaticTextCreateInfo<'_>,
     ) -> Result<Self, GPUError> {
-        let dim =
+        let dim_px =
             renderer.upload_text_texture(ctx, res, info.key, info.text, info.scale);
+        let dim = [dim_px[0] as f32, dim_px[1] as f32];
         let mut mesh = renderer.make_quad(dim, info.pos);
         mesh.upload(ctx)?;
         Ok(Self {
             mesh,
             texture_key: info.key.into(),
-            dim,
+            dim: dim_px,
         })
     }
 }

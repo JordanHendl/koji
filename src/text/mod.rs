@@ -78,9 +78,9 @@ impl<'a> TextRenderer2D<'a> {
     }
 
     /// Create a quad mesh covering the text dimensions.
-    pub fn make_quad(&self, dim: [u32; 2], pos: [f32; 2]) -> StaticMesh {
-        let w = dim[0] as f32;
-        let h = dim[1] as f32;
+    pub fn make_quad(&self, dim: [f32; 2], pos: [f32; 2]) -> StaticMesh {
+        let w = dim[0];
+        let h = dim[1];
         let verts = vec![
             Vertex { position: [pos[0], pos[1] - h, 0.0], normal: [0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,1.0], color:[1.0;4]},
             Vertex { position: [pos[0] + w, pos[1] - h, 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,1.0], color:[1.0;4]},
