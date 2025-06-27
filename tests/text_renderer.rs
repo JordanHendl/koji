@@ -1,4 +1,7 @@
-use koji::text::{TextRenderer2D, FontRegistry};
+use koji::text::{
+    TextRenderer2D, FontRegistry, StaticText, StaticTextCreateInfo, DynamicText,
+    DynamicTextCreateInfo,
+};
 use koji::utils::{ResourceManager, ResourceBinding};
 use dashi::gpu;
 use rusttype::{Font, Scale, point};
@@ -135,5 +138,90 @@ fn upload_empty_string_zero_texture() {
         _ => panic!("expected combined sampler"),
     }
     destroy_combined(&mut ctx, &res, "empty");
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn static_text_preserves_gpu_buffers() {
+    let font_bytes = load_system_font();
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
+    let mut ctx = setup_ctx();
+    let mut res = ResourceManager::default();
+    let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex" };
+    let mut st = StaticText::new(&mut ctx, &mut res, &text, info).unwrap();
+    let vb = st.mesh.vertex_buffer.expect("vb");
+    let ib = st.mesh.index_buffer.expect("ib");
+
+    // mutate fields after creation
+    st.dim = [0, 0];
+    st.mesh.vertices[0].position[0] += 1.0;
+    st.texture_key = "stex".into();
+
+    assert_eq!(st.mesh.vertex_buffer.unwrap(), vb);
+    assert_eq!(st.mesh.index_buffer.unwrap(), ib);
+
+    destroy_combined(&mut ctx, &res, "stex");
+    ctx.destroy_buffer(vb);
+    ctx.destroy_buffer(ib);
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+#[ignore]
+fn dynamic_text_updates_vertices_and_respects_capacity() {
+    let font_bytes = load_system_font();
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
+    let mut ctx = setup_ctx();
+    let mut res = ResourceManager::default();
+    let info = DynamicTextCreateInfo { max_chars: 8, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "dtex" };
+    let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
+    let vb = dt.vertex_buffer();
+    assert_eq!(dt.vertex_count, 4);
+
+    // update string within capacity
+    dt.update_text(&mut ctx, &mut res, &text, "bye", 16.0, [0.0, 0.0]).unwrap();
+    assert_eq!(dt.vertex_buffer(), vb);
+    assert_eq!(dt.vertex_count, 4);
+    let expected_dim = expected_dims("bye", 16.0, &font_bytes);
+    match res.get("dtex") {
+        Some(ResourceBinding::CombinedImageSampler { texture, .. }) => {
+            assert_eq!(texture.dim, expected_dim);
+        }
+        _ => panic!("expected combined sampler"),
+    }
+
+    destroy_combined(&mut ctx, &res, "dtex");
+    dt.destroy(&mut ctx);
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+#[ignore]
+fn dynamic_text_update_over_capacity_panics() {
+    let font_bytes = load_system_font();
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
+    let mut ctx = setup_ctx();
+    let mut res = ResourceManager::default();
+    let info = DynamicTextCreateInfo { max_chars: 2, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "ovr" };
+    let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        dt.update_text(&mut ctx, &mut res, &text, "toolong", 16.0, [0.0, 0.0])
+    }));
+    match result {
+        Ok(Err(_)) => {},
+        Err(_) => {},
+        _ => panic!("update should fail"),
+    }
+    destroy_combined(&mut ctx, &res, "ovr");
+    dt.destroy(&mut ctx);
     ctx.destroy();
 }
