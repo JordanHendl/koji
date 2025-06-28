@@ -66,7 +66,9 @@ fn new_loads_font_bytes() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let dim = text.upload_text_texture(&mut ctx, &mut res, "hello", "Hi", 20.0);
+    let dim = text
+        .upload_text_texture(&mut ctx, &mut res, "hello", "Hi", 20.0)
+        .unwrap();
     assert_eq!(dim, expected_dims("Hi", 20.0, &font_bytes));
     destroy_combined(&mut ctx, &res, "hello");
     ctx.destroy();
@@ -82,7 +84,9 @@ fn upload_registers_texture_with_expected_dims() {
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
 
-    let dim = text.upload_text_texture(&mut ctx, &mut res, "greeting", "Hello", 32.0);
+    let dim = text
+        .upload_text_texture(&mut ctx, &mut res, "greeting", "Hello", 32.0)
+        .unwrap();
     let expected = expected_dims("Hello", 32.0, &font_bytes);
     assert_eq!(dim, expected);
     match res.get("greeting") {
@@ -131,7 +135,9 @@ fn upload_empty_string_zero_texture() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let dim = text.upload_text_texture(&mut ctx, &mut res, "empty", "", 16.0);
+    let dim = text
+        .upload_text_texture(&mut ctx, &mut res, "empty", "", 16.0)
+        .unwrap();
     assert_eq!(dim[0], 0);
     match res.get("empty") {
         Some(ResourceBinding::CombinedImageSampler { texture, .. }) => {
