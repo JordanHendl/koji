@@ -53,7 +53,7 @@ impl TextRenderer2D {
         key: &str,
         text: &str,
         scale: f32,
-    ) -> [u32; 2] {
+    ) -> Result<[u32; 2], GPUError> {
         let scale = Scale::uniform(scale);
         let v_metrics = self.font.v_metrics(scale);
         let glyphs: Vec<_> = self
@@ -85,22 +85,18 @@ impl TextRenderer2D {
             rgba[i * 4 + 2] = 255;
             rgba[i * 4 + 3] = *a;
         }
-        let img = ctx
-            .make_image(&ImageInfo {
+        let img = ctx.make_image(&ImageInfo {
                 debug_name: "text",
                 dim: [width as u32, height as u32, 1],
                 format: Format::RGBA8,
                 mip_levels: 1,
                 layers: 1,
                 initial_data: Some(&rgba),
-            })
-            .unwrap();
-        let view = ctx
-            .make_image_view(&ImageViewInfo { img, ..Default::default() })
-            .unwrap();
-        let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
+            })?;
+        let view = ctx.make_image_view(&ImageViewInfo { img, ..Default::default() })?;
+        let sampler = ctx.make_sampler(&SamplerInfo::default())?;
         res.register_combined(key, img, view, [width as u32, height as u32], sampler);
-        [width as u32, height as u32]
+        Ok([width as u32, height as u32])
     }
 
     /// Create a quad mesh covering the text dimensions.

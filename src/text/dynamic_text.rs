@@ -86,7 +86,7 @@ impl DynamicText {
         pos: [f32; 2],
     ) -> Result<(), GPUError> {
         assert!(text.len() <= self.max_chars);
-        let dim = renderer.upload_text_texture(ctx, res, &self.texture_key, text, scale);
+        let dim = renderer.upload_text_texture(ctx, res, &self.texture_key, text, scale)?;
         let mesh = renderer.make_quad(dim, pos);
         let vert_bytes: &[u8] = bytemuck::cast_slice(&mesh.vertices);
         assert!(vert_bytes.len() as u64 <= self.vertex_alloc.size);

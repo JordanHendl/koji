@@ -50,7 +50,7 @@ impl StaticText {
         info: StaticTextCreateInfo<'_>,
     ) -> Result<Self, GPUError> {
         let dim =
-            renderer.upload_text_texture(ctx, res, info.key, info.text, info.scale);
+            renderer.upload_text_texture(ctx, res, info.key, info.text, info.scale)?;
         let mut mesh = renderer.make_quad(dim, info.pos);
         mesh.upload(ctx)?;
         Ok(Self {
