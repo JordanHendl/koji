@@ -97,7 +97,7 @@ impl SkeletalMesh {
         self.bone_buffer = Some(ctx.make_buffer(&BufferInfo {
             debug_name: "skel_bone_buffer",
             byte_size: (self.skeleton.bone_count() * std::mem::size_of::<Mat4>()) as u32,
-            visibility: MemoryVisibility::Gpu,
+            visibility: MemoryVisibility::CpuAndGpu,
             usage: BufferUsage::STORAGE,
             initial_data: None,
         })?);
@@ -143,7 +143,7 @@ impl SkeletalInstance {
         let bone_buffer = ctx.make_buffer(&BufferInfo {
             debug_name: "skel_instance_bones",
             byte_size: (animator.skeleton.bone_count() * std::mem::size_of::<Mat4>()) as u32,
-            visibility: MemoryVisibility::Gpu,
+            visibility: MemoryVisibility::CpuAndGpu,
             usage: BufferUsage::STORAGE,
             initial_data: None,
         })?;
