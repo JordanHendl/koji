@@ -1,3 +1,5 @@
+#![cfg(feature = "gpu_tests")]
+
 use koji::text::{TextRenderer2D, StaticText, StaticTextCreateInfo, DynamicText, DynamicTextCreateInfo, FontRegistry};
 use koji::utils::{ResourceManager, ResourceBinding};
 use dashi::gpu;

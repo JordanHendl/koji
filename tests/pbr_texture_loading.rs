@@ -68,7 +68,7 @@ pub fn run() {
     let mut handles = Vec::new();
     for (key, col) in keys.iter().zip(colors.iter()) {
         let bytes = png_bytes(*col);
-        let handle = texman::load_from_bytes(&mut ctx, renderer.resources(), key, &bytes);
+        let handle = texman::load_from_bytes(&mut ctx, renderer.resources(), key, Default::default(), &bytes);
         handles.push((*key, handle));
     }
     let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();

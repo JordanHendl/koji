@@ -1,3 +1,5 @@
+#![cfg(feature = "gpu_tests")]
+
 use koji::text::{
     TextRenderer2D, FontRegistry, StaticText, StaticTextCreateInfo, DynamicText,
     DynamicTextCreateInfo,

@@ -19,6 +19,20 @@ pub trait TextRenderable {
     fn index_count(&self) -> usize;
 }
 
+impl TextRenderable for StaticMesh {
+    fn vertex_buffer(&self) -> Handle<Buffer> {
+        self.vertex_buffer.expect("text vertex buffer")
+    }
+
+    fn index_buffer(&self) -> Option<Handle<Buffer>> {
+        self.index_buffer
+    }
+
+    fn index_count(&self) -> usize {
+        self.index_count
+    }
+}
+
 pub struct TextRenderer2D {
     font: Font<'static>,
 }
