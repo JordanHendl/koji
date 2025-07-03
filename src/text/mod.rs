@@ -67,6 +67,9 @@ impl TextRenderer2D {
             .next()
             .unwrap_or(0);
         let height = (v_metrics.ascent - v_metrics.descent).ceil() as u32;
+        if width <= 0 || height == 0 {
+            return Err(GPUError::LibraryError());
+        }
         let mut image = vec![0u8; width as usize * height as usize];
         for g in glyphs {
             if let Some(bb) = g.pixel_bounding_box() {
