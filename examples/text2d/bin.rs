@@ -134,6 +134,8 @@ pub fn run(ctx: &mut Context) {
                 .borrow_mut()
                 .update_text(ctx, r.resources(), &text, &input, 32.0, [-0.5, 0.5])
                 .unwrap();
+            let bgr = pso.create_bind_groups(r.resources()).unwrap();
+            r.register_pso(RenderStage::Text, pso, bgr);
         }
     });
 }
