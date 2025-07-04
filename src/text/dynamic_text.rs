@@ -1,7 +1,6 @@
 use crate::renderer::Vertex;
 use crate::text::{TextRenderer2D, TextRenderable};
-use crate::utils::{GpuAllocator, ResourceManager};
-use crate::utils::allocator::Allocation;
+use crate::utils::ResourceManager;
 use dashi::utils::Handle;
 use dashi::*;
 
@@ -21,9 +20,8 @@ pub struct DynamicTextCreateInfo<'a> {
 
 /// Text mesh that can be updated at runtime.
 pub struct DynamicText {
-    vertex_alloc: Allocation,
-    index_alloc: Allocation,
-    allocator: GpuAllocator,
+    vertex_buffer: Handle<Buffer>,
+    index_buffer: Handle<Buffer>,
     pub vertex_count: usize,
     pub index_count: usize,
     pub max_chars: usize,
@@ -32,11 +30,11 @@ pub struct DynamicText {
 
 impl TextRenderable for DynamicText {
     fn vertex_buffer(&self) -> Handle<Buffer> {
-        self.vertex_alloc.buffer
+        self.vertex_buffer
     }
 
     fn index_buffer(&self) -> Option<Handle<Buffer>> {
-        Some(self.index_alloc.buffer)
+        Some(self.index_buffer)
     }
 
     fn index_count(&self) -> usize {
@@ -52,20 +50,28 @@ impl DynamicText {
         res: &mut ResourceManager,
         info: DynamicTextCreateInfo<'_>,
     ) -> Result<Self, GPUError> {
-        let vertex_bytes = (info.max_chars * 4 * std::mem::size_of::<Vertex>()) as u64;
-        let index_bytes = (info.max_chars * 6 * std::mem::size_of::<u32>()) as u64;
-        let mut allocator = GpuAllocator::new(ctx, vertex_bytes + index_bytes, BufferUsage::ALL, 256)?;
-        let vertex_alloc = allocator
-            .allocate(vertex_bytes)
-            .ok_or(GPUError::LibraryError())?;
-        let index_alloc = allocator
-            .allocate(index_bytes)
-            .ok_or(GPUError::LibraryError())?;
+        let vertex_bytes = (info.max_chars * 4 * std::mem::size_of::<Vertex>()) as u32;
+        let index_bytes = (info.max_chars * 6 * std::mem::size_of::<u32>()) as u32;
+
+        let vertex_buffer = ctx.make_buffer(&BufferInfo {
+            debug_name: "dynamic_text_vertex",
+            byte_size: vertex_bytes,
+            visibility: MemoryVisibility::CpuAndGpu,
+            usage: BufferUsage::VERTEX,
+            initial_data: None,
+        })?;
+
+        let index_buffer = ctx.make_buffer(&BufferInfo {
+            debug_name: "dynamic_text_index",
+            byte_size: index_bytes,
+            visibility: MemoryVisibility::CpuAndGpu,
+            usage: BufferUsage::INDEX,
+            initial_data: None,
+        })?;
 
         let mut dynamic = Self {
-            vertex_alloc,
-            index_alloc,
-            allocator,
+            vertex_buffer,
+            index_buffer,
             vertex_count: 0,
             index_count: 0,
             max_chars: info.max_chars,
@@ -94,17 +100,15 @@ impl DynamicText {
         let dim = renderer.upload_text_texture(ctx, res, &self.texture_key, text, scale)?;
         let mesh = renderer.make_quad(dim, pos);
         let vert_bytes: &[u8] = bytemuck::cast_slice(&mesh.vertices);
-        assert!(vert_bytes.len() as u64 <= self.vertex_alloc.size);
-        let slice = ctx.map_buffer_mut(self.vertex_alloc.buffer)?;
+        let slice = ctx.map_buffer_mut(self.vertex_buffer)?;
         slice[..vert_bytes.len()].copy_from_slice(vert_bytes);
-        ctx.unmap_buffer(self.vertex_alloc.buffer)?;
+        ctx.unmap_buffer(self.vertex_buffer)?;
 
         let idx = mesh.indices.as_ref().expect("indices");
         let idx_bytes: &[u8] = bytemuck::cast_slice(idx);
-        assert!(idx_bytes.len() as u64 <= self.index_alloc.size);
-        let slice = ctx.map_buffer_mut(self.index_alloc.buffer)?;
+        let slice = ctx.map_buffer_mut(self.index_buffer)?;
         slice[..idx_bytes.len()].copy_from_slice(idx_bytes);
-        ctx.unmap_buffer(self.index_alloc.buffer)?;
+        ctx.unmap_buffer(self.index_buffer)?;
 
         self.vertex_count = mesh.vertices.len();
         self.index_count = idx.len();
@@ -113,19 +117,18 @@ impl DynamicText {
 
     /// GPU handle for the vertex buffer slice.
     pub fn vertex_buffer(&self) -> Handle<Buffer> {
-        self.vertex_alloc.buffer
+        self.vertex_buffer
     }
 
     /// GPU handle for the index buffer slice.
     pub fn index_buffer(&self) -> Handle<Buffer> {
-        self.index_alloc.buffer
+        self.index_buffer
     }
 
     /// Free GPU resources associated with this text.
     pub fn destroy(self, ctx: &mut Context) {
-        ctx.destroy_buffer(self.vertex_alloc.buffer);
-        ctx.destroy_buffer(self.index_alloc.buffer);
-        self.allocator.destroy(ctx);
+        ctx.destroy_buffer(self.vertex_buffer);
+        ctx.destroy_buffer(self.index_buffer);
     }
 }
 
