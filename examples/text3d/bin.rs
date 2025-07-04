@@ -41,7 +41,7 @@ pub fn run(ctx: &mut Context) {
     let text = TextRenderer2D::new(renderer.fonts(), "default");
 
     let dim = text
-        .upload_text_texture(ctx, renderer.resources(), "text3d_tex", "3D Text", 32.0)
+        .upload_text_texture(ctx, renderer.resources(), "glyph_tex", "3D Text", 32.0)
         .unwrap();
     let proj = Mat4::perspective_rh_gl(45_f32.to_radians(), 320.0 / 240.0, 0.1, 10.0);
     let view = Mat4::look_at_rh(Vec3::new(0.0, 0.0, 2.0), Vec3::ZERO, Vec3::Y);
