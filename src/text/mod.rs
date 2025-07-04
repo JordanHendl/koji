@@ -68,7 +68,19 @@ impl TextRenderer2D {
             .unwrap_or(0);
         let height = (v_metrics.ascent - v_metrics.descent).ceil() as u32;
         if width <= 0 || height == 0 {
-            return Err(GPUError::LibraryError());
+            let rgba = [0u8; 4];
+            let img = ctx.make_image(&ImageInfo {
+                debug_name: "text",
+                dim: [1, 1, 1],
+                format: Format::RGBA8,
+                mip_levels: 1,
+                layers: 1,
+                initial_data: Some(&rgba),
+            })?;
+            let view = ctx.make_image_view(&ImageViewInfo { img, ..Default::default() })?;
+            let sampler = ctx.make_sampler(&SamplerInfo::default())?;
+            res.register_combined(key, img, view, [1, 1], sampler);
+            return Ok([1, 1]);
         }
         let mut image = vec![0u8; width as usize * height as usize];
         for g in glyphs {

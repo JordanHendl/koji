@@ -127,7 +127,6 @@ fn make_quad_generates_correct_vertices() {
 
 #[test]
 #[serial]
-#[should_panic]
 fn upload_empty_string_zero_texture() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
@@ -138,10 +137,10 @@ fn upload_empty_string_zero_texture() {
     let dim = text
         .upload_text_texture(&mut ctx, &mut res, "empty", "", 16.0)
         .unwrap();
-    assert_eq!(dim[0], 0);
+    assert_eq!(dim, [1, 1]);
     match res.get("empty") {
         Some(ResourceBinding::CombinedImageSampler { texture, .. }) => {
-            assert_eq!(texture.dim[0], 0);
+            assert_eq!(texture.dim, [1, 1]);
         }
         _ => panic!("expected combined sampler"),
     }
@@ -205,6 +204,25 @@ fn dynamic_text_updates_vertices_and_respects_capacity() {
     }
 
     destroy_combined(&mut ctx, &res, "dtex");
+    dt.destroy(&mut ctx);
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn dynamic_text_update_empty_string_resets_counts() {
+    let font_bytes = load_system_font();
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let text = TextRenderer2D::new(&registry, "default");
+    let mut ctx = setup_ctx();
+    let mut res = ResourceManager::default();
+    let info = DynamicTextCreateInfo { max_chars: 8, text: "hello", scale: 16.0, pos: [0.0, 0.0], key: "emt" };
+    let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
+    dt.update_text(&mut ctx, &mut res, &text, "", 16.0, [0.0, 0.0]).unwrap();
+    assert_eq!(dt.vertex_count, 0);
+    assert_eq!(dt.index_count, 0);
+    destroy_combined(&mut ctx, &res, "emt");
     dt.destroy(&mut ctx);
     ctx.destroy();
 }
