@@ -86,7 +86,7 @@ pub fn run(ctx: &mut Context) {
                 key: "dyn_tex",
             },
         )
-        .unwrap(),
+        .expect("failed to create DynamicText"),
     ));
     renderer.register_text_mesh(SharedDynamic(dynamic.clone()));
     let mut input = String::new();
