@@ -65,7 +65,7 @@ fn dynamic_text_update_respects_max_chars() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = DynamicTextCreateInfo { max_chars: 4, text: "hey", scale: 16.0, pos: [0.0, 0.0], key: "dtex" };
+    let info = DynamicTextCreateInfo { max_chars: 4, text: "hey", scale: 16.0, pos: [0.0, 0.0], screen_dim: [1280.0, 1024.0], key: "dtex" };
     let mut d = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
     assert_eq!(d.vertex_count, 4);
     assert!(res.get("dtex").is_some());

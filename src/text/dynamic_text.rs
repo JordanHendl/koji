@@ -18,6 +18,8 @@ pub struct DynamicTextCreateInfo<'a> {
     pub pos: [f32; 2],
     /// Resource key for the uploaded texture
     pub key: &'a str,
+    /// Width and height of the render target in pixels
+    pub screen_dim: [f32; 2],
 }
 
 struct GlyphInfo {
@@ -113,6 +115,7 @@ pub struct DynamicText {
     vertex_buffer: Handle<Buffer>,
     index_buffer: Handle<Buffer>,
     atlas: TextAtlas,
+    screen_dim: [f32; 2],
     pub vertex_count: usize,
     pub index_count: usize,
     pub max_chars: usize,
@@ -166,6 +169,7 @@ impl DynamicText {
             vertex_buffer,
             index_buffer,
             atlas,
+            screen_dim: info.screen_dim,
             vertex_count: 0,
             index_count: 0,
             max_chars: info.max_chars,
@@ -194,20 +198,23 @@ impl DynamicText {
         }
         let mut verts = Vec::with_capacity(text.len() * 4);
         let mut inds = Vec::with_capacity(text.len() * 6);
+        let sx = 2.0 / self.screen_dim[0];
+        let sy = 2.0 / self.screen_dim[1];
         let mut cursor = pos[0];
         for ch in text.chars() {
             if let Some(g) = self.atlas.glyphs.get(&ch) {
                 let base = verts.len() as u32;
+                let adv = g.advance * sx;
                 let x0 = cursor;
-                let x1 = cursor + g.advance;
-                let y0 = pos[1] - self.atlas.line_height;
+                let x1 = cursor + adv;
+                let y0 = pos[1] - self.atlas.line_height * sy;
                 let y1 = pos[1];
                 verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_max[1]], color: [1.0;4] });
                 verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_max[1]], color: [1.0;4] });
                 verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_min[1]], color: [1.0;4] });
                 verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_min[1]], color: [1.0;4] });
                 inds.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
-                cursor += g.advance;
+                cursor += adv;
             }
         }
         let vert_bytes: &[u8] = bytemuck::cast_slice(&verts);
