@@ -84,6 +84,7 @@ pub fn run(ctx: &mut Context) {
                 scale: 32.0,
                 pos: [-0.5, 0.5],
                 key: "glyph_tex",
+                screen_size: [320.0, 240.0],
             },
         )
         .expect("failed to create DynamicText"),

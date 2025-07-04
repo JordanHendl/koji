@@ -186,7 +186,7 @@ fn dynamic_text_updates_vertices_and_respects_capacity() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = DynamicTextCreateInfo { max_chars: 8, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "dtex" };
+    let info = DynamicTextCreateInfo { max_chars: 8, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "dtex", screen_size: [320.0, 240.0] };
     let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
     let vb = dt.vertex_buffer();
     assert_eq!(dt.vertex_count, 4);
@@ -217,7 +217,7 @@ fn dynamic_text_update_empty_string_resets_counts() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = DynamicTextCreateInfo { max_chars: 8, text: "hello", scale: 16.0, pos: [0.0, 0.0], key: "emt" };
+    let info = DynamicTextCreateInfo { max_chars: 8, text: "hello", scale: 16.0, pos: [0.0, 0.0], key: "emt", screen_size: [320.0, 240.0] };
     let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
     dt.update_text(&mut ctx, &mut res, &text, "", 16.0, [0.0, 0.0]).unwrap();
     assert_eq!(dt.vertex_count, 0);
@@ -237,7 +237,7 @@ fn dynamic_text_update_over_capacity_panics() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = DynamicTextCreateInfo { max_chars: 2, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "ovr" };
+    let info = DynamicTextCreateInfo { max_chars: 2, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "ovr", screen_size: [320.0, 240.0] };
     let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         dt.update_text(&mut ctx, &mut res, &text, "toolong", 16.0, [0.0, 0.0])
