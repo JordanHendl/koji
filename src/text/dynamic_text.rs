@@ -3,6 +3,8 @@ use crate::text::{TextRenderer2D, TextRenderable};
 use crate::utils::ResourceManager;
 use dashi::utils::Handle;
 use dashi::*;
+use rusttype::{Scale, point};
+use std::collections::HashMap;
 
 /// Parameters for constructing [`DynamicText`].
 pub struct DynamicTextCreateInfo<'a> {
@@ -18,14 +20,104 @@ pub struct DynamicTextCreateInfo<'a> {
     pub key: &'a str,
 }
 
+struct GlyphInfo {
+    advance: f32,
+    uv_min: [f32; 2],
+    uv_max: [f32; 2],
+}
+
+struct TextAtlas {
+    glyphs: HashMap<char, GlyphInfo>,
+    line_height: f32,
+    texture_key: String,
+}
+
+impl TextAtlas {
+    fn new(
+        ctx: &mut Context,
+        res: &mut ResourceManager,
+        renderer: &TextRenderer2D,
+        key: &str,
+        scale: f32,
+    ) -> Result<Self, GPUError> {
+        let font = renderer.font();
+        let scale = Scale::uniform(scale);
+        let v_metrics = font.v_metrics(scale);
+        let line_height = (v_metrics.ascent - v_metrics.descent).ceil() as u32;
+        let chars: Vec<char> = (32u8..=126u8).map(|c| c as char).collect();
+        let cols = 16u32;
+        let rows = ((chars.len() as u32 + cols - 1) / cols) as u32;
+        let mut max_adv = 0f32;
+        for &c in &chars {
+            let adv = font.glyph(c).scaled(scale).h_metrics().advance_width;
+            if adv > max_adv {
+                max_adv = adv;
+            }
+        }
+        let cell_w = max_adv.ceil() as u32;
+        let cell_h = line_height;
+        let atlas_w = cell_w * cols;
+        let atlas_h = cell_h * rows;
+        let mut image = vec![0u8; (atlas_w * atlas_h) as usize];
+        let mut glyphs = HashMap::new();
+        for (i, ch) in chars.iter().enumerate() {
+            let col = i as u32 % cols;
+            let row = i as u32 / cols;
+            let x = col * cell_w;
+            let y = row * cell_h;
+            let g = font
+                .glyph(*ch)
+                .scaled(scale)
+                .positioned(point(x as f32, v_metrics.ascent + y as f32));
+            if let Some(bb) = g.pixel_bounding_box() {
+                g.draw(|px, py, v| {
+                    let px = (px as i32 + bb.min.x) as usize;
+                    let py = (py as i32 + bb.min.y) as usize;
+                    let idx = py * atlas_w as usize + px;
+                    image[idx] = (v * 255.0) as u8;
+                });
+            }
+            let uv_min = [x as f32 / atlas_w as f32, (y + cell_h) as f32 / atlas_h as f32];
+            let uv_max = [(x + cell_w) as f32 / atlas_w as f32, y as f32 / atlas_h as f32];
+            let adv = font.glyph(*ch).scaled(scale).h_metrics().advance_width;
+            glyphs.insert(*ch, GlyphInfo { advance: adv, uv_min, uv_max });
+        }
+        let mut rgba = vec![0u8; image.len() * 4];
+        for (i, a) in image.iter().enumerate() {
+            rgba[i * 4] = 255;
+            rgba[i * 4 + 1] = 255;
+            rgba[i * 4 + 2] = 255;
+            rgba[i * 4 + 3] = *a;
+        }
+        let img = ctx.make_image(&ImageInfo {
+            debug_name: "text_atlas",
+            dim: [atlas_w, atlas_h, 1],
+            format: Format::RGBA8,
+            mip_levels: 1,
+            layers: 1,
+            initial_data: Some(&rgba),
+        })?;
+        let view = ctx.make_image_view(&ImageViewInfo { img, ..Default::default() })?;
+        let sampler = ctx.make_sampler(&SamplerInfo::default())?;
+        res.register_combined(key, img, view, [atlas_w, atlas_h], sampler);
+        Ok(Self {
+            glyphs,
+            line_height: cell_h as f32,
+            texture_key: key.into(),
+        })
+    }
+}
+
 /// Text mesh that can be updated at runtime.
 pub struct DynamicText {
     vertex_buffer: Handle<Buffer>,
     index_buffer: Handle<Buffer>,
+    atlas: TextAtlas,
     pub vertex_count: usize,
     pub index_count: usize,
     pub max_chars: usize,
     pub texture_key: String,
+    scale: f32,
 }
 
 impl TextRenderable for DynamicText {
@@ -69,13 +161,16 @@ impl DynamicText {
             initial_data: None,
         })?;
 
+        let atlas = TextAtlas::new(ctx, res, renderer, info.key, info.scale)?;
         let mut dynamic = Self {
             vertex_buffer,
             index_buffer,
+            atlas,
             vertex_count: 0,
             index_count: 0,
             max_chars: info.max_chars,
             texture_key: info.key.into(),
+            scale: info.scale,
         };
         dynamic.update_text(ctx, res, renderer, info.text, info.scale, info.pos)?;
         Ok(dynamic)
@@ -85,10 +180,10 @@ impl DynamicText {
     pub fn update_text(
         &mut self,
         ctx: &mut Context,
-        res: &mut ResourceManager,
-        renderer: &TextRenderer2D,
+        _res: &mut ResourceManager,
+        _renderer: &TextRenderer2D,
         text: &str,
-        scale: f32,
+        _scale: f32,
         pos: [f32; 2],
     ) -> Result<(), GPUError> {
         assert!(text.len() <= self.max_chars);
@@ -97,21 +192,36 @@ impl DynamicText {
             self.index_count = 0;
             return Ok(());
         }
-        let dim = renderer.upload_text_texture(ctx, res, &self.texture_key, text, scale)?;
-        let mesh = renderer.make_quad(dim, pos);
-        let vert_bytes: &[u8] = bytemuck::cast_slice(&mesh.vertices);
+        let mut verts = Vec::with_capacity(text.len() * 4);
+        let mut inds = Vec::with_capacity(text.len() * 6);
+        let mut cursor = pos[0];
+        for ch in text.chars() {
+            if let Some(g) = self.atlas.glyphs.get(&ch) {
+                let base = verts.len() as u32;
+                let x0 = cursor;
+                let x1 = cursor + g.advance;
+                let y0 = pos[1] - self.atlas.line_height;
+                let y1 = pos[1];
+                verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_max[1]], color: [1.0;4] });
+                verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_max[1]], color: [1.0;4] });
+                verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_min[1]], color: [1.0;4] });
+                verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_min[1]], color: [1.0;4] });
+                inds.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
+                cursor += g.advance;
+            }
+        }
+        let vert_bytes: &[u8] = bytemuck::cast_slice(&verts);
         let slice = ctx.map_buffer_mut(self.vertex_buffer)?;
         slice[..vert_bytes.len()].copy_from_slice(vert_bytes);
         ctx.unmap_buffer(self.vertex_buffer)?;
 
-        let idx = mesh.indices.as_ref().expect("indices");
-        let idx_bytes: &[u8] = bytemuck::cast_slice(idx);
+        let idx_bytes: &[u8] = bytemuck::cast_slice(&inds);
         let slice = ctx.map_buffer_mut(self.index_buffer)?;
         slice[..idx_bytes.len()].copy_from_slice(idx_bytes);
         ctx.unmap_buffer(self.index_buffer)?;
 
-        self.vertex_count = mesh.vertices.len();
-        self.index_count = idx.len();
+        self.vertex_count = verts.len();
+        self.index_count = inds.len();
         Ok(())
     }
 
