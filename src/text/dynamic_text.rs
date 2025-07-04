@@ -96,16 +96,14 @@ impl DynamicText {
         let vert_bytes: &[u8] = bytemuck::cast_slice(&mesh.vertices);
         assert!(vert_bytes.len() as u64 <= self.vertex_alloc.size);
         let slice = ctx.map_buffer_mut(self.vertex_alloc.buffer)?;
-        let start = self.vertex_alloc.offset as usize;
-        slice[start..start + vert_bytes.len()].copy_from_slice(vert_bytes);
+        slice[..vert_bytes.len()].copy_from_slice(vert_bytes);
         ctx.unmap_buffer(self.vertex_alloc.buffer)?;
 
         let idx = mesh.indices.as_ref().expect("indices");
         let idx_bytes: &[u8] = bytemuck::cast_slice(idx);
         assert!(idx_bytes.len() as u64 <= self.index_alloc.size);
         let slice = ctx.map_buffer_mut(self.index_alloc.buffer)?;
-        let start = self.index_alloc.offset as usize;
-        slice[start..start + idx_bytes.len()].copy_from_slice(idx_bytes);
+        slice[..idx_bytes.len()].copy_from_slice(idx_bytes);
         ctx.unmap_buffer(self.index_alloc.buffer)?;
 
         self.vertex_count = mesh.vertices.len();
