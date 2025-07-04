@@ -64,10 +64,10 @@ pub fn run(ctx: &mut Context) {
         renderer.resources(),
         &text,
         StaticTextCreateInfo {
-            text: "Static text", 
-            scale: 32.0, 
+            text: "Static text",
+            scale: 32.0,
             pos: [-0.9, 0.9],
-            key: "static_tex",
+            key: "glyph_tex",
         },
     ).unwrap();
     renderer.register_text_mesh(static_text);
@@ -83,7 +83,7 @@ pub fn run(ctx: &mut Context) {
                 text: "",
                 scale: 32.0,
                 pos: [-0.5, 0.5],
-                key: "dyn_tex",
+                key: "glyph_tex",
             },
         )
         .expect("failed to create DynamicText"),
