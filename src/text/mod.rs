@@ -45,6 +45,11 @@ impl TextRenderer2D {
         Self { font }
     }
 
+    /// Access the internal font used for rendering.
+    pub fn font(&self) -> &Font<'static> {
+        &self.font
+    }
+
     /// Rasterize `text` to an RGBA8 texture and upload via ResourceManager.
     pub fn upload_text_texture(
         &self,

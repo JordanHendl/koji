@@ -83,6 +83,7 @@ pub fn run(ctx: &mut Context) {
                 text: "",
                 scale: 32.0,
                 pos: [-0.5, 0.5],
+                screen_dim: [320.0, 240.0],
                 key: "glyph_tex",
             },
         )
