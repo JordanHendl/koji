@@ -60,10 +60,11 @@ pub fn run() {
 
     let font_bytes = load_system_font();
     renderer.fonts_mut().register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(renderer.fonts(), "default");
+    let mut text = TextRenderer2D::new(renderer.fonts(), "default");
     let info = StaticTextCreateInfo { text: "Hello", scale: 32.0, pos: [-0.5, 0.5], key: "glyph_tex" };
-    let mesh = StaticText::new(&mut ctx, renderer.resources(), &text, info).unwrap();
+    let mesh = StaticText::new(&mut ctx, renderer.resources(), &mut text, info).unwrap();
     renderer.register_text_mesh(mesh);
+    text.register_textures(renderer.resources());
 
     let vert_spv = make_vert();
     let frag_spv = make_frag();

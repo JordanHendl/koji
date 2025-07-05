@@ -57,12 +57,12 @@ pub fn run(ctx: &mut Context) {
 
     let font_bytes = load_system_font();
     renderer.fonts_mut().register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(renderer.fonts(), "default");
+    let mut text = TextRenderer2D::new(renderer.fonts(), "default");
     // Static text shown at the top left
     let static_text = StaticText::new(
         ctx,
         renderer.resources(),
-        &text,
+        &mut text,
         StaticTextCreateInfo {
             text: "Static text",
             scale: 32.0,
@@ -76,7 +76,7 @@ pub fn run(ctx: &mut Context) {
     let dynamic = Rc::new(RefCell::new(
         DynamicText::new(
             ctx,
-            &text,
+            &mut text,
             renderer.resources(),
             DynamicTextCreateInfo {
                 max_chars: 64,
@@ -90,6 +90,7 @@ pub fn run(ctx: &mut Context) {
         .expect("failed to create DynamicText"),
     ));
     renderer.register_text_mesh(SharedDynamic(dynamic.clone()));
+    text.register_textures(renderer.resources());
     let mut input = String::new();
 
     let vert_spv = make_vert();
@@ -133,7 +134,7 @@ pub fn run(ctx: &mut Context) {
         if changed {
             dynamic
                 .borrow_mut()
-                .update_text(ctx, r.resources(), &text, &input, 32.0, [-0.5, 0.5])
+                .update_text(ctx, r.resources(), &mut text, &input, 32.0, [-0.5, 0.5])
                 .unwrap();
         }
     });

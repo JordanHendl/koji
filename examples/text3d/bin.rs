@@ -38,16 +38,17 @@ pub fn run(ctx: &mut Context) {
 
     let font_bytes = load_system_font();
     renderer.fonts_mut().register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(renderer.fonts(), "default");
+    let mut text = TextRenderer2D::new(renderer.fonts(), "default");
 
-    let dim = text
+    let (_idx, dim) = text
         .upload_text_texture(ctx, renderer.resources(), "glyph_tex", "3D Text", 32.0)
         .unwrap();
     let proj = Mat4::perspective_rh_gl(45_f32.to_radians(), 320.0 / 240.0, 0.1, 10.0);
     let view = Mat4::look_at_rh(Vec3::new(0.0, 0.0, 2.0), Vec3::ZERO, Vec3::Y);
     let mat = proj * view * Mat4::IDENTITY;
-    let mesh = text.make_quad_3d(dim, mat);
+    let mesh = text.make_quad_3d(dim, mat, _idx);
     renderer.register_text_mesh(mesh);
+    text.register_textures(renderer.resources());
     let mesh_idx = 0usize;
 
     let vert_spv = make_vert();
@@ -67,7 +68,7 @@ pub fn run(ctx: &mut Context) {
             let mat = proj
                 * view
                 * Mat4::from_rotation_y(angle);
-            let mesh2 = text.make_quad_3d(dim, mat);
+            let mesh2 = text.make_quad_3d(dim, mat, _idx);
             r.update_text_mesh(mesh_idx, mesh2);
         }
     });
