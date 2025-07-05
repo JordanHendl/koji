@@ -22,6 +22,8 @@ pub struct StaticText {
     pub mesh: StaticMesh,
     /// Resource manager key for the glyph texture
     pub texture_key: String,
+    /// Index into the bindless texture array
+    pub tex_index: u32,
     /// Dimensions of the generated texture
     pub dim: [u32; 2],
 }
@@ -46,16 +48,17 @@ impl StaticText {
     pub fn new(
         ctx: &mut Context,
         res: &mut ResourceManager,
-        renderer: &TextRenderer2D,
+        renderer: &mut TextRenderer2D,
         info: StaticTextCreateInfo<'_>,
     ) -> Result<Self, GPUError> {
-        let dim =
+        let (tex_index, dim) =
             renderer.upload_text_texture(ctx, res, info.key, info.text, info.scale)?;
-        let mut mesh = renderer.make_quad(dim, info.pos);
+        let mut mesh = renderer.make_quad(dim, info.pos, tex_index);
         mesh.upload(ctx)?;
         Ok(Self {
             mesh,
             texture_key: info.key.into(),
+            tex_index,
             dim,
         })
     }

@@ -1,7 +1,8 @@
 use crate::renderer::{Vertex, StaticMesh};
-use crate::utils::ResourceManager;
+use crate::utils::{ResourceManager, ResourceList, CombinedTextureSampler, Texture};
 use glam::{Mat4, Vec3};
 use dashi::utils::Handle;
+use std::sync::Arc;
 
 mod static_text;
 mod dynamic_text;
@@ -12,6 +13,28 @@ pub use dynamic_text::{DynamicText, DynamicTextCreateInfo};
 pub use font_registry::FontRegistry;
 use rusttype::{Font, Scale, point};
 use dashi::*;
+
+#[derive(Default)]
+pub struct TextTextureArray {
+    textures: Vec<CombinedTextureSampler>,
+}
+
+impl TextTextureArray {
+    pub fn new() -> Self { Self { textures: Vec::new() } }
+
+    pub fn add(&mut self, tex: CombinedTextureSampler) -> u32 {
+        self.textures.push(tex);
+        (self.textures.len() - 1) as u32
+    }
+
+    pub fn register(&self, res: &mut ResourceManager) {
+        let mut list = ResourceList::default();
+        for t in &self.textures {
+            list.push(t.clone());
+        }
+        res.register_combined_texture_array("glyph_textures", Arc::new(list));
+    }
+}
 
 pub trait TextRenderable {
     fn vertex_buffer(&self) -> Handle<Buffer>;
@@ -35,6 +58,7 @@ impl TextRenderable for StaticMesh {
 
 pub struct TextRenderer2D {
     font: Font<'static>,
+    textures: TextTextureArray,
 }
 
 impl TextRenderer2D {
@@ -42,7 +66,7 @@ impl TextRenderer2D {
         let font = registry
             .get(name)
             .expect("font not found in registry");
-        Self { font }
+        Self { font, textures: TextTextureArray::new() }
     }
 
     /// Access the internal font used for rendering.
@@ -50,15 +74,32 @@ impl TextRenderer2D {
         &self.font
     }
 
+    pub fn register_textures(&self, res: &mut ResourceManager) {
+        self.textures.register(res);
+    }
+
+    pub fn add_texture(
+        &mut self,
+        img: Handle<Image>,
+        view: Handle<ImageView>,
+        sampler: Handle<Sampler>,
+        dim: [u32; 2],
+    ) -> u32 {
+        self.textures.add(CombinedTextureSampler {
+            texture: Texture { handle: img, view, dim },
+            sampler,
+        })
+    }
+
     /// Rasterize `text` to an RGBA8 texture and upload via ResourceManager.
     pub fn upload_text_texture(
-        &self,
+        &mut self,
         ctx: &mut Context,
         res: &mut ResourceManager,
         key: &str,
         text: &str,
         scale: f32,
-    ) -> Result<[u32; 2], GPUError> {
+    ) -> Result<(u32, [u32; 2]), GPUError> {
         let scale = Scale::uniform(scale);
         let v_metrics = self.font.v_metrics(scale);
         let glyphs: Vec<_> = self
@@ -85,7 +126,8 @@ impl TextRenderer2D {
             let view = ctx.make_image_view(&ImageViewInfo { img, ..Default::default() })?;
             let sampler = ctx.make_sampler(&SamplerInfo::default())?;
             res.register_combined(key, img, view, [1, 1], sampler);
-            return Ok([1, 1]);
+            let idx = self.add_texture(img, view, sampler, [1, 1]);
+            return Ok((idx, [1, 1]));
         }
         let mut image = vec![0u8; width as usize * height as usize];
         for g in glyphs {
@@ -116,18 +158,19 @@ impl TextRenderer2D {
         let view = ctx.make_image_view(&ImageViewInfo { img, ..Default::default() })?;
         let sampler = ctx.make_sampler(&SamplerInfo::default())?;
         res.register_combined(key, img, view, [width as u32, height as u32], sampler);
-        Ok([width as u32, height as u32])
+        let idx = self.add_texture(img, view, sampler, [width as u32, height as u32]);
+        Ok((idx, [width as u32, height as u32]))
     }
 
     /// Create a quad mesh covering the text dimensions.
-    pub fn make_quad(&self, dim: [u32; 2], pos: [f32; 2]) -> StaticMesh {
+    pub fn make_quad(&self, dim: [u32; 2], pos: [f32; 2], tex_index: u32) -> StaticMesh {
         let w = dim[0] as f32;
         let h = dim[1] as f32;
         let verts = vec![
-            Vertex { position: [pos[0], pos[1] - h, 0.0], normal: [0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,1.0], color:[1.0;4]},
-            Vertex { position: [pos[0] + w, pos[1] - h, 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,1.0], color:[1.0;4]},
-            Vertex { position: [pos[0] + w, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,0.0], color:[1.0;4]},
-            Vertex { position: [pos[0], pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,0.0], color:[1.0;4]},
+            Vertex { position: [pos[0], pos[1] - h, 0.0], normal: [0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,1.0], color:[tex_index as f32,0.0,0.0,1.0]},
+            Vertex { position: [pos[0] + w, pos[1] - h, 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,1.0], color:[tex_index as f32,0.0,0.0,1.0]},
+            Vertex { position: [pos[0] + w, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,0.0], color:[tex_index as f32,0.0,0.0,1.0]},
+            Vertex { position: [pos[0], pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,0.0], color:[tex_index as f32,0.0,0.0,1.0]},
         ];
         let indices = vec![0u32,1,2,2,3,0];
         StaticMesh {
@@ -140,8 +183,9 @@ impl TextRenderer2D {
         }
     }
 
+
     /// Create a quad mesh transformed by `mat`.
-    pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4) -> StaticMesh {
+    pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4, tex_index: u32) -> StaticMesh {
         let w = dim[0] as f32;
         let h = dim[1] as f32;
         let base = [
@@ -166,7 +210,7 @@ impl TextRenderer2D {
                     normal: [0.0; 3],
                     tangent: [1.0, 0.0, 0.0, 1.0],
                     uv,
-                    color: [1.0; 4],
+                    color: [tex_index as f32, 0.0, 0.0, 1.0],
                 }
             })
             .collect();
@@ -182,10 +226,10 @@ impl TextRenderer2D {
     }
 
     /// Create a text mesh either in 2D or 3D space.
-    pub fn make_text_mesh(&self, dim: [u32; 2], space: TextSpace) -> StaticMesh {
+    pub fn make_text_mesh(&self, dim: [u32; 2], space: TextSpace, tex_index: u32) -> StaticMesh {
         match space {
-            TextSpace::Dim2(p) => self.make_quad(dim, p),
-            TextSpace::Dim3(m) => self.make_quad_3d(dim, m),
+            TextSpace::Dim2(p) => self.make_quad(dim, p, tex_index),
+            TextSpace::Dim3(m) => self.make_quad_3d(dim, m, tex_index),
         }
     }
 }

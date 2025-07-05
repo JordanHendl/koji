@@ -32,13 +32,14 @@ struct TextAtlas {
     glyphs: HashMap<char, GlyphInfo>,
     line_height: f32,
     texture_key: String,
+    index: u32,
 }
 
 impl TextAtlas {
     fn new(
         ctx: &mut Context,
         res: &mut ResourceManager,
-        renderer: &TextRenderer2D,
+        renderer: &mut TextRenderer2D,
         key: &str,
         scale: f32,
     ) -> Result<Self, GPUError> {
@@ -102,10 +103,12 @@ impl TextAtlas {
         let view = ctx.make_image_view(&ImageViewInfo { img, ..Default::default() })?;
         let sampler = ctx.make_sampler(&SamplerInfo::default())?;
         res.register_combined(key, img, view, [atlas_w, atlas_h], sampler);
+        let index = renderer.add_texture(img, view, sampler, [atlas_w, atlas_h]);
         Ok(Self {
             glyphs,
             line_height: cell_h as f32,
             texture_key: key.into(),
+            index,
         })
     }
 }
@@ -119,6 +122,7 @@ pub struct DynamicText {
     pub index_count: usize,
     pub max_chars: usize,
     pub texture_key: String,
+    tex_index: u32,
     scale: f32,
     screen_size: [f32; 2],
 }
@@ -141,7 +145,7 @@ impl DynamicText {
     /// Allocate buffers for up to `max_chars` worth of text.
     pub fn new(
         ctx: &mut Context,
-        renderer: &TextRenderer2D,
+        renderer: &mut TextRenderer2D,
         res: &mut ResourceManager,
         info: DynamicTextCreateInfo<'_>,
     ) -> Result<Self, GPUError> {
@@ -165,6 +169,7 @@ impl DynamicText {
         })?;
 
         let atlas = TextAtlas::new(ctx, res, renderer, info.key, info.scale)?;
+        let idx = atlas.index;
         let mut dynamic = Self {
             vertex_buffer,
             index_buffer,
@@ -173,6 +178,7 @@ impl DynamicText {
             index_count: 0,
             max_chars: info.max_chars,
             texture_key: info.key.into(),
+            tex_index: idx,
             scale: info.scale,
             screen_size: info.screen_size,
         };
@@ -209,10 +215,11 @@ impl DynamicText {
                 let x1 = cursor + adv;
                 let y0 = pos[1] - 2.0 * self.atlas.line_height / sy;
                 let y1 = pos[1];
-                verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_max[1]], color: [1.0;4] });
-                verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_max[1]], color: [1.0;4] });
-                verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_min[1]], color: [1.0;4] });
-                verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_min[1]], color: [1.0;4] });
+                let c = [self.tex_index as f32, 0.0, 0.0, 1.0];
+                verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_max[1]], color: c });
+                verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_max[1]], color: c });
+                verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_min[1]], color: c });
+                verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0; 3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_min[1]], color: c });
                 inds.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
                 cursor += adv;
             }

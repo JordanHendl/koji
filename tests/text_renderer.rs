@@ -63,10 +63,10 @@ fn new_loads_font_bytes() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let dim = text
+    let (_idx, dim) = text
         .upload_text_texture(&mut ctx, &mut res, "hello", "Hi", 20.0)
         .unwrap();
     assert_eq!(dim, expected_dims("Hi", 20.0, &font_bytes));
@@ -80,11 +80,11 @@ fn upload_registers_texture_with_expected_dims() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
 
-    let dim = text
+    let (_idx, dim) = text
         .upload_text_texture(&mut ctx, &mut res, "greeting", "Hello", 32.0)
         .unwrap();
     let expected = expected_dims("Hello", 32.0, &font_bytes);
@@ -104,10 +104,10 @@ fn make_quad_generates_correct_vertices() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let dim = [16, 8];
     let pos = [1.0, 2.0];
-    let mesh = text.make_quad(dim, pos);
+    let mesh = text.make_quad(dim, pos, 0);
     let positions: Vec<[f32; 3]> = mesh.vertices.iter().map(|v| v.position).collect();
     assert_eq!(positions, vec![
         [1.0, 2.0 - 8.0, 0.0],
@@ -131,10 +131,10 @@ fn upload_empty_string_zero_texture() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let dim = text
+    let (_idx, dim) = text
         .upload_text_texture(&mut ctx, &mut res, "empty", "", 16.0)
         .unwrap();
     assert_eq!(dim, [1, 1]);
@@ -154,11 +154,11 @@ fn static_text_preserves_gpu_buffers() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex" };
-    let mut st = StaticText::new(&mut ctx, &mut res, &text, info).unwrap();
+    let mut st = StaticText::new(&mut ctx, &mut res, &mut text, info).unwrap();
     let vb = st.mesh.vertex_buffer.expect("vb");
     let ib = st.mesh.index_buffer.expect("ib");
 
@@ -183,16 +183,16 @@ fn dynamic_text_updates_vertices_and_respects_capacity() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let info = DynamicTextCreateInfo { max_chars: 8, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "dtex", screen_size: [320.0, 240.0] };
-    let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
+    let mut dt = DynamicText::new(&mut ctx, &mut text, &mut res, info).unwrap();
     let vb = dt.vertex_buffer();
     assert_eq!(dt.vertex_count, 4);
 
     // update string within capacity
-    dt.update_text(&mut ctx, &mut res, &text, "bye", 16.0, [0.0, 0.0]).unwrap();
+    dt.update_text(&mut ctx, &mut res, &mut text, "bye", 16.0, [0.0, 0.0]).unwrap();
     assert_eq!(dt.vertex_buffer(), vb);
     assert_eq!(dt.vertex_count, 4);
     let expected_dim = expected_dims("bye", 16.0, &font_bytes);
@@ -214,12 +214,12 @@ fn dynamic_text_update_empty_string_resets_counts() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let info = DynamicTextCreateInfo { max_chars: 8, text: "hello", scale: 16.0, pos: [0.0, 0.0], key: "emt", screen_size: [320.0, 240.0] };
-    let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
-    dt.update_text(&mut ctx, &mut res, &text, "", 16.0, [0.0, 0.0]).unwrap();
+    let mut dt = DynamicText::new(&mut ctx, &mut text, &mut res, info).unwrap();
+    dt.update_text(&mut ctx, &mut res, &mut text, "", 16.0, [0.0, 0.0]).unwrap();
     assert_eq!(dt.vertex_count, 0);
     assert_eq!(dt.index_count, 0);
     destroy_combined(&mut ctx, &res, "emt");
@@ -234,13 +234,13 @@ fn dynamic_text_update_over_capacity_panics() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let info = DynamicTextCreateInfo { max_chars: 2, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "ovr", screen_size: [320.0, 240.0] };
-    let mut dt = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
+    let mut dt = DynamicText::new(&mut ctx, &mut text, &mut res, info).unwrap();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        dt.update_text(&mut ctx, &mut res, &text, "toolong", 16.0, [0.0, 0.0])
+        dt.update_text(&mut ctx, &mut res, &mut text, "toolong", 16.0, [0.0, 0.0])
     }));
     match result {
         Ok(Err(_)) => {},

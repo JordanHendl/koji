@@ -36,17 +36,23 @@ fn destroy_combined(ctx: &mut gpu::Context, res: &ResourceManager, key: &str) {
     }
 }
 
+
 #[test]
 #[serial]
 fn static_text_new_uploads_texture() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex" };
-    let s = StaticText::new(&mut ctx, &mut res, &text, info).unwrap();
+    let info = StaticTextCreateInfo {
+        text: "Hi",
+        scale: 16.0,
+        pos: [0.0, 0.0],
+        key: "stex",
+    };
+    let s = StaticText::new(&mut ctx, &mut res, &mut text, info).unwrap();
     assert_eq!(s.dim[0] > 0, true);
     assert!(res.get("stex").is_some());
     destroy_combined(&mut ctx, &res, "stex");
@@ -62,14 +68,14 @@ fn dynamic_text_update_respects_max_chars() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
-    let text = TextRenderer2D::new(&registry, "default");
+    let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
     let info = DynamicTextCreateInfo { max_chars: 4, text: "hey", scale: 16.0, pos: [0.0, 0.0], key: "dtex", screen_size: [320.0, 240.0] };
-    let mut d = DynamicText::new(&mut ctx, &text, &mut res, info).unwrap();
+    let mut d = DynamicText::new(&mut ctx, &mut text, &mut res, info).unwrap();
     assert_eq!(d.vertex_count, 4);
     assert!(res.get("dtex").is_some());
-    d.update_text(&mut ctx, &mut res, &text, "hi", 16.0, [0.0, 0.0]).unwrap();
+    d.update_text(&mut ctx, &mut res, &mut text, "hi", 16.0, [0.0, 0.0]).unwrap();
     destroy_combined(&mut ctx, &res, "dtex");
     d.destroy(&mut ctx);
     ctx.destroy();
