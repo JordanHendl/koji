@@ -99,7 +99,8 @@ pub fn run(ctx: &mut Context) {
         .vertex_shader(&vert_spv)
         .fragment_shader(&frag_spv)
         .render_pass(renderer.render_pass(), 0)
-        .build();
+        .build_with_resources(renderer.resources())
+        .unwrap();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Text, pso, bgr);
 

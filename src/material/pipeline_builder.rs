@@ -439,12 +439,28 @@ impl<'a> PipelineBuilder<'a> {
                 }
 
                 let var_type = descriptor_to_var_type(b.ty);
+                let mut count = b.count;
+                if count == 0 {
+                    if let Some(res) = res {
+                        if let Some(binding_entry) = res.get(&b.name) {
+                            count = match binding_entry {
+                                ResourceBinding::TextureArray(arr) => arr.len() as u32,
+                                ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
+                                ResourceBinding::BufferArray(arr) => arr.lock().unwrap().len() as u32,
+                                _ => 0,
+                            };
+                        }
+                    }
+                    if count == 0 {
+                        count = 1;
+                    }
+                }
                 vars.push(BindGroupVariable {
                     var_type,
                     binding: b.binding,
-                    count: b.count,
+                    count,
                 });
-                desc_map.insert(b.name.clone(), (set as usize, b.binding, b.count));
+                desc_map.insert(b.name.clone(), (set as usize, b.binding, count));
             }
 
             let info = BindGroupLayoutInfo {
