@@ -71,16 +71,11 @@ fn static_text_new_uploads_texture() {
         screen_size: [320.0, 240.0],
     };
     let s = StaticText::new(&mut ctx, &mut res, &text, info).unwrap();
-    let expected_dim = expected_dims("Hi", 16.0, &font_bytes);
-    let w = 2.0 * expected_dim[0] as f32 / 320.0;
-    let h = 2.0 * expected_dim[1] as f32 / 240.0;
-    let positions: Vec<[f32; 3]> = s.mesh.vertices.iter().map(|v| v.position).collect();
-    assert_eq!(positions, vec![
-        [0.0, -h, 0.0],
-        [w, -h, 0.0],
-        [w, 0.0, 0.0],
-        [0.0, 0.0, 0.0],
-    ]);
+    let vertex_count = s.mesh.vertices.len();
+    let index_count = s.mesh.indices.as_ref().unwrap().len();
+    assert_eq!(vertex_count, 8); // 2 glyphs
+    assert_eq!(index_count, 12);
+    assert_eq!(s.dim, expected_dims("Hi", 16.0, &font_bytes));
     assert_eq!(s.dim[0] > 0, true);
     assert!(res.get("stex").is_some());
     destroy_combined(&mut ctx, &res, "stex");

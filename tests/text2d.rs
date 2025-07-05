@@ -69,16 +69,10 @@ pub fn run() {
         screen_size: [320.0, 240.0],
     };
     let mesh = StaticText::new(&mut ctx, renderer.resources(), &text, info).unwrap();
-    let expected_dim = expected_dims("Hello", 32.0, &font_bytes);
-    let w = 2.0 * expected_dim[0] as f32 / 320.0;
-    let h = 2.0 * expected_dim[1] as f32 / 240.0;
-    let positions: Vec<[f32; 3]> = mesh.mesh.vertices.iter().map(|v| v.position).collect();
-    assert_eq!(positions, vec![
-        [-0.5, 0.5 - h, 0.0],
-        [-0.5 + w, 0.5 - h, 0.0],
-        [-0.5 + w, 0.5, 0.0],
-        [-0.5, 0.5, 0.0],
-    ]);
+    let vertex_count = mesh.mesh.vertices.len();
+    let index_count = mesh.mesh.indices.as_ref().unwrap().len();
+    assert_eq!(vertex_count, 20); // "Hello" -> 5 glyphs
+    assert_eq!(index_count, 30);
     renderer.register_text_mesh(mesh);
 
     let vert_spv = make_vert();

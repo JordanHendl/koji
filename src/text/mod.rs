@@ -161,6 +161,65 @@ impl TextRenderer2D {
         }
     }
 
+    /// Generate a quad per glyph in `text` positioned in NDC space.
+    pub fn make_glyph_mesh_ndc(
+        &self,
+        text: &str,
+        scale: f32,
+        pos: [f32; 2],
+        screen_size: [f32; 2],
+    ) -> StaticMesh {
+        let scale = Scale::uniform(scale);
+        let v_metrics = self.font.v_metrics(scale);
+        let glyphs: Vec<_> = self
+            .font
+            .layout(text, scale, point(0.0, v_metrics.ascent))
+            .collect();
+        let width = glyphs
+            .iter()
+            .rev()
+            .filter_map(|g| g.pixel_bounding_box().map(|bb| bb.max.x as i32))
+            .next()
+            .unwrap_or(0) as f32;
+        let line_height = (v_metrics.ascent - v_metrics.descent).ceil();
+
+        let mut verts = Vec::with_capacity(glyphs.len() * 4);
+        let mut indices = Vec::with_capacity(glyphs.len() * 6);
+        let mut cursor = pos[0];
+        let sx = screen_size[0];
+        let sy = screen_size[1];
+        for (i, ch) in text.chars().enumerate() {
+            let g = &glyphs[i];
+            let adv = self.font.glyph(ch).scaled(scale).h_metrics().advance_width;
+            if let Some(bb) = g.pixel_bounding_box() {
+                let base = verts.len() as u32;
+                let u0 = bb.min.x as f32 / width;
+                let u1 = bb.max.x as f32 / width;
+                let v0 = bb.max.y as f32 / line_height;
+                let v1 = bb.min.y as f32 / line_height;
+                let x0 = cursor;
+                let x1 = cursor + 2.0 * adv / sx;
+                let y0 = pos[1] - 2.0 * line_height as f32 / sy;
+                let y1 = pos[1];
+                verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u0, v0], color: [1.0; 4] });
+                verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u1, v0], color: [1.0; 4] });
+                verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u1, v1], color: [1.0; 4] });
+                verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u0, v1], color: [1.0; 4] });
+                indices.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
+            }
+            cursor += 2.0 * adv / sx;
+        }
+
+        StaticMesh {
+            material_id: "text".into(),
+            vertices: verts,
+            indices: Some(indices),
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+        }
+    }
+
     /// Create a quad mesh transformed by `mat`.
     pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4) -> StaticMesh {
         let w = dim[0] as f32;

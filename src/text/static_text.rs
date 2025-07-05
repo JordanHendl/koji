@@ -53,7 +53,7 @@ impl StaticText {
     ) -> Result<Self, GPUError> {
         let dim =
             renderer.upload_text_texture(ctx, res, info.key, info.text, info.scale)?;
-        let mut mesh = renderer.make_quad_ndc(dim, info.pos, info.screen_size);
+        let mut mesh = renderer.make_glyph_mesh_ndc(info.text, info.scale, info.pos, info.screen_size);
         mesh.upload(ctx)?;
         Ok(Self {
             mesh,
