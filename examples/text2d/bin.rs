@@ -67,8 +67,7 @@ pub fn run(ctx: &mut Context) {
             text: "Static text",
             scale: 32.0,
             pos: [-0.9, 0.9],
-            key: "static_glyph_tex",
-            screen_size: [320.0, 240.0],
+            key: "glyph_tex",
         },
     ).unwrap();
     renderer.register_text_mesh(static_text);

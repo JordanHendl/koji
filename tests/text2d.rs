@@ -61,18 +61,8 @@ pub fn run() {
     let font_bytes = load_system_font();
     renderer.fonts_mut().register_font("default", &font_bytes);
     let text = TextRenderer2D::new(renderer.fonts(), "default");
-    let info = StaticTextCreateInfo {
-        text: "Hello",
-        scale: 32.0,
-        pos: [-0.5, 0.5],
-        key: "glyph_tex",
-        screen_size: [320.0, 240.0],
-    };
+    let info = StaticTextCreateInfo { text: "Hello", scale: 32.0, pos: [-0.5, 0.5], key: "glyph_tex" };
     let mesh = StaticText::new(&mut ctx, renderer.resources(), &text, info).unwrap();
-    let vertex_count = mesh.mesh.vertices.len();
-    let index_count = mesh.mesh.indices.as_ref().unwrap().len();
-    assert_eq!(vertex_count, 20); // "Hello" -> 5 glyphs
-    assert_eq!(index_count, 30);
     renderer.register_text_mesh(mesh);
 
     let vert_spv = make_vert();

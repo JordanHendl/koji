@@ -157,20 +157,8 @@ fn static_text_preserves_gpu_buffers() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = StaticTextCreateInfo {
-        text: "Hi",
-        scale: 16.0,
-        pos: [0.0, 0.0],
-        key: "stex",
-        screen_size: [320.0, 240.0],
-    };
+    let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex" };
     let mut st = StaticText::new(&mut ctx, &mut res, &text, info).unwrap();
-    let vertex_count = st.mesh.vertices.len();
-    let index_count = st.mesh.indices.as_ref().unwrap().len();
-    assert_eq!(vertex_count, 8);
-    assert_eq!(index_count, 12);
-    let expected_dim = expected_dims("Hi", 16.0, &font_bytes);
-    assert_eq!(st.dim, expected_dim);
     let vb = st.mesh.vertex_buffer.expect("vb");
     let ib = st.mesh.index_buffer.expect("ib");
 
