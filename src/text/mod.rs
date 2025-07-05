@@ -140,6 +140,27 @@ impl TextRenderer2D {
         }
     }
 
+    /// Create a quad mesh covering the text dimensions in NDC space.
+    pub fn make_quad_ndc(&self, dim: [u32; 2], pos: [f32; 2], screen_size: [f32; 2]) -> StaticMesh {
+        let w = 2.0 * dim[0] as f32 / screen_size[0];
+        let h = 2.0 * dim[1] as f32 / screen_size[1];
+        let verts = vec![
+            Vertex { position: [pos[0], pos[1] - h, 0.0], normal: [0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,1.0], color:[1.0;4]},
+            Vertex { position: [pos[0] + w, pos[1] - h, 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,1.0], color:[1.0;4]},
+            Vertex { position: [pos[0] + w, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,0.0], color:[1.0;4]},
+            Vertex { position: [pos[0], pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,0.0], color:[1.0;4]},
+        ];
+        let indices = vec![0u32,1,2,2,3,0];
+        StaticMesh {
+            material_id: "text".into(),
+            vertices: verts,
+            indices: Some(indices),
+            vertex_buffer: None,
+            index_buffer: None,
+            index_count: 0,
+        }
+    }
+
     /// Create a quad mesh transformed by `mat`.
     pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4) -> StaticMesh {
         let w = dim[0] as f32;

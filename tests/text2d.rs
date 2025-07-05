@@ -34,6 +34,24 @@ fn make_frag() -> Vec<u32> {
     include_spirv!("assets/shaders/text.frag", frag).to_vec()
 }
 
+fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
+    use rusttype::{Font, Scale, point};
+    let font = Font::try_from_bytes(font_bytes).expect("font");
+    let scale = Scale::uniform(scale);
+    let v_metrics = font.v_metrics(scale);
+    let glyphs: Vec<_> = font
+        .layout(text, scale, point(0.0, v_metrics.ascent))
+        .collect();
+    let width = glyphs
+        .iter()
+        .rev()
+        .filter_map(|g| g.pixel_bounding_box().map(|bb| bb.max.x as i32))
+        .next()
+        .unwrap_or(0);
+    let height = (v_metrics.ascent - v_metrics.descent).ceil() as u32;
+    [width as u32, height]
+}
+
 #[cfg(feature = "gpu_tests")]
 pub fn run() {
     let device = DeviceSelector::new().unwrap().select(DeviceFilter::default().add_required_type(DeviceType::Dedicated)).unwrap_or_default();
@@ -43,8 +61,24 @@ pub fn run() {
     let font_bytes = load_system_font();
     renderer.fonts_mut().register_font("default", &font_bytes);
     let text = TextRenderer2D::new(renderer.fonts(), "default");
-    let info = StaticTextCreateInfo { text: "Hello", scale: 32.0, pos: [-0.5, 0.5], key: "glyph_tex" };
+    let info = StaticTextCreateInfo {
+        text: "Hello",
+        scale: 32.0,
+        pos: [-0.5, 0.5],
+        key: "glyph_tex",
+        screen_size: [320.0, 240.0],
+    };
     let mesh = StaticText::new(&mut ctx, renderer.resources(), &text, info).unwrap();
+    let expected_dim = expected_dims("Hello", 32.0, &font_bytes);
+    let w = 2.0 * expected_dim[0] as f32 / 320.0;
+    let h = 2.0 * expected_dim[1] as f32 / 240.0;
+    let positions: Vec<[f32; 3]> = mesh.mesh.vertices.iter().map(|v| v.position).collect();
+    assert_eq!(positions, vec![
+        [-0.5, 0.5 - h, 0.0],
+        [-0.5 + w, 0.5 - h, 0.0],
+        [-0.5 + w, 0.5, 0.0],
+        [-0.5, 0.5, 0.0],
+    ]);
     renderer.register_text_mesh(mesh);
 
     let vert_spv = make_vert();
