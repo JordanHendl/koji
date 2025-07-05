@@ -14,6 +14,8 @@ pub struct StaticTextCreateInfo<'a> {
     pub pos: [f32; 2],
     /// Resource key for the uploaded texture
     pub key: &'a str,
+    /// Screen dimensions for converting glyph metrics to NDC
+    pub screen_size: [f32; 2],
 }
 
 /// Immutable text mesh with pre-generated geometry and glyph texture.
@@ -51,7 +53,7 @@ impl StaticText {
     ) -> Result<Self, GPUError> {
         let dim =
             renderer.upload_text_texture(ctx, res, info.key, info.text, info.scale)?;
-        let mut mesh = renderer.make_quad(dim, info.pos);
+        let mut mesh = renderer.make_quad_ndc(dim, info.pos, info.screen_size);
         mesh.upload(ctx)?;
         Ok(Self {
             mesh,

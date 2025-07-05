@@ -36,6 +36,24 @@ fn destroy_combined(ctx: &mut gpu::Context, res: &ResourceManager, key: &str) {
     }
 }
 
+fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
+    use rusttype::{Font, Scale, point};
+    let font = Font::try_from_bytes(font_bytes).expect("font");
+    let scale = Scale::uniform(scale);
+    let v_metrics = font.v_metrics(scale);
+    let glyphs: Vec<_> = font
+        .layout(text, scale, point(0.0, v_metrics.ascent))
+        .collect();
+    let width = glyphs
+        .iter()
+        .rev()
+        .filter_map(|g| g.pixel_bounding_box().map(|bb| bb.max.x as i32))
+        .next()
+        .unwrap_or(0);
+    let height = (v_metrics.ascent - v_metrics.descent).ceil() as u32;
+    [width as u32, height]
+}
+
 #[test]
 #[serial]
 fn static_text_new_uploads_texture() {
@@ -45,8 +63,24 @@ fn static_text_new_uploads_texture() {
     let text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex" };
+    let info = StaticTextCreateInfo {
+        text: "Hi",
+        scale: 16.0,
+        pos: [0.0, 0.0],
+        key: "stex",
+        screen_size: [320.0, 240.0],
+    };
     let s = StaticText::new(&mut ctx, &mut res, &text, info).unwrap();
+    let expected_dim = expected_dims("Hi", 16.0, &font_bytes);
+    let w = 2.0 * expected_dim[0] as f32 / 320.0;
+    let h = 2.0 * expected_dim[1] as f32 / 240.0;
+    let positions: Vec<[f32; 3]> = s.mesh.vertices.iter().map(|v| v.position).collect();
+    assert_eq!(positions, vec![
+        [0.0, -h, 0.0],
+        [w, -h, 0.0],
+        [w, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+    ]);
     assert_eq!(s.dim[0] > 0, true);
     assert!(res.get("stex").is_some());
     destroy_combined(&mut ctx, &res, "stex");
