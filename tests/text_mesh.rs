@@ -54,6 +54,20 @@ fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
     [width as u32, height]
 }
 
+fn glyph_bounds(text: &str, scale: f32, font_bytes: &[u8]) -> Vec<rusttype::Rect<i32>> {
+    use rusttype::{Font, Scale, point};
+    let font = Font::try_from_bytes(font_bytes).expect("font");
+    let scale = Scale::uniform(scale);
+    let v_metrics = font.v_metrics(scale);
+    let glyphs: Vec<_> = font
+        .layout(text, scale, point(0.0, v_metrics.ascent))
+        .collect();
+    glyphs
+        .into_iter()
+        .map(|g| g.pixel_bounding_box().expect("bb"))
+        .collect()
+}
+
 #[test]
 #[serial]
 fn static_text_new_uploads_texture() {
@@ -75,6 +89,14 @@ fn static_text_new_uploads_texture() {
     let index_count = s.mesh.indices.as_ref().unwrap().len();
     assert_eq!(vertex_count, 8); // 2 glyphs
     assert_eq!(index_count, 12);
+    let bbs = glyph_bounds("Hi", 16.0, &font_bytes);
+    let width = expected_dims("Hi", 16.0, &font_bytes)[0] as f32;
+    let line_height = expected_dims("Hi", 16.0, &font_bytes)[1] as f32;
+    let bb = bbs[0];
+    let u0 = bb.min.x as f32 / width;
+    let v1 = bb.min.y as f32 / line_height;
+    assert!((s.mesh.vertices[0].uv[0] - u0).abs() < f32::EPSILON);
+    assert!((s.mesh.vertices[3].uv[1] - v1).abs() < f32::EPSILON);
     assert_eq!(s.dim, expected_dims("Hi", 16.0, &font_bytes));
     assert_eq!(s.dim[0] > 0, true);
     assert!(res.get("stex").is_some());

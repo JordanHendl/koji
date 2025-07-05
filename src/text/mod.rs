@@ -185,29 +185,25 @@ impl TextRenderer2D {
 
         let mut verts = Vec::with_capacity(glyphs.len() * 4);
         let mut indices = Vec::with_capacity(glyphs.len() * 6);
-        let mut cursor = pos[0];
         let sx = screen_size[0];
         let sy = screen_size[1];
-        for (i, ch) in text.chars().enumerate() {
-            let g = &glyphs[i];
-            let adv = self.font.glyph(ch).scaled(scale).h_metrics().advance_width;
+        for g in &glyphs {
             if let Some(bb) = g.pixel_bounding_box() {
                 let base = verts.len() as u32;
                 let u0 = bb.min.x as f32 / width;
                 let u1 = bb.max.x as f32 / width;
                 let v0 = bb.max.y as f32 / line_height;
                 let v1 = bb.min.y as f32 / line_height;
-                let x0 = cursor;
-                let x1 = cursor + 2.0 * adv / sx;
-                let y0 = pos[1] - 2.0 * line_height as f32 / sy;
-                let y1 = pos[1];
+                let x0 = pos[0] + 2.0 * bb.min.x as f32 / sx;
+                let x1 = pos[0] + 2.0 * bb.max.x as f32 / sx;
+                let y0 = pos[1] - 2.0 * bb.max.y as f32 / sy;
+                let y1 = pos[1] - 2.0 * bb.min.y as f32 / sy;
                 verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u0, v0], color: [1.0; 4] });
                 verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u1, v0], color: [1.0; 4] });
                 verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u1, v1], color: [1.0; 4] });
                 verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0; 3], tangent: [1.0, 0.0, 0.0, 1.0], uv: [u0, v1], color: [1.0; 4] });
                 indices.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
             }
-            cursor += 2.0 * adv / sx;
         }
 
         StaticMesh {
