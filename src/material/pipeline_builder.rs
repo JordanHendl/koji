@@ -398,7 +398,7 @@ impl<'a> PipelineBuilder<'a> {
 
     fn build_internal(
         self,
-        res: Option<&mut ResourceManager>,
+        mut res: Option<&mut ResourceManager>,
     ) -> Result<PSO, PipelineError> {
         let rp = self
             .render_pass
@@ -441,8 +441,8 @@ impl<'a> PipelineBuilder<'a> {
                 let var_type = descriptor_to_var_type(b.ty);
                 let mut count = b.count;
                 if count == 0 {
-                    if let Some(res) = res {
-                        if let Some(binding_entry) = res.get(&b.name) {
+                    if let Some(ref mut r) = res {
+                        if let Some(binding_entry) = r.get(&b.name) {
                             count = match binding_entry {
                                 ResourceBinding::TextureArray(arr) => arr.len() as u32,
                                 ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
