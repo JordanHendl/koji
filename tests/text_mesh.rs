@@ -53,11 +53,11 @@ fn static_text_new_uploads_texture() {
         key: "stex",
     };
     let s = StaticText::new(&mut ctx, &mut res, &mut text, info).unwrap();
-    assert_eq!(s.dim[0] > 0, true);
+    assert_eq!(s.dim()[0] > 0, true);
     assert!(res.get("stex").is_some());
     destroy_combined(&mut ctx, &res, "stex");
-    if let Some(vb) = s.mesh.vertex_buffer { ctx.destroy_buffer(vb); }
-    if let Some(ib) = s.mesh.index_buffer { ctx.destroy_buffer(ib); }
+    if let Some(ib) = s.index_buffer() { ctx.destroy_buffer(ib); }
+    ctx.destroy_buffer(s.vertex_buffer());
     ctx.destroy();
 }
 

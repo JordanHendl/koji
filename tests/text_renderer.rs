@@ -159,16 +159,14 @@ fn static_text_preserves_gpu_buffers() {
     let mut res = ResourceManager::default();
     let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex" };
     let mut st = StaticText::new(&mut ctx, &mut res, &mut text, info).unwrap();
-    let vb = st.mesh.vertex_buffer.expect("vb");
-    let ib = st.mesh.index_buffer.expect("ib");
+    let vb = st.vertex_buffer();
+    let ib = st.index_buffer().expect("ib");
 
-    // mutate fields after creation
-    st.dim = [0, 0];
-    st.mesh.vertices[0].position[0] += 1.0;
+    // modify a non-buffer field
     st.texture_key = "stex".into();
 
-    assert_eq!(st.mesh.vertex_buffer.unwrap(), vb);
-    assert_eq!(st.mesh.index_buffer.unwrap(), ib);
+    assert_eq!(st.vertex_buffer(), vb);
+    assert_eq!(st.index_buffer().unwrap(), ib);
 
     destroy_combined(&mut ctx, &res, "stex");
     ctx.destroy_buffer(vb);

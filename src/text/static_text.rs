@@ -112,14 +112,14 @@ impl TextAtlas {
 /// Immutable text mesh with pre-generated geometry and glyph texture.
 pub struct StaticText {
     /// Quad mesh uploaded to the GPU
-    pub mesh: StaticMesh,
+    mesh: StaticMesh,
     atlas: TextAtlas,
     /// Resource manager key for the glyph texture
     pub texture_key: String,
     /// Index into the bindless texture array
     pub tex_index: u32,
     /// Dimensions of the generated texture
-    pub dim: [u32; 2],
+    dim: [u32; 2],
 }
 
 impl TextRenderable for StaticText {
@@ -184,5 +184,25 @@ impl StaticText {
             tex_index,
             dim,
         })
+    }
+
+    /// GPU handle for the vertex buffer.
+    pub fn vertex_buffer(&self) -> Handle<Buffer> {
+        self.mesh.vertex_buffer.expect("text vertex buffer")
+    }
+
+    /// GPU handle for the index buffer.
+    pub fn index_buffer(&self) -> Option<Handle<Buffer>> {
+        self.mesh.index_buffer
+    }
+
+    /// Number of indices for drawing this text.
+    pub fn index_count(&self) -> usize {
+        self.mesh.index_count
+    }
+
+    /// Dimensions of the uploaded glyph texture.
+    pub fn dim(&self) -> [u32; 2] {
+        self.dim
     }
 }
