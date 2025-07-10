@@ -163,14 +163,14 @@ impl TextRenderer2D {
     }
 
     /// Create a quad mesh covering the text dimensions.
-    pub fn make_quad(&self, dim: [u32; 2], pos: [f32; 2], tex_index: u32) -> StaticMesh {
+    pub fn make_quad(&self, dim: [u32; 2], pos: [f32; 2], tex_index: u32, color: [f32; 4]) -> StaticMesh {
         let w = dim[0] as f32;
         let h = dim[1] as f32;
         let verts = vec![
-            Vertex { position: [pos[0], pos[1] - h, 0.0], normal: [0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,1.0], color:[tex_index as f32,0.0,0.0,1.0]},
-            Vertex { position: [pos[0] + w, pos[1] - h, 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,1.0], color:[tex_index as f32,0.0,0.0,1.0]},
-            Vertex { position: [pos[0] + w, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[1.0,0.0], color:[tex_index as f32,0.0,0.0,1.0]},
-            Vertex { position: [pos[0], pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,1.0], uv:[0.0,0.0], color:[tex_index as f32,0.0,0.0,1.0]},
+            Vertex { position: [pos[0], pos[1] - h, 0.0], normal: [0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[0.0,1.0], color },
+            Vertex { position: [pos[0] + w, pos[1] - h, 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[1.0,1.0], color },
+            Vertex { position: [pos[0] + w, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[1.0,0.0], color },
+            Vertex { position: [pos[0], pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[0.0,0.0], color },
         ];
         let indices = vec![0u32,1,2,2,3,0];
         StaticMesh {
@@ -185,7 +185,7 @@ impl TextRenderer2D {
 
 
     /// Create a quad mesh transformed by `mat`.
-    pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4, tex_index: u32) -> StaticMesh {
+    pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4, tex_index: u32, color: [f32; 4]) -> StaticMesh {
         let w = dim[0] as f32;
         let h = dim[1] as f32;
         let base = [
@@ -208,9 +208,9 @@ impl TextRenderer2D {
                 Vertex {
                     position: pos.into(),
                     normal: [0.0; 3],
-                    tangent: [1.0, 0.0, 0.0, 1.0],
+                    tangent: [1.0, 0.0, 0.0, tex_index as f32],
                     uv,
-                    color: [tex_index as f32, 0.0, 0.0, 1.0],
+                    color,
                 }
             })
             .collect();
@@ -226,10 +226,10 @@ impl TextRenderer2D {
     }
 
     /// Create a text mesh either in 2D or 3D space.
-    pub fn make_text_mesh(&self, dim: [u32; 2], space: TextSpace, tex_index: u32) -> StaticMesh {
+    pub fn make_text_mesh(&self, dim: [u32; 2], space: TextSpace, tex_index: u32, color: [f32; 4]) -> StaticMesh {
         match space {
-            TextSpace::Dim2(p) => self.make_quad(dim, p, tex_index),
-            TextSpace::Dim3(m) => self.make_quad_3d(dim, m, tex_index),
+            TextSpace::Dim2(p) => self.make_quad(dim, p, tex_index, color),
+            TextSpace::Dim3(m) => self.make_quad_3d(dim, m, tex_index, color),
         }
     }
 }

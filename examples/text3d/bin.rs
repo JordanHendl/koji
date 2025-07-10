@@ -46,7 +46,7 @@ pub fn run(ctx: &mut Context) {
     let proj = Mat4::perspective_rh_gl(45_f32.to_radians(), 320.0 / 240.0, 0.1, 10.0);
     let view = Mat4::look_at_rh(Vec3::new(0.0, 0.0, 2.0), Vec3::ZERO, Vec3::Y);
     let mat = proj * view * Mat4::IDENTITY;
-    let mesh = text.make_quad_3d(dim, mat, _idx);
+    let mesh = text.make_quad_3d(dim, mat, _idx, [1.0; 4]);
     renderer.register_text_mesh(mesh);
     text.register_textures(renderer.resources());
     let mesh_idx = 0usize;
@@ -69,7 +69,7 @@ pub fn run(ctx: &mut Context) {
             let mat = proj
                 * view
                 * Mat4::from_rotation_y(angle);
-            let mesh2 = text.make_quad_3d(dim, mat, _idx);
+            let mesh2 = text.make_quad_3d(dim, mat, _idx, [1.0; 4]);
             r.update_text_mesh(mesh_idx, mesh2);
         }
     });

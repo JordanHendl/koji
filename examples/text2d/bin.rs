@@ -68,6 +68,7 @@ pub fn run(ctx: &mut Context) {
             scale: 32.0,
             pos: [-0.9, 0.9],
             key: "glyph_tex",
+            color: [1.0; 4],
         },
     ).unwrap();
     renderer.register_text_mesh(static_text);
@@ -85,6 +86,7 @@ pub fn run(ctx: &mut Context) {
                 pos: [-0.5, 0.5],
                 key: "glyph_tex",
                 screen_size: [320.0, 240.0],
+                color: [1.0; 4],
             },
         )
         .expect("failed to create DynamicText"),
