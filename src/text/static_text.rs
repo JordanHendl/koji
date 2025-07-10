@@ -16,6 +16,8 @@ pub struct StaticTextCreateInfo<'a> {
     pub pos: [f32; 2],
     /// Resource key for the uploaded texture
     pub key: &'a str,
+    /// Color of the rendered text
+    pub color: [f32; 4],
 }
 
 struct GlyphInfo {
@@ -158,11 +160,12 @@ impl StaticText {
                 let x1 = cursor + adv;
                 let y0 = info.pos[1] - atlas.line_height;
                 let y1 = info.pos[1];
-                let c = [tex_index as f32, 0.0, 0.0, 1.0];
-                verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0;3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_max[1]], color: c });
-                verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0;3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_max[1]], color: c });
-                verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0;3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_max[0], g.uv_min[1]], color: c });
-                verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0;3], tangent: [1.0,0.0,0.0,1.0], uv: [g.uv_min[0], g.uv_min[1]], color: c });
+                let c = info.color;
+                let t = [1.0, 0.0, 0.0, tex_index as f32];
+                verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0;3], tangent: t, uv: [g.uv_min[0], g.uv_max[1]], color: c });
+                verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0;3], tangent: t, uv: [g.uv_max[0], g.uv_max[1]], color: c });
+                verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0;3], tangent: t, uv: [g.uv_max[0], g.uv_min[1]], color: c });
+                verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0;3], tangent: t, uv: [g.uv_min[0], g.uv_min[1]], color: c });
                 inds.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
                 cursor += adv;
             }
