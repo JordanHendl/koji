@@ -398,7 +398,7 @@ impl<'a> PipelineBuilder<'a> {
 
     fn build_internal(
         self,
-        res: Option<&mut ResourceManager>,
+        mut res: Option<&mut ResourceManager>,
     ) -> Result<PSO, PipelineError> {
         let rp = self
             .render_pass
@@ -439,12 +439,28 @@ impl<'a> PipelineBuilder<'a> {
                 }
 
                 let var_type = descriptor_to_var_type(b.ty);
+                let mut count = b.count;
+                if count == 0 {
+                    if let Some(ref mut r) = res {
+                        if let Some(binding_entry) = r.get(&b.name) {
+                            count = match binding_entry {
+                                ResourceBinding::TextureArray(arr) => arr.len() as u32,
+                                ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
+                                ResourceBinding::BufferArray(arr) => arr.lock().unwrap().len() as u32,
+                                _ => 0,
+                            };
+                        }
+                    }
+                    if count == 0 {
+                        count = 1;
+                    }
+                }
                 vars.push(BindGroupVariable {
                     var_type,
                     binding: b.binding,
-                    count: b.count,
+                    count,
                 });
-                desc_map.insert(b.name.clone(), (set as usize, b.binding, b.count));
+                desc_map.insert(b.name.clone(), (set as usize, b.binding, count));
             }
 
             let info = BindGroupLayoutInfo {
