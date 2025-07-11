@@ -163,14 +163,15 @@ impl TextRenderer2D {
     }
 
     /// Create a quad mesh covering the text dimensions.
-    pub fn make_quad(&self, dim: [u32; 2], pos: [f32; 2], tex_index: u32, color: [f32; 4]) -> StaticMesh {
+    pub fn make_quad(&self, dim: [u32; 2], pos: [f32; 2], tex_index: u32, color: [f32; 4], italic: bool) -> StaticMesh {
         let w = dim[0] as f32;
         let h = dim[1] as f32;
+        let shear = if italic { 0.25 * h } else { 0.0 };
         let verts = vec![
             Vertex { position: [pos[0], pos[1] - h, 0.0], normal: [0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[0.0,1.0], color },
             Vertex { position: [pos[0] + w, pos[1] - h, 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[1.0,1.0], color },
-            Vertex { position: [pos[0] + w, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[1.0,0.0], color },
-            Vertex { position: [pos[0], pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[0.0,0.0], color },
+            Vertex { position: [pos[0] + w + shear, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[1.0,0.0], color },
+            Vertex { position: [pos[0] + shear, pos[1], 0.0], normal:[0.0;3], tangent:[1.0,0.0,0.0,tex_index as f32], uv:[0.0,0.0], color },
         ];
         let indices = vec![0u32,1,2,2,3,0];
         StaticMesh {
@@ -185,14 +186,15 @@ impl TextRenderer2D {
 
 
     /// Create a quad mesh transformed by `mat`.
-    pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4, tex_index: u32, color: [f32; 4]) -> StaticMesh {
+    pub fn make_quad_3d(&self, dim: [u32; 2], mat: Mat4, tex_index: u32, color: [f32; 4], italic: bool) -> StaticMesh {
         let w = dim[0] as f32;
         let h = dim[1] as f32;
+        let shear = if italic { 0.25 * h } else { 0.0 };
         let base = [
             Vec3::new(0.0, -h, 0.0),
             Vec3::new(w, -h, 0.0),
-            Vec3::new(w, 0.0, 0.0),
-            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(w + shear, 0.0, 0.0),
+            Vec3::new(shear, 0.0, 0.0),
         ];
         let verts: Vec<_> = base
             .iter()
@@ -226,10 +228,10 @@ impl TextRenderer2D {
     }
 
     /// Create a text mesh either in 2D or 3D space.
-    pub fn make_text_mesh(&self, dim: [u32; 2], space: TextSpace, tex_index: u32, color: [f32; 4]) -> StaticMesh {
+    pub fn make_text_mesh(&self, dim: [u32; 2], space: TextSpace, tex_index: u32, color: [f32; 4], italic: bool) -> StaticMesh {
         match space {
-            TextSpace::Dim2(p) => self.make_quad(dim, p, tex_index, color),
-            TextSpace::Dim3(m) => self.make_quad_3d(dim, m, tex_index, color),
+            TextSpace::Dim2(p) => self.make_quad(dim, p, tex_index, color, italic),
+            TextSpace::Dim3(m) => self.make_quad_3d(dim, m, tex_index, color, italic),
         }
     }
 }
