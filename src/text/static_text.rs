@@ -16,6 +16,8 @@ pub struct StaticTextCreateInfo<'a> {
     pub pos: [f32; 2],
     /// Resource key for the uploaded texture
     pub key: &'a str,
+    /// Viewport width and height in pixels for converting glyph metrics to NDC
+    pub screen_size: [f32; 2],
     /// Color of the rendered text
     pub color: [f32; 4],
     /// Render bold text
@@ -126,7 +128,7 @@ pub struct StaticText {
     pub texture_key: String,
     /// Index into the bindless texture array
     pub tex_index: u32,
-    /// Dimensions of the generated texture
+    /// Pixel dimensions of the rendered text
     dim: [u32; 2],
 }
 
@@ -157,16 +159,19 @@ impl StaticText {
         let tex_index = atlas.index;
         let mut verts = Vec::with_capacity(info.text.len() * 4);
         let mut inds = Vec::with_capacity(info.text.len() * 6);
+        let sx = info.screen_size[0];
+        let sy = info.screen_size[1];
         let mut cursor = info.pos[0];
+        let mut pixel_cursor = 0f32;
         for ch in info.text.chars() {
             if let Some(g) = atlas.glyphs.get(&ch) {
                 let base = verts.len() as u32;
-                let adv = g.advance;
+                let adv = 2.0 * g.advance / sx;
                 let x0 = cursor;
                 let x1 = cursor + adv;
-                let y0 = info.pos[1] - atlas.line_height;
+                let y0 = info.pos[1] - 2.0 * atlas.line_height / sy;
                 let y1 = info.pos[1];
-                let shear = if info.italic { 0.25 * atlas.line_height } else { 0.0 };
+                let shear = if info.italic { 0.25 * 2.0 * atlas.line_height / sy } else { 0.0 };
                 let c = info.color;
                 let t = [1.0, 0.0, 0.0, tex_index as f32];
                 verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0;3], tangent: t, uv: [g.uv_min[0], g.uv_max[1]], color: c });
@@ -175,9 +180,10 @@ impl StaticText {
                 verts.push(Vertex { position: [x0 + shear, y1, 0.0], normal: [0.0;3], tangent: t, uv: [g.uv_min[0], g.uv_min[1]], color: c });
                 inds.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
                 cursor += adv;
+                pixel_cursor += g.advance;
             }
         }
-        let dim = [(cursor - info.pos[0]) as u32, atlas.line_height as u32];
+        let dim = [pixel_cursor as u32, atlas.line_height as u32];
         let mut mesh = StaticMesh {
             material_id: "text".into(),
             vertices: verts,
@@ -211,7 +217,7 @@ impl StaticText {
         self.mesh.index_count
     }
 
-    /// Dimensions of the uploaded glyph texture.
+    /// Pixel dimensions of the rendered text.
     pub fn dim(&self) -> [u32; 2] {
         self.dim
     }

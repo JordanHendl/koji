@@ -51,6 +51,7 @@ fn static_text_new_uploads_texture() {
         scale: 16.0,
         pos: [0.0, 0.0],
         key: "stex",
+        screen_size: [320.0, 240.0],
         color: [1.0; 4],
         bold: false,
         italic: false,
