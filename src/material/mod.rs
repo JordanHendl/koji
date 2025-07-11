@@ -2,6 +2,7 @@ use dashi::{utils::Handle, *};
 use std::collections::HashMap;
 pub mod shader_reflection;
 pub mod pipeline_builder;
+pub mod compute_pipeline_builder;
 pub mod bindless;
 pub mod bindless_lighting;
 pub mod skin_pipeline;
@@ -14,6 +15,7 @@ mod shader_reflection_tests;
 mod material_yaml_tests;
 
 pub use pipeline_builder::*;
+pub use compute_pipeline_builder::*;
 pub use shader_reflection::*;
 pub use bindless::*;
 pub use bindless_lighting::*;
