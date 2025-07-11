@@ -3,7 +3,7 @@ pub use drawable::*;
 mod time_stats;
 pub use time_stats::*;
 
-use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO};
+use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO, CPSO};
 use crate::render_pass::*;
 use crate::utils::{ResourceBinding, ResourceManager};
 use crate::text::{FontRegistry, TextRenderable};
@@ -27,6 +27,12 @@ pub struct PipelineEntry {
     pub pipeline: Handle<GraphicsPipeline>,
 }
 
+#[derive(Clone)]
+pub struct ComputeTask {
+    pub id: String,
+    pub groups: [u32; 3],
+}
+
 pub struct Renderer {
     ctx: *mut Context,
     display: Display,
@@ -36,6 +42,8 @@ pub struct Renderer {
     pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
     material_pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
     skeletal_pipeline: Option<(PSO, [Option<PSOBindGroupResources>; 4])>,
+    compute_pipelines: HashMap<String, (CPSO, [Option<PSOBindGroupResources>; 4])>,
+    compute_queue: Vec<ComputeTask>,
     resource_manager: ResourceManager,
     fonts: FontRegistry,
     lights: BindlessLights,
@@ -105,6 +113,8 @@ impl Renderer {
             pipelines: HashMap::new(),
             material_pipelines: HashMap::new(),
             skeletal_pipeline: None,
+            compute_pipelines: HashMap::new(),
+            compute_queue: Vec::new(),
             drawables: Vec::new(),
             text_drawables: Vec::new(),
             skeletal_meshes: Vec::new(),
@@ -236,6 +246,22 @@ impl Renderer {
     ) {
         self.material_pipelines
             .insert(material_id.to_string(), (pso, bind_group_resources));
+    }
+
+    pub fn register_compute_pipeline(
+        &mut self,
+        id: &str,
+        pso: CPSO,
+        bgr: [Option<PSOBindGroupResources>; 4],
+    ) {
+        self.compute_pipelines.insert(id.to_string(), (pso, bgr));
+    }
+
+    pub fn queue_compute(&mut self, id: &str, groups: [u32; 3]) {
+        self.compute_queue.push(ComputeTask {
+            id: id.to_string(),
+            groups,
+        });
     }
 
     pub fn register_static_mesh(
@@ -398,6 +424,21 @@ impl Renderer {
         let (img, acquire_sem, _img_idx, _) = ctx.acquire_new_image(&mut self.display)?;
 
         self.command_list.record(|list| {
+            for task in self.compute_queue.drain(..) {
+                if let Some((pso, bgr)) = self.compute_pipelines.get(&task.id) {
+                    list.dispatch_compute(Dispatch {
+                        compute: pso.pipeline,
+                        workgroup_size: task.groups,
+                        bind_groups: [
+                            bgr[0].as_ref().map(|r| r.bind_group),
+                            bgr[1].as_ref().map(|r| r.bind_group),
+                            bgr[2].as_ref().map(|r| r.bind_group),
+                            bgr[3].as_ref().map(|r| r.bind_group),
+                        ],
+                        ..Default::default()
+                    });
+                }
+            }
             for target in &self.targets {
                 // Collect attachments for drawing. Include depth if present.Add commentMore actions
                 let attachments: Vec<Attachment> = {

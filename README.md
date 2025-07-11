@@ -42,6 +42,13 @@ buffer when their pipeline is built. The helper file
 
 No extra resource registration is necessary.
 
+## Compute Pipelines
+
+Custom compute pipelines can be added with `Renderer::register_compute_pipeline`.
+After registering, schedule work with `Renderer::queue_compute`, specifying the
+pipeline id and `[x, y, z]` workgroup counts. Queued tasks are dispatched at the
+start of the next `present_frame` call.
+
 ## Sample Binaries
 
 Example programs live under the `examples/` directory and can be run with
