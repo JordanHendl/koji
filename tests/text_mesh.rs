@@ -52,6 +52,8 @@ fn static_text_new_uploads_texture() {
         pos: [0.0, 0.0],
         key: "stex",
         color: [1.0; 4],
+        bold: false,
+        italic: false,
     };
     let s = StaticText::new(&mut ctx, &mut res, &mut text, info).unwrap();
     assert_eq!(s.dim()[0] > 0, true);
@@ -72,7 +74,7 @@ fn dynamic_text_update_respects_max_chars() {
     let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = DynamicTextCreateInfo { max_chars: 4, text: "hey", scale: 16.0, pos: [0.0, 0.0], key: "dtex", screen_size: [320.0, 240.0], color: [1.0; 4] };
+    let info = DynamicTextCreateInfo { max_chars: 4, text: "hey", scale: 16.0, pos: [0.0, 0.0], key: "dtex", screen_size: [320.0, 240.0], color: [1.0; 4], bold: false, italic: false };
     let mut d = DynamicText::new(&mut ctx, &mut text, &mut res, info).unwrap();
     assert_eq!(d.vertex_count, 4);
     assert!(res.get("dtex").is_some());

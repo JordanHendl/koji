@@ -22,6 +22,10 @@ pub struct DynamicTextCreateInfo<'a> {
     pub screen_size: [f32; 2],
     /// Color of the rendered text
     pub color: [f32; 4],
+    /// Render bold text
+    pub bold: bool,
+    /// Render italic text
+    pub italic: bool,
 }
 
 struct GlyphInfo {
@@ -44,9 +48,11 @@ impl TextAtlas {
         renderer: &mut TextRenderer2D,
         key: &str,
         scale: f32,
+        bold: bool,
     ) -> Result<Self, GPUError> {
         let font = renderer.font();
-        let scale = Scale::uniform(scale);
+        let weight = if bold { 1.1 } else { 1.0 };
+        let scale = Scale::uniform(scale * weight);
         let v_metrics = font.v_metrics(scale);
         let line_height = (v_metrics.ascent - v_metrics.descent).ceil() as u32;
         let chars: Vec<char> = (32u8..=126u8).map(|c| c as char).collect();
@@ -128,6 +134,7 @@ pub struct DynamicText {
     color: [f32; 4],
     scale: f32,
     screen_size: [f32; 2],
+    italic: bool,
 }
 
 impl TextRenderable for DynamicText {
@@ -171,7 +178,7 @@ impl DynamicText {
             initial_data: None,
         })?;
 
-        let atlas = TextAtlas::new(ctx, res, renderer, info.key, info.scale)?;
+        let atlas = TextAtlas::new(ctx, res, renderer, info.key, info.scale, info.bold)?;
         let idx = atlas.index;
         let mut dynamic = Self {
             vertex_buffer,
@@ -185,6 +192,7 @@ impl DynamicText {
             color: info.color,
             scale: info.scale,
             screen_size: info.screen_size,
+            italic: info.italic,
         };
         dynamic.update_text(ctx, res, renderer, info.text, info.scale, info.pos)?;
         Ok(dynamic)
@@ -219,12 +227,13 @@ impl DynamicText {
                 let x1 = cursor + adv;
                 let y0 = pos[1] - 2.0 * self.atlas.line_height / sy;
                 let y1 = pos[1];
+                let shear = if self.italic { 0.25 * 2.0 * self.atlas.line_height / sy } else { 0.0 };
                 let c = self.color;
                 let t = [1.0, 0.0, 0.0, self.tex_index as f32];
                 verts.push(Vertex { position: [x0, y0, 0.0], normal: [0.0; 3], tangent: t, uv: [g.uv_min[0], g.uv_max[1]], color: c });
                 verts.push(Vertex { position: [x1, y0, 0.0], normal: [0.0; 3], tangent: t, uv: [g.uv_max[0], g.uv_max[1]], color: c });
-                verts.push(Vertex { position: [x1, y1, 0.0], normal: [0.0; 3], tangent: t, uv: [g.uv_max[0], g.uv_min[1]], color: c });
-                verts.push(Vertex { position: [x0, y1, 0.0], normal: [0.0; 3], tangent: t, uv: [g.uv_min[0], g.uv_min[1]], color: c });
+                verts.push(Vertex { position: [x1 + shear, y1, 0.0], normal: [0.0; 3], tangent: t, uv: [g.uv_max[0], g.uv_min[1]], color: c });
+                verts.push(Vertex { position: [x0 + shear, y1, 0.0], normal: [0.0; 3], tangent: t, uv: [g.uv_min[0], g.uv_min[1]], color: c });
                 inds.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
                 cursor += adv;
             }
