@@ -158,7 +158,7 @@ fn static_text_preserves_gpu_buffers() {
     let mut text = TextRenderer2D::new(&registry, "default");
     let mut ctx = setup_ctx();
     let mut res = ResourceManager::default();
-    let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex", color: [1.0; 4], bold: false, italic: false };
+    let info = StaticTextCreateInfo { text: "Hi", scale: 16.0, pos: [0.0, 0.0], key: "stex", screen_size: [320.0, 240.0], color: [1.0; 4], bold: false, italic: false };
     let mut st = StaticText::new(&mut ctx, &mut res, &mut text, info).unwrap();
     let vb = st.vertex_buffer();
     let ib = st.index_buffer().expect("ib");
