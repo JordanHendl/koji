@@ -268,5 +268,27 @@ impl DynamicText {
         ctx.destroy_buffer(self.vertex_buffer);
         ctx.destroy_buffer(self.index_buffer);
     }
+
+    /// Current color used when drawing this text.
+    pub fn color(&self) -> [f32; 4] {
+        self.color
+    }
+
+    /// Update the per-character colors without changing geometry.
+    pub fn update_color(&mut self, ctx: &mut Context, color: [f32; 4]) -> Result<(), GPUError> {
+        let bytes = self.vertex_count * std::mem::size_of::<Vertex>();
+        if bytes == 0 {
+            self.color = color;
+            return Ok(());
+        }
+        let slice = ctx.map_buffer_mut::<u8>(self.vertex_buffer)?;
+        let verts: &mut [Vertex] = bytemuck::cast_slice_mut(&mut slice[..bytes]);
+        for v in verts.iter_mut() {
+            v.color = color;
+        }
+        ctx.unmap_buffer(self.vertex_buffer)?;
+        self.color = color;
+        Ok(())
+    }
 }
 

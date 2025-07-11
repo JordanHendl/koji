@@ -4,6 +4,7 @@ use koji::text::{
     TextRenderer2D, FontRegistry, StaticText, StaticTextCreateInfo, DynamicText,
     DynamicTextCreateInfo,
 };
+use koji::renderer::Vertex;
 use koji::utils::{ResourceManager, ResourceBinding};
 use dashi::gpu;
 use rusttype::{Font, Scale, point};
@@ -246,6 +247,41 @@ fn dynamic_text_update_over_capacity_panics() {
         _ => panic!("update should fail"),
     }
     destroy_combined(&mut ctx, &res, "ovr");
+    dt.destroy(&mut ctx);
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn dynamic_text_update_color_updates_vertex_data() {
+    let font_bytes = load_system_font();
+    let mut registry = FontRegistry::new();
+    registry.register_font("default", &font_bytes);
+    let mut text = TextRenderer2D::new(&registry, "default");
+    let mut ctx = setup_ctx();
+    let mut res = ResourceManager::default();
+    let info = DynamicTextCreateInfo {
+        max_chars: 4,
+        text: "hi",
+        scale: 16.0,
+        pos: [0.0, 0.0],
+        key: "color",
+        screen_size: [320.0, 240.0],
+        color: [1.0, 0.0, 0.0, 1.0],
+        bold: false,
+        italic: false,
+    };
+    let mut dt = DynamicText::new(&mut ctx, &mut text, &mut res, info).unwrap();
+    dt.update_color(&mut ctx, [0.0, 1.0, 0.0, 1.0]).unwrap();
+    assert_eq!(dt.color(), [0.0, 1.0, 0.0, 1.0]);
+    let slice = ctx.map_buffer::<u8>(dt.vertex_buffer()).unwrap();
+    let verts: &[Vertex] =
+        bytemuck::cast_slice(&slice[..dt.vertex_count * std::mem::size_of::<Vertex>()]);
+    for v in verts {
+        assert_eq!(v.color, [0.0, 1.0, 0.0, 1.0]);
+    }
+    ctx.unmap_buffer(dt.vertex_buffer()).unwrap();
+    destroy_combined(&mut ctx, &res, "color");
     dt.destroy(&mut ctx);
     ctx.destroy();
 }
