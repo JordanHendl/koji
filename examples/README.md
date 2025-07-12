@@ -18,3 +18,4 @@ pull from `assets/shaders/` and rely on the uniform block provided by
 - **skeletal_animation** – play an animated skeletal mesh *(gpu_tests)*
 - **text2d** – draw 2D text using the text renderer *(gpu_tests)*
 - **text3d** – render text placed in 3-D space *(gpu_tests)*
+- **compute_example** – run a simple compute shader *(gpu_tests)*

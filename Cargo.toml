@@ -61,3 +61,7 @@ path = "examples/text2d/bin.rs"
 name = "text3d"
 path = "examples/text3d/bin.rs"
 
+[[example]]
+name = "compute_example"
+path = "examples/compute_example/bin.rs"
+
