@@ -7,6 +7,9 @@ use dashi::*;
 
 use dashi::gpu::RenderPass;
 
+mod composition;
+pub use composition::*;
+
 #[derive(Clone, Debug)]
 pub struct ResourceDesc {
     pub name: String,
