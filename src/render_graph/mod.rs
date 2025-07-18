@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::algo::is_cyclic_directed;
-use petgraph::visit::Topo;
+use petgraph::visit::{Topo, EdgeRef};
 use dashi::utils::*;
 use dashi::*;
 
-use crate::render_pass::RenderPass;
+use dashi::gpu::RenderPass;
 
 #[derive(Clone, Debug)]
 pub struct ResourceDesc {
