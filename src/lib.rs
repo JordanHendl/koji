@@ -8,6 +8,7 @@ pub mod render_pass;
 pub mod canvas;
 pub mod text;
 pub mod texture_manager;
+pub mod render_graph;
 
 pub use utils::*;
 pub use material::*;
@@ -16,3 +17,4 @@ pub use render_pass::*;
 pub use canvas::*;
 pub use text::*;
 pub use texture_manager::*;
+pub use render_graph::*;
