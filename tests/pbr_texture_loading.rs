@@ -37,7 +37,7 @@ fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -
     PipelineBuilder::new(ctx, "pbr_pipeline")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass(rp, subpass)
+        .render_pass((rp, subpass))
         .depth_enable(true)
         .cull_mode(CullMode::Back)
         .build()

@@ -40,7 +40,7 @@ pub fn run(ctx: &mut Context) {
     let mut pso = PipelineBuilder::new(ctx, "sample_pso")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass(renderer.render_pass(), 0)
+        .render_pass((renderer.render_pass(), 0))
         .build_with_resources(renderer.resources())
         .unwrap();
 

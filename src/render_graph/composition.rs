@@ -47,4 +47,7 @@ impl GraphNode for CompositionNode {
         // that blends all inputs into the swapchain image according to `mode`.
         Ok(())
     }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

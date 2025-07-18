@@ -105,7 +105,7 @@ pub fn run(ctx: &mut Context) {
     let mut pso = PipelineBuilder::new(ctx, "text_pso")
         .vertex_shader(&vert_spv)
         .fragment_shader(&frag_spv)
-        .render_pass(renderer.render_pass(), 0)
+        .render_pass((renderer.render_pass(), 0))
         .build_with_resources(renderer.resources())
         .unwrap();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
