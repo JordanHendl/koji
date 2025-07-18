@@ -1,4 +1,4 @@
-use koji::render_graph::{RenderGraph, ResourceDesc, CompositionNode};
+use koji::render_graph::{RenderGraph, ResourceDesc, CompositionNode, GraphNode};
 use dashi::gpu;
 use dashi::*;
 use serial_test::serial;
