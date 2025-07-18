@@ -2,11 +2,25 @@ use crate::render_pass::{RenderAttachment, RenderPassBuilder, RenderTarget};
 use dashi::utils::*;
 use dashi::*;
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 
 pub struct Canvas {
     render_pass: Handle<RenderPass>,
     target: RenderTarget,
     attachments: IndexMap<String, RenderAttachment>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CanvasDesc {
+    pub attachments: Vec<String>,
+}
+
+impl From<&Canvas> for CanvasDesc {
+    fn from(c: &Canvas) -> Self {
+        Self {
+            attachments: c.attachments.keys().cloned().collect(),
+        }
+    }
 }
 
 impl Canvas {
@@ -68,9 +82,7 @@ impl CanvasBuilder {
 
     pub fn build(mut self, ctx: &mut Context) -> Result<Canvas, GPUError> {
         let sub_colors = self.color_names.clone();
-        self.builder = self
-            .builder
-            .subpass("main", sub_colors, &[] as &[&str]);
+        self.builder = self.builder.subpass("main", sub_colors, &[] as &[&str]);
         let (rp, mut targets, all) = self.builder.build_with_images(ctx)?;
         let target = targets.remove(0);
         let mut attachments = IndexMap::new();
