@@ -38,6 +38,7 @@ pub struct Renderer {
     display: Display,
     render_pass: Handle<RenderPass>,
     targets: Vec<RenderTarget>,
+    canvases: Vec<crate::canvas::Canvas>,
     stage_pipelines: HashMap<RenderStage, (PSO, [Option<PSOBindGroupResources>; 4])>,
     pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
     material_pipelines: HashMap<String, (PSO, [Option<PSOBindGroupResources>; 4])>,
@@ -109,6 +110,7 @@ impl Renderer {
             display,
             render_pass,
             targets,
+            canvases: Vec::new(),
             stage_pipelines: HashMap::new(),
             pipelines: HashMap::new(),
             material_pipelines: HashMap::new(),
@@ -190,12 +192,22 @@ impl Renderer {
                 att.attachment.clear = ClearValue::Color(color);
             }
         }
+        for canvas in &mut self.canvases {
+            for att in &mut canvas.target_mut().colors {
+                att.attachment.clear = ClearValue::Color(color);
+            }
+        }
     }
 
     pub fn set_clear_depth(&mut self, depth: f32) {
         self.clear_depth = depth;
         for target in &mut self.targets {
             if let Some(ref mut att) = target.depth {
+                att.attachment.clear = ClearValue::DepthStencil { depth, stencil: 0 };
+            }
+        }
+        for canvas in &mut self.canvases {
+            if let Some(ref mut att) = canvas.target_mut().depth {
                 att.attachment.clear = ClearValue::DepthStencil { depth, stencil: 0 };
             }
         }
@@ -262,6 +274,14 @@ impl Renderer {
             id: id.to_string(),
             groups,
         });
+    }
+
+    pub fn add_canvas(&mut self, canvas: crate::canvas::Canvas) {
+        self.canvases.push(canvas);
+    }
+
+    pub fn canvas(&self, index: usize) -> Option<&crate::canvas::Canvas> {
+        self.canvases.get(index)
     }
 
     pub fn register_static_mesh(
@@ -439,7 +459,14 @@ impl Renderer {
                     });
                 }
             }
-            for target in &self.targets {
+            let canvas_len = self.canvases.len();
+            for (idx, target) in self
+                .canvases
+                .iter()
+                .map(|c| c.target())
+                .chain(self.targets.iter())
+                .enumerate()
+            {
                 // Collect attachments for drawing. Include depth if present.Add commentMore actions
                 let attachments: Vec<Attachment> = {
                     let mut atts = target
@@ -716,12 +743,14 @@ impl Renderer {
                     }
                 }
 
-                list.blit_image(ImageBlit {
-                    src: target.colors[0].attachment.img,
-                    dst: img,
-                    filter: Filter::Nearest,
-                    ..Default::default()
-                });
+                if idx >= canvas_len {
+                    list.blit_image(ImageBlit {
+                        src: target.colors[0].attachment.img,
+                        dst: img,
+                        filter: Filter::Nearest,
+                        ..Default::default()
+                    });
+                }
             }
         });
 
