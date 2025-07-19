@@ -1,3 +1,12 @@
+//! Abstractions for constructing offscreen render targets.
+//!
+//! A [`Canvas`] bundles a [`RenderPass`] and its attachments so that it can be
+//! inserted into a [`crate::RenderGraph`]. [`crate::CanvasBuilder`] is a small
+//! wrapper around [`crate::RenderPassBuilder`] that simplifies the creation of
+//! these passes. The
+//! resulting `Canvas` exposes its attachments for pipeline creation and can be
+//! connected to other graph nodes.
+
 use crate::render_pass::{RenderAttachment, RenderPassBuilder, RenderTarget};
 use dashi::utils::*;
 use dashi::*;
