@@ -1,7 +1,7 @@
 use dashi::gpu;
 use dashi::*;
 use koji::canvas::CanvasBuilder;
-use koji::render_graph::{CompositionNode, GraphNode, RenderGraph, ResourceDesc};
+use koji::render_graph::{CanvasNode, CompositionNode, GraphNode, RenderGraph, ResourceDesc};
 use serial_test::serial;
 
 fn setup_ctx() -> gpu::Context {
@@ -65,5 +65,33 @@ fn canvas_node_outputs() {
     assert_eq!(graph.output_images(), vec!["color".to_string()]);
     let rp = graph.render_pass_for_output("color");
     assert!(matches!(rp, Some((_p, Format::RGBA8))));
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn canvas_node_composition_executes() {
+    let mut ctx = setup_ctx();
+    let canvas = CanvasBuilder::new()
+        .extent([1, 1])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+
+    let mut graph = RenderGraph::new();
+    let canvas_node = CanvasNode::from(&canvas);
+    graph.add_node(canvas_node);
+    let comp = CompositionNode::new(
+        vec![ResourceDesc {
+            name: "color".into(),
+            format: Format::RGBA8,
+        }],
+        Format::BGRA8,
+    );
+    graph.add_node(comp);
+    graph.connect("canvas", "composition");
+
+    graph.validate().unwrap();
+    graph.execute(&mut ctx).unwrap();
     ctx.destroy();
 }
