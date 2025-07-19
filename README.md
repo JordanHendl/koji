@@ -49,6 +49,13 @@ After registering, schedule work with `Renderer::queue_compute`, specifying the
 pipeline id and `[x, y, z]` workgroup counts. Queued tasks are dispatched at the
 start of the next `present_frame` call.
 
+## Render Graph
+
+Render passes can now be described with a [`RenderGraph`](src/render_graph/mod.rs).
+`RenderPassBuilder` is still available for compatibility but is marked
+`#[deprecated]`. Prefer constructing graph nodes and connecting them
+to form the frame pipeline.
+
 ## Sample Binaries
 
 Example programs live under the `examples/` directory and can be run with
