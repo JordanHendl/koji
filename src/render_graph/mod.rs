@@ -1,7 +1,13 @@
 //! Utilities for constructing render graphs.
 //!
-//! [`CanvasNode`] wraps a [`Canvas`] and can be inserted via
-//! [`RenderGraph::add_canvas`]. Canvas attachments become graph outputs for
+//! A [`crate::RenderGraph`] is built from nodes that produce or consume images.
+//! Nodes are commonly created from [`crate::RenderPassBuilder`] and
+//! [`crate::CanvasBuilder`], which generate [`RenderPassNode`] and
+//! [`CanvasNode`] entries respectively. The resulting graph describes execution
+//! order and resource flow between passes. A [`CompositionNode`] can then
+//! combine multiple outputs into the swapchain. [`CanvasNode`] wraps a
+//! [`Canvas`] and can be inserted via [`RenderGraph::add_canvas`]. Canvas
+//! attachments become graph outputs for
 //! pipeline creation.
 
 use dashi::utils::*;
