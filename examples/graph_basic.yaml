@@ -1,0 +1,23 @@
+nodes:
+  - name: geometry
+    inputs: []
+    outputs:
+      - name: geom_color
+        format: RGBA8
+  - name: sky
+    inputs:
+      - name: geom_color
+        format: RGBA8
+    outputs:
+      - name: sky_color
+        format: RGBA8
+  - name: compose
+    inputs:
+      - name: sky_color
+        format: RGBA8
+    outputs:
+      - name: swapchain
+        format: BGRA8
+edges:
+  - [geometry, sky]
+  - [sky, compose]

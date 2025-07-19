@@ -56,6 +56,11 @@ Render passes can now be described with a [`RenderGraph`](src/render_graph/mod.r
 `#[deprecated]`. Prefer constructing graph nodes and connecting them
 to form the frame pipeline.
 
+Example descriptions of a lightweight graph can be found in
+[examples/graph_basic.yaml](examples/graph_basic.yaml) and
+[examples/graph_basic.json](examples/graph_basic.json). These files
+demonstrate a simple `geometry -> sky -> compose` pipeline.
+
 ## Sample Binaries
 
 Example programs live under the `examples/` directory and can be run with
