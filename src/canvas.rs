@@ -4,6 +4,7 @@ use dashi::*;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone)]
 pub struct Canvas {
     render_pass: Handle<RenderPass>,
     target: RenderTarget,

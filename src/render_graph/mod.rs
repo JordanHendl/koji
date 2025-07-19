@@ -1,3 +1,9 @@
+//! Utilities for constructing render graphs.
+//!
+//! [`CanvasNode`] wraps a [`Canvas`] and can be inserted via
+//! [`RenderGraph::add_canvas`]. Canvas attachments become graph outputs for
+//! pipeline creation.
+
 use dashi::utils::*;
 use dashi::*;
 use petgraph::algo::is_cyclic_directed;
@@ -5,6 +11,7 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{EdgeRef, Topo};
 use std::collections::HashMap;
 
+use crate::canvas::Canvas;
 use dashi::gpu::RenderPass;
 use serde::{Deserialize, Serialize};
 
@@ -113,6 +120,62 @@ impl GraphNode for ExternalImageNode {
     }
 }
 
+pub struct CanvasNode {
+    name: String,
+    canvas: Canvas,
+}
+
+impl CanvasNode {
+    pub fn new(name: impl Into<String>, canvas: Canvas) -> Self {
+        Self {
+            name: name.into(),
+            canvas,
+        }
+    }
+
+    pub fn canvas(&self) -> &Canvas {
+        &self.canvas
+    }
+}
+
+impl From<&Canvas> for CanvasNode {
+    fn from(c: &Canvas) -> Self {
+        Self::new("canvas", c.clone())
+    }
+}
+
+impl GraphNode for CanvasNode {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn inputs(&self) -> Vec<ResourceDesc> {
+        Vec::new()
+    }
+    fn outputs(&self) -> Vec<ResourceDesc> {
+        let target = self.canvas.target();
+        let mut outs = Vec::new();
+        for att in &target.colors {
+            outs.push(ResourceDesc {
+                name: att.name.clone(),
+                format: att.format,
+            });
+        }
+        if let Some(depth) = &target.depth {
+            outs.push(ResourceDesc {
+                name: depth.name.clone(),
+                format: depth.format,
+            });
+        }
+        outs
+    }
+    fn execute(&mut self, _ctx: &mut Context) -> Result<(), GPUError> {
+        Ok(())
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 pub struct RenderGraph {
     graph: DiGraph<Box<dyn GraphNode>, ()>,
     indices: HashMap<String, NodeIndex>,
@@ -200,6 +263,10 @@ impl RenderGraph {
         self.add_node(ExternalImageNode::new(name, format));
     }
 
+    pub fn add_canvas(&mut self, canvas: &Canvas) {
+        self.add_node(CanvasNode::from(canvas));
+    }
+
     pub fn render_pass_for_output(&self, output: &str) -> Option<(Handle<RenderPass>, Format)> {
         for idx in self.graph.node_indices() {
             let node = &self.graph[idx];
@@ -207,6 +274,8 @@ impl RenderGraph {
                 if out.name == output {
                     if let Some(rp_node) = node.as_any().downcast_ref::<RenderPassNode>() {
                         return Some((rp_node.pass, out.format));
+                    } else if let Some(cn) = node.as_any().downcast_ref::<CanvasNode>() {
+                        return Some((cn.canvas().render_pass(), out.format));
                     } else {
                         return None;
                     }
