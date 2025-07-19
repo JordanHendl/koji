@@ -10,6 +10,12 @@ pub struct Canvas {
     attachments: IndexMap<String, RenderAttachment>,
 }
 
+/// Helper to reference a specific canvas attachment when creating a pipeline.
+pub struct CanvasOutput<'a> {
+    pub(crate) canvas: &'a Canvas,
+    pub name: &'a str,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CanvasDesc {
     pub attachments: Vec<String>,
@@ -42,6 +48,11 @@ impl Canvas {
 
     pub fn format(&self, name: &str) -> Option<Format> {
         self.attachments.get(name).map(|a| a.format)
+    }
+
+    /// Convenience method to reference an attachment for pipeline creation.
+    pub fn output<'a>(&'a self, name: &'a str) -> CanvasOutput<'a> {
+        CanvasOutput { canvas: self, name }
     }
 }
 

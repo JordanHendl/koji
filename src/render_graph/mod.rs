@@ -118,6 +118,12 @@ pub struct RenderGraph {
     indices: HashMap<String, NodeIndex>,
 }
 
+/// Helper referencing an output image of a render graph node.
+pub struct GraphOutput<'a> {
+    pub(crate) graph: &'a RenderGraph,
+    pub name: &'a str,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphNodeDesc {
     pub name: String,
@@ -171,6 +177,11 @@ impl RenderGraph {
             graph: DiGraph::new(),
             indices: HashMap::new(),
         }
+    }
+
+    /// Reference an output image by name for pipeline creation.
+    pub fn output<'a>(&'a self, name: &'a str) -> GraphOutput<'a> {
+        GraphOutput { graph: self, name }
     }
 
     pub fn add_node<N: GraphNode + 'static>(&mut self, node: N) {

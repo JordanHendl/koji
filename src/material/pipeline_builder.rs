@@ -1,10 +1,10 @@
-use crate::material::*;
-use crate::utils::{ResourceBinding, Texture, ResourceManager};
 use crate::canvas::Canvas;
+use crate::material::*;
 use crate::render_graph::RenderGraph;
+use crate::utils::{ResourceBinding, ResourceManager, Texture};
 use bytemuck::Pod;
-use std::collections::HashMap;
 use dashi::Format;
+use std::collections::HashMap;
 
 use spirv_reflect::types::ReflectFormat;
 use spirv_reflect::ShaderModule;
@@ -14,7 +14,6 @@ enum DefaultResource {
 }
 
 const DEFAULT_RESOURCES: &[(&str, DefaultResource)] = &[("KOJI_time", DefaultResource::Time)];
-
 
 /// Map SPIR-V reflect format to shader primitive enum
 pub(crate) fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPrimitiveType {
@@ -159,9 +158,18 @@ pub enum PipelineError {
 }
 
 enum PipelineTarget<'a> {
-    RenderPass { pass: Handle<RenderPass>, subpass: u32 },
-    Canvas { canvas: &'a crate::canvas::Canvas, output: String },
-    Graph { graph: &'a crate::render_graph::RenderGraph, output: String },
+    RenderPass {
+        pass: Handle<RenderPass>,
+        subpass: u32,
+    },
+    Canvas {
+        canvas: &'a crate::canvas::Canvas,
+        output: String,
+    },
+    Graph {
+        graph: &'a crate::render_graph::RenderGraph,
+        output: String,
+    },
 }
 
 fn pass_canvas_format_check(canvas: &Canvas, output: &str) -> Result<(), PipelineError> {
@@ -169,12 +177,18 @@ fn pass_canvas_format_check(canvas: &Canvas, output: &str) -> Result<(), Pipelin
         let target = canvas.target();
         if let Some(color) = target.colors.iter().find(|c| c.name == output) {
             if color.format != att_format {
-                return Err(PipelineError::FormatMismatch { expected: color.format, found: att_format });
+                return Err(PipelineError::FormatMismatch {
+                    expected: color.format,
+                    found: att_format,
+                });
             }
         } else if let Some(depth) = &target.depth {
             if depth.name == output {
                 if depth.format != att_format {
-                    return Err(PipelineError::FormatMismatch { expected: depth.format, found: att_format });
+                    return Err(PipelineError::FormatMismatch {
+                        expected: depth.format,
+                        found: att_format,
+                    });
                 }
             } else {
                 return Err(PipelineError::UndefinedCanvasOutput(output.to_string()));
@@ -203,11 +217,29 @@ impl<'a> From<(&'a Canvas, &'a str)> for PipelineTarget<'a> {
     }
 }
 
+impl<'a> From<crate::canvas::CanvasOutput<'a>> for PipelineTarget<'a> {
+    fn from(out: crate::canvas::CanvasOutput<'a>) -> Self {
+        PipelineTarget::Canvas {
+            canvas: out.canvas,
+            output: out.name.to_string(),
+        }
+    }
+}
+
 impl<'a> From<(&'a RenderGraph, &'a str)> for PipelineTarget<'a> {
     fn from((graph, output): (&'a RenderGraph, &'a str)) -> Self {
         PipelineTarget::Graph {
             graph,
             output: output.to_string(),
+        }
+    }
+}
+
+impl<'a> From<crate::render_graph::GraphOutput<'a>> for PipelineTarget<'a> {
+    fn from(out: crate::render_graph::GraphOutput<'a>) -> Self {
+        PipelineTarget::Graph {
+            graph: out.graph,
+            output: out.name.to_string(),
         }
     }
 }
@@ -462,7 +494,8 @@ impl<'a> PipelineBuilder<'a> {
                             res.register_time_buffers(ctx);
                             if let Some(ResourceBinding::Uniform(h)) = res.get("time") {
                                 let handle = *h;
-                                res.bindings.insert((*name).to_string(), ResourceBinding::Uniform(handle));
+                                res.bindings
+                                    .insert((*name).to_string(), ResourceBinding::Uniform(handle));
                             }
                         }
                     }
@@ -471,10 +504,7 @@ impl<'a> PipelineBuilder<'a> {
         }
     }
 
-    fn build_internal(
-        self,
-        mut res: Option<&mut ResourceManager>,
-    ) -> Result<PSO, PipelineError> {
+    fn build_internal(self, mut res: Option<&mut ResourceManager>) -> Result<PSO, PipelineError> {
         let rp = match self.target {
             Some(PipelineTarget::RenderPass { pass, .. }) => pass,
             Some(PipelineTarget::Canvas { canvas, ref output }) => {
@@ -535,7 +565,9 @@ impl<'a> PipelineBuilder<'a> {
                             count = match binding_entry {
                                 ResourceBinding::TextureArray(arr) => arr.len() as u32,
                                 ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
-                                ResourceBinding::BufferArray(arr) => arr.lock().unwrap().len() as u32,
+                                ResourceBinding::BufferArray(arr) => {
+                                    arr.lock().unwrap().len() as u32
+                                }
                                 _ => 0,
                             };
                         }
@@ -669,4 +701,3 @@ impl<'a> PipelineBuilder<'a> {
         self.build_internal(Some(res))
     }
 }
-
