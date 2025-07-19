@@ -809,7 +809,6 @@ mod tests {
 
     #[test]
     #[serial]
-    #[ignore]
     #[cfg_attr(not(feature = "gpu_tests"), ignore)]
     fn set_clear_color_updates_attachments() {
         let device = gpu::DeviceSelector::new()
@@ -834,7 +833,6 @@ mod tests {
 
     #[test]
     #[serial]
-    #[ignore]
     #[cfg_attr(not(feature = "gpu_tests"), ignore)]
     fn set_clear_depth_updates_attachments() {
         let device = gpu::DeviceSelector::new()
