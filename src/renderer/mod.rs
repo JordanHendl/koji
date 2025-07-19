@@ -5,6 +5,8 @@ pub use time_stats::*;
 
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO, CPSO};
 use crate::render_pass::*;
+use crate::render_graph::{RenderGraph, RenderPassNode, ResourceDesc};
+use crate::canvas::CanvasBuilder;
 use crate::utils::{ResourceBinding, ResourceManager};
 use crate::text::{FontRegistry, TextRenderable};
 use dashi::utils::*;
@@ -59,6 +61,7 @@ pub struct Renderer {
     time_buffer: Option<Handle<Buffer>>,
     clear_color: [f32; 4],
     clear_depth: f32,
+    graph: crate::render_graph::RenderGraph,
     width: u32,
     height: u32,
 }
@@ -127,6 +130,7 @@ impl Renderer {
             semaphores,
             time_stats: TimeStats::new(),
             time_buffer,
+            graph: crate::render_graph::RenderGraph::new(),
             width,
             height,
             clear_color,
@@ -168,7 +172,35 @@ impl Renderer {
             .color_attachment("color", Format::RGBA8)
             .subpass("main", &["color"], &[] as &[&str]);
 
-        Self::with_render_pass(width, height, ctx, builder)
+        let mut renderer = Self::with_render_pass(width, height, ctx, builder)?;
+
+        let canvas = crate::canvas::CanvasBuilder::new()
+            .extent([width, height])
+            .color_attachment("color", Format::RGBA8)
+            .build(renderer.get_ctx())?;
+
+        let outputs = canvas
+            .target()
+            .colors
+            .iter()
+            .map(|a| crate::render_graph::ResourceDesc {
+                name: a.name.clone(),
+                format: a.format,
+            })
+            .collect();
+        let node = crate::render_graph::RenderPassNode::new(
+            "main",
+            canvas.render_pass(),
+            Vec::new(),
+            outputs,
+        );
+        let mut graph = crate::render_graph::RenderGraph::new();
+        graph.add_node(node);
+
+        renderer.add_canvas(canvas);
+        renderer.graph = graph;
+
+        Ok(renderer)
     }
 
     pub fn with_render_pass_yaml(
@@ -183,6 +215,10 @@ impl Renderer {
     }
     pub fn render_pass(&self) -> Handle<RenderPass> {
         self.render_pass
+    }
+
+    pub fn graph(&self) -> &crate::render_graph::RenderGraph {
+        &self.graph
     }
 
     pub fn set_clear_color(&mut self, color: [f32; 4]) {

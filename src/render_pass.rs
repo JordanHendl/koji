@@ -3,6 +3,8 @@ use dashi::*;
 use indexmap::IndexMap;
 use serde::Deserialize;
 
+use crate::render_graph::{GraphNode, RenderPassNode, ResourceDesc};
+
 
 pub struct NamedAttachment {
     pub name: String,
@@ -17,6 +19,7 @@ pub struct NamedSubpass {
 }
 
 #[derive(Default)]
+#[deprecated(note = "Use RenderGraph nodes instead")]
 pub struct RenderPassBuilder {
     attachments: IndexMap<String, NamedAttachment>,
     subpasses: Vec<NamedSubpass>,
@@ -378,6 +381,74 @@ impl RenderPassBuilder {
         }
 
         builder
+    }
+}
+
+pub struct RenderPassBuilderNode {
+    name: String,
+    builder: Option<RenderPassBuilder>,
+    node: Option<RenderPassNode>,
+    outputs: Vec<ResourceDesc>,
+}
+
+impl From<RenderPassBuilder> for RenderPassBuilderNode {
+    fn from(builder: RenderPassBuilder) -> Self {
+        let name = builder.debug_name.to_string();
+        let outputs = builder
+            .attachments
+            .values()
+            .map(|a| ResourceDesc {
+                name: a.name.clone(),
+                format: a.format,
+            })
+            .collect();
+        Self {
+            name,
+            builder: Some(builder),
+            node: None,
+            outputs,
+        }
+    }
+}
+
+impl GraphNode for RenderPassBuilderNode {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn inputs(&self) -> Vec<ResourceDesc> {
+        Vec::new()
+    }
+    fn outputs(&self) -> Vec<ResourceDesc> {
+        self.outputs.clone()
+    }
+    fn execute(&mut self, ctx: &mut Context) -> Result<(), GPUError> {
+        if self.node.is_none() {
+            if let Some(builder) = self.builder.take() {
+                let (rp, _targets, all) = builder.build_with_images(ctx)?;
+                self.node = Some(RenderPassNode::new(
+                    self.name.clone(),
+                    rp,
+                    Vec::new(),
+                    all.attachments
+                        .iter()
+                        .map(|a| ResourceDesc {
+                            name: a.name.clone(),
+                            format: a.format,
+                        })
+                        .collect(),
+                ));
+            }
+        }
+        Ok(())
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl From<RenderPassBuilder> for Box<dyn GraphNode> {
+    fn from(builder: RenderPassBuilder) -> Self {
+        Box::new(RenderPassBuilderNode::from(builder))
     }
 }
 
