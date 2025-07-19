@@ -1,18 +1,14 @@
 use std::sync::{Arc, Mutex};
 
 use super::*;
+use crate::canvas::CanvasBuilder;
+use crate::render_graph::{RenderGraph, RenderPassNode, ResourceDesc};
 use crate::{
     material::pipeline_builder::reflect_format_to_shader_primitive,
     shader_reflection::ShaderDescriptorType,
     utils::{
-        allocator::GpuAllocator,
-        resource_list::ResourceList,
-        CombinedTextureSampler,
-        DHObject,
-        ResourceBuffer,
-        ResourceBinding,
-        Texture,
-        ResourceManager,
+        allocator::GpuAllocator, resource_list::ResourceList, CombinedTextureSampler, DHObject,
+        ResourceBinding, ResourceBuffer, ResourceManager, Texture,
     },
 };
 use dashi::builders::RenderPassBuilder;
@@ -235,11 +231,7 @@ fn shader_variable_write() {
         size: 4,
     };
 
-    let variable = ShaderVariable::test_new(
-        allocation,
-        vec![("data".into(), 0, 4)],
-        &mut ctx,
-    );
+    let variable = ShaderVariable::test_new(allocation, vec![("data".into(), 0, 4)], &mut ctx);
 
     variable.write(100u32);
     let read_back: u32 = variable.read();
@@ -485,8 +477,7 @@ fn multiple_bindless_bindings_in_shader() {
         };
         combined_array.push(c);
 
-        let mut allocator =
-            GpuAllocator::new(&mut ctx, 1024, BufferUsage::STORAGE, 256).unwrap();
+        let mut allocator = GpuAllocator::new(&mut ctx, 1024, BufferUsage::STORAGE, 256).unwrap();
         let dh = DHObject::new(&mut ctx, &mut allocator, 123u32).unwrap();
         buf_array.push(ResourceBuffer::from(dh));
     }
@@ -627,7 +618,10 @@ fn create_bind_groups_multiple_sets() {
     res.register_variable("b0", &mut ctx, 55u32);
     let img = ctx.make_image(&ImageInfo::default()).unwrap();
     let view = ctx
-        .make_image_view(&ImageViewInfo { img, ..Default::default() })
+        .make_image_view(&ImageViewInfo {
+            img,
+            ..Default::default()
+        })
         .unwrap();
     let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();
     res.register_combined("tex", img, view, [1, 1], sampler);
@@ -717,10 +711,17 @@ fn large_indexed_array_bindings() {
     for _ in 0..16 {
         let img = ctx.make_image(&ImageInfo::default()).unwrap();
         let view = ctx
-            .make_image_view(&ImageViewInfo { img, ..Default::default() })
+            .make_image_view(&ImageViewInfo {
+                img,
+                ..Default::default()
+            })
             .unwrap();
         tex_array.push(CombinedTextureSampler {
-            texture: Texture { handle: img, view, dim: [32, 32] },
+            texture: Texture {
+                handle: img,
+                view,
+                dim: [32, 32],
+            },
             sampler,
         });
     }
@@ -733,3 +734,65 @@ fn large_indexed_array_bindings() {
     ctx.destroy();
 }
 
+#[test]
+#[serial]
+fn undefined_canvas_output_error() {
+    let mut ctx = make_ctx();
+    let canvas = CanvasBuilder::new()
+        .extent([1, 1])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = simple_vertex_spirv();
+    let frag = simple_fragment_spirv();
+    let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+    let result = PipelineBuilder::new(&mut ctx, "bad_output")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(canvas.output("missing"))
+        .build_with_resources(&mut res);
+
+    match result {
+        Err(PipelineError::UndefinedCanvasOutput(name)) => assert_eq!(name, "missing"),
+        _ => panic!("expected undefined canvas output error"),
+    }
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn undefined_graph_node_error() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+    let node = RenderPassNode::new(
+        "node",
+        rp,
+        Vec::new(),
+        vec![ResourceDesc {
+            name: "out".into(),
+            format: Format::RGBA8,
+        }],
+    );
+    let mut graph = RenderGraph::new();
+    graph.add_node(node);
+
+    let vert = simple_vertex_spirv();
+    let frag = simple_fragment_spirv();
+    let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+    let result = PipelineBuilder::new(&mut ctx, "bad_graph")
+        .vertex_shader(&vert)
+        .fragment_shader(&frag)
+        .render_pass(graph.output("missing"))
+        .build_with_resources(&mut res);
+
+    match result {
+        Err(PipelineError::UndefinedGraphNode(name)) => assert_eq!(name, "missing"),
+        _ => panic!("expected undefined graph node error"),
+    }
+
+    ctx.destroy();
+}
