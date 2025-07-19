@@ -4,6 +4,9 @@ use dashi::*;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+pub mod io;
+pub use io::*;
+
 #[derive(Clone)]
 pub struct Canvas {
     render_pass: Handle<RenderPass>,
