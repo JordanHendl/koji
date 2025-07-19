@@ -80,3 +80,9 @@ See [examples/README.md](examples/README.md) for more information.
 ## Contributing
 
 Before submitting a pull request, run `cargo test` and ensure it completes successfully.
+
+Some integration tests require a Vulkan-capable GPU. Enable them with:
+
+```bash
+cargo test --features gpu_tests
+```

@@ -131,7 +131,7 @@ impl GpuAllocator {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "gpu_tests"))]
 mod test {
     use super::*;
     use dashi::gpu;

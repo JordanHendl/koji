@@ -26,6 +26,7 @@ petgraph = "0.6"
 serial_test = "2.0"
 
 [features]
+# Enable integration tests that require a Vulkan-capable GPU
 gpu_tests = []
 large-tests = []
 
