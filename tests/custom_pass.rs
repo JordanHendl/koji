@@ -39,7 +39,7 @@ subpasses:
     let mut pso_first = PipelineBuilder::new(&mut ctx, "first_pso")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass(renderer.render_pass(), 0)
+        .render_pass((renderer.render_pass(), 0))
         .build();
     let bgr_first = pso_first.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("first", pso_first, bgr_first);
@@ -47,7 +47,7 @@ subpasses:
     let mut pso_second = PipelineBuilder::new(&mut ctx, "second_pso")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass(renderer.render_pass(), 1)
+        .render_pass((renderer.render_pass(), 1))
         .build();
     let bgr_second = pso_second.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("second", pso_second, bgr_second);

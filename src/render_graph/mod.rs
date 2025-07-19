@@ -24,6 +24,7 @@ pub trait GraphNode {
     fn inputs(&self) -> Vec<ResourceDesc>;
     fn outputs(&self) -> Vec<ResourceDesc>;
     fn execute(&mut self, ctx: &mut Context) -> Result<(), GPUError>;
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 pub struct RenderPassNode {
@@ -72,6 +73,9 @@ impl GraphNode for RenderPassNode {
         let _ = self.pass; // silence unused field
         Ok(())
     }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 pub struct ExternalImageNode {
@@ -103,6 +107,9 @@ impl GraphNode for ExternalImageNode {
     }
     fn execute(&mut self, _ctx: &mut Context) -> Result<(), GPUError> {
         Ok(())
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -153,6 +160,9 @@ impl GraphNode for SimpleNode {
     fn execute(&mut self, _ctx: &mut Context) -> Result<(), GPUError> {
         Ok(())
     }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl RenderGraph {
@@ -177,6 +187,22 @@ impl RenderGraph {
 
     pub fn register_external_image(&mut self, name: &str, format: Format) {
         self.add_node(ExternalImageNode::new(name, format));
+    }
+
+    pub fn render_pass_for_output(&self, output: &str) -> Option<(Handle<RenderPass>, Format)> {
+        for idx in self.graph.node_indices() {
+            let node = &self.graph[idx];
+            for out in node.outputs() {
+                if out.name == output {
+                    if let Some(rp_node) = node.as_any().downcast_ref::<RenderPassNode>() {
+                        return Some((rp_node.pass, out.format));
+                    } else {
+                        return None;
+                    }
+                }
+            }
+        }
+        None
     }
 
     pub fn validate(&self) -> Result<(), String> {

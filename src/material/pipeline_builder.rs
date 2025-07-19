@@ -1,7 +1,10 @@
 use crate::material::*;
 use crate::utils::{ResourceBinding, Texture, ResourceManager};
+use crate::canvas::Canvas;
+use crate::render_graph::RenderGraph;
 use bytemuck::Pod;
 use std::collections::HashMap;
+use dashi::Format;
 
 use spirv_reflect::types::ReflectFormat;
 use spirv_reflect::ShaderModule;
@@ -150,6 +153,63 @@ pub struct PSOBindGroupResources {
 #[derive(Debug)]
 pub enum PipelineError {
     MissingResource(String),
+    UndefinedCanvasOutput(String),
+    UndefinedGraphNode(String),
+    FormatMismatch { expected: Format, found: Format },
+}
+
+enum PipelineTarget<'a> {
+    RenderPass { pass: Handle<RenderPass>, subpass: u32 },
+    Canvas { canvas: &'a crate::canvas::Canvas, output: String },
+    Graph { graph: &'a crate::render_graph::RenderGraph, output: String },
+}
+
+fn pass_canvas_format_check(canvas: &Canvas, output: &str) -> Result<(), PipelineError> {
+    if let Some(att_format) = canvas.format(output) {
+        let target = canvas.target();
+        if let Some(color) = target.colors.iter().find(|c| c.name == output) {
+            if color.format != att_format {
+                return Err(PipelineError::FormatMismatch { expected: color.format, found: att_format });
+            }
+        } else if let Some(depth) = &target.depth {
+            if depth.name == output {
+                if depth.format != att_format {
+                    return Err(PipelineError::FormatMismatch { expected: depth.format, found: att_format });
+                }
+            } else {
+                return Err(PipelineError::UndefinedCanvasOutput(output.to_string()));
+            }
+        } else {
+            return Err(PipelineError::UndefinedCanvasOutput(output.to_string()));
+        }
+    } else {
+        return Err(PipelineError::UndefinedCanvasOutput(output.to_string()));
+    }
+    Ok(())
+}
+
+impl<'a> From<(Handle<RenderPass>, u32)> for PipelineTarget<'a> {
+    fn from((pass, subpass): (Handle<RenderPass>, u32)) -> Self {
+        PipelineTarget::RenderPass { pass, subpass }
+    }
+}
+
+impl<'a> From<(&'a Canvas, &'a str)> for PipelineTarget<'a> {
+    fn from((canvas, output): (&'a Canvas, &'a str)) -> Self {
+        PipelineTarget::Canvas {
+            canvas,
+            output: output.to_string(),
+        }
+    }
+}
+
+impl<'a> From<(&'a RenderGraph, &'a str)> for PipelineTarget<'a> {
+    fn from((graph, output): (&'a RenderGraph, &'a str)) -> Self {
+        PipelineTarget::Graph {
+            graph,
+            output: output.to_string(),
+        }
+    }
 }
 
 /// Builder for a graphics pipeline, including reflection of SPIR-V
@@ -157,7 +217,7 @@ pub struct PipelineBuilder<'a> {
     ctx: &'a mut Context,
     vert_spirv: &'a [u32],
     frag_spirv: &'a [u32],
-    render_pass: Option<Handle<RenderPass>>,
+    target: Option<PipelineTarget<'a>>,
     pipeline_name: &'static str,
     depth_enable: bool,
     cull_mode: CullMode,
@@ -339,7 +399,7 @@ impl<'a> PipelineBuilder<'a> {
             pipeline_name: name,
             vert_spirv: &[],
             frag_spirv: &[],
-            render_pass: None,
+            target: None,
             subpass: 0,
             depth_enable: false,
             cull_mode: CullMode::None,
@@ -367,10 +427,25 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    /// Specify the render pass and its subpass index
-    pub fn render_pass(mut self, rp: Handle<RenderPass>, subpass: u32) -> Self {
-        self.render_pass = Some(rp);
-        self.subpass = subpass;
+    /// Specify the render target: a render pass/subpass, canvas attachment, or graph output
+    pub fn render_pass<T>(mut self, target: T) -> Self
+    where
+        T: Into<PipelineTarget<'a>>,
+    {
+        match target.into() {
+            PipelineTarget::RenderPass { pass, subpass } => {
+                self.subpass = subpass;
+                self.target = Some(PipelineTarget::RenderPass { pass, subpass });
+            }
+            PipelineTarget::Canvas { canvas, output } => {
+                self.subpass = 0;
+                self.target = Some(PipelineTarget::Canvas { canvas, output });
+            }
+            PipelineTarget::Graph { graph, output } => {
+                self.subpass = 0;
+                self.target = Some(PipelineTarget::Graph { graph, output });
+            }
+        }
         self
     }
 
@@ -400,9 +475,23 @@ impl<'a> PipelineBuilder<'a> {
         self,
         mut res: Option<&mut ResourceManager>,
     ) -> Result<PSO, PipelineError> {
-        let rp = self
-            .render_pass
-            .expect("Render pass must be set before build");
+        let rp = match self.target {
+            Some(PipelineTarget::RenderPass { pass, .. }) => pass,
+            Some(PipelineTarget::Canvas { canvas, ref output }) => {
+                if canvas.format(output).is_none() {
+                    return Err(PipelineError::UndefinedCanvasOutput(output.clone()));
+                }
+                pass_canvas_format_check(canvas, output)?;
+                canvas.render_pass()
+            }
+            Some(PipelineTarget::Graph { graph, ref output }) => {
+                match graph.render_pass_for_output(output) {
+                    Some((pass, _)) => pass,
+                    None => return Err(PipelineError::UndefinedGraphNode(output.clone())),
+                }
+            }
+            None => panic!("Render pass must be set before build"),
+        };
 
         let vert_info = reflect_shader(self.vert_spirv);
         let frag_info = reflect_shader(self.frag_spirv);

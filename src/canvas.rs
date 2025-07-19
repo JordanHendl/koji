@@ -39,6 +39,10 @@ impl Canvas {
     pub fn view(&self, name: &str) -> Option<Handle<ImageView>> {
         self.attachments.get(name).map(|a| a.attachment.img)
     }
+
+    pub fn format(&self, name: &str) -> Option<Format> {
+        self.attachments.get(name).map(|a| a.format)
+    }
 }
 
 #[derive(Default)]

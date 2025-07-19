@@ -32,7 +32,7 @@ pub fn run(ctx: &mut Context) {
     let mut pso = PipelineBuilder::new(ctx, "bindless")
         .vertex_shader(&vert)
         .fragment_shader(&frag)
-        .render_pass(renderer.render_pass(), 0)
+        .render_pass((renderer.render_pass(), 0))
         .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);

@@ -135,7 +135,7 @@ mod tests {
         let mut pso = PipelineBuilder::new(&mut ctx, "light_test")
             .vertex_shader(&vert)
             .fragment_shader(&frag)
-            .render_pass(rp, 0)
+            .render_pass((rp, 0))
             .build();
 
         let mut lights = BindlessLights::new();

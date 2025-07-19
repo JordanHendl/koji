@@ -62,7 +62,7 @@ fn builder_with_no_descriptors_creates_pipeline() {
     let pipeline = PipelineBuilder::new(&mut ctx, "test_no_desc")
         .vertex_shader(&vert)
         .fragment_shader(&frag)
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 
     assert!(pipeline.pipeline.valid());
@@ -137,7 +137,7 @@ fn out_of_range_descriptor_set_panics() {
     let _ = PipelineBuilder::new(&mut ctx, "oops")
         .vertex_shader(&vert)
         .fragment_shader(&frag)
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
     ctx.destroy();
 }
@@ -168,7 +168,7 @@ fn empty_descriptor_name_panics() {
     let _ = PipelineBuilder::new(&mut ctx, "empty_name")
         .vertex_shader(&vert)
         .fragment_shader(&frag)
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 }
 
@@ -207,7 +207,7 @@ fn duplicate_descriptor_name_panics() {
     let _ = PipelineBuilder::new(&mut ctx, "dup_name")
         .vertex_shader(&vert)
         .fragment_shader(&frag)
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 }
 
@@ -315,7 +315,7 @@ fn pipeline_builder_and_bind_group() {
     let mut pso = PipelineBuilder::new(&mut ctx, "pso_test")
         .vertex_shader(&simple_vert2())
         .fragment_shader(&simple_frag2())
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 
     let mut resources = ResourceManager::new(&mut ctx, 1024).unwrap();
@@ -382,7 +382,7 @@ fn bindless_texture_array_in_shader() {
     let mut pso = PipelineBuilder::new(&mut ctx, "pso_bindless_test")
         .vertex_shader(&vert_spirv)
         .fragment_shader(&frag_spirv)
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 
     let sampler = ctx.make_sampler(&Default::default()).unwrap();
@@ -460,7 +460,7 @@ fn multiple_bindless_bindings_in_shader() {
     let mut pso = PipelineBuilder::new(&mut ctx, "bindless_combined_and_buffer_array_test")
         .vertex_shader(&vert_spirv)
         .fragment_shader(&frag_spirv)
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 
     let mut combined_array = ResourceList::<CombinedTextureSampler>::default();
@@ -567,7 +567,7 @@ fn create_bind_group_missing_resource() {
     let mut pso = PipelineBuilder::new(&mut ctx, "missing")
         .vertex_shader(&simple_vert2())
         .fragment_shader(&simple_frag2())
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 
     let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
@@ -597,7 +597,7 @@ fn build_with_resources_missing_resource() {
     let result = PipelineBuilder::new(&mut ctx, "build_missing")
         .vertex_shader(&simple_vert2())
         .fragment_shader(&simple_frag2())
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build_with_resources(&mut res);
 
     match result {
@@ -620,7 +620,7 @@ fn create_bind_groups_multiple_sets() {
     let mut pso = PipelineBuilder::new(&mut ctx, "multi_set")
         .vertex_shader(&multi_set_vert())
         .fragment_shader(&multi_set_frag())
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 
     let mut res = ResourceManager::new(&mut ctx, 2048).unwrap();
@@ -681,7 +681,7 @@ fn auto_register_time_resource() {
     let mut pso = PipelineBuilder::new(&mut ctx, "time_test")
         .vertex_shader(&vert)
         .fragment_shader(&frag)
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build_with_resources(&mut res)
         .unwrap();
 
@@ -707,7 +707,7 @@ fn large_indexed_array_bindings() {
     let mut pso = PipelineBuilder::new(&mut ctx, "large_array")
         .vertex_shader(&simple_vertex_spirv())
         .fragment_shader(&large_array_frag())
-        .render_pass(rp, 0)
+        .render_pass((rp, 0))
         .build();
 
     let sampler = ctx.make_sampler(&SamplerInfo::default()).unwrap();

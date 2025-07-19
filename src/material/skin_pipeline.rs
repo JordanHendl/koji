@@ -8,6 +8,6 @@ pub fn build_skinning_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpas
     PipelineBuilder::new(ctx, "skinning_pipeline")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass(rp, subpass)
+        .render_pass((rp, subpass))
         .build()
 }

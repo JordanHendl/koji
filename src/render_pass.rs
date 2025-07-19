@@ -32,6 +32,7 @@ pub struct AllRenderAttachments {
 #[derive(Clone)]
 pub struct RenderAttachment {
     pub name: String,
+    pub format: Format,
     pub attachment: Attachment,
 }
 
@@ -269,6 +270,7 @@ impl RenderPassBuilder {
                 name.clone(),
                 RenderAttachment {
                     name: name.clone(),
+                    format: att.format,
                     attachment,
                 },
             );
