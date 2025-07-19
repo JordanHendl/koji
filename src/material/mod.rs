@@ -7,7 +7,7 @@ pub mod bindless;
 pub mod bindless_lighting;
 pub mod skin_pipeline;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "gpu_tests"))]
 mod pipeline_builder_tests;
 #[cfg(test)]
 mod shader_reflection_tests;

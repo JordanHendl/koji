@@ -1,3 +1,5 @@
+#![cfg(feature = "gpu_tests")]
+
 use koji::texture_manager::{load_from_bytes, free_texture};
 use koji::utils::{ResourceManager, ResourceBinding, Texture};
 use dashi::gpu;

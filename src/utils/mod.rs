@@ -272,7 +272,7 @@ impl ResourceManager {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "gpu_tests"))]
 mod tests {
     use super::*;
     use dashi::gpu;

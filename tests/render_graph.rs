@@ -1,3 +1,5 @@
+#![cfg(feature = "gpu_tests")]
+
 use dashi::gpu;
 use dashi::*;
 use koji::canvas::CanvasBuilder;
