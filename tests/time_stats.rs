@@ -6,6 +6,7 @@ use koji::canvas::CanvasBuilder;
 use koji::render_graph::RenderGraph;
 use koji::render_pass::RenderPassBuilder;
 use dashi::gpu;
+use dashi::Format;
 use serial_test::serial;
 
 #[test]
