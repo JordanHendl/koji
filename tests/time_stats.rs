@@ -2,6 +2,9 @@ use koji::renderer::TimeStats;
 use std::time::Duration;
 use koji::renderer::Renderer;
 use koji::utils::ResourceBinding;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use dashi::gpu;
 use serial_test::serial;
 
@@ -30,7 +33,22 @@ fn renderer_updates_time_buffer() {
         .select(gpu::DeviceFilter::default().add_required_type(gpu::DeviceType::Dedicated))
         .unwrap_or_default();
     let mut ctx = gpu::Context::new(&gpu::ContextInfo { device }).unwrap();
-    let mut renderer = Renderer::new(64, 64, "time", &mut ctx).unwrap();
+
+    let canvas = CanvasBuilder::new()
+        .extent([64, 64])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
+    renderer.add_canvas(canvas);
 
     renderer.present_frame().unwrap();
     std::thread::sleep(Duration::from_millis(5));

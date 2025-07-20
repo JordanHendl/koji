@@ -1,5 +1,8 @@
 use koji::*;
 use koji::renderer::*;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use dashi::*;
 use inline_spirv::include_spirv;
 use serial_test::serial;
@@ -82,8 +85,21 @@ fn render_triangle_and_cube() {
         .unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo { device }).unwrap();
 
-    // Create renderer
-    let mut renderer = Renderer::new(640, 480, "Triangle and Cube Test", &mut ctx).expect("Error making Renderer");
+    let canvas = CanvasBuilder::new()
+        .extent([640, 480])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(640, 480, &mut ctx, builder).expect("Error making Renderer");
+    renderer.add_canvas(canvas);
 
     // Shaders
     let vert_spv = make_shader_vert();
@@ -93,7 +109,7 @@ fn render_triangle_and_cube() {
     let mut pso = PipelineBuilder::new(&mut ctx, "triangle_cube_pipeline")
         .vertex_shader(&vert_spv)
         .fragment_shader(&frag_spv)
-        .render_pass((renderer.render_pass(), 0))
+        .render_pass(graph.output("color"))
         .build();
 
     // Generate/cached bind group resources for all sets

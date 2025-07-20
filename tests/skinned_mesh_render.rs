@@ -1,6 +1,10 @@
 use koji::renderer::*;
 use koji::gltf::{load_scene, MeshData};
 use koji::material::*;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
+use inline_spirv::include_spirv;
 use glam::Mat4;
 use koji::animation::Animator;
 use dashi::*;
@@ -11,7 +15,22 @@ pub fn run() {
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
         .unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo{ device }).unwrap();
-    let mut renderer = Renderer::new(320,240,"skin", &mut ctx).unwrap();
+
+    let canvas = CanvasBuilder::new()
+        .extent([320, 240])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(320, 240, &mut ctx, builder).unwrap();
+    renderer.add_canvas(canvas);
 
     let scene = load_scene("assets/data/simple_skin.gltf").expect("load");
     let mesh = match &scene.meshes[0].mesh { MeshData::Skeletal(m) => m.clone(), _ => panic!("expected skel") };
@@ -19,7 +38,13 @@ pub fn run() {
     let instance = SkeletalInstance::new(&mut ctx, Animator::new(mesh.skeleton.clone())).unwrap();
     renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into());
 
-    let mut pso = build_skinning_pipeline(&mut ctx, renderer.render_pass(),0);
+    let vert: &[u32] = include_spirv!("src/renderer/skinning.vert", vert, glsl);
+    let frag: &[u32] = include_spirv!("src/renderer/skinning.frag", frag, glsl);
+    let mut pso = PipelineBuilder::new(&mut ctx, "skinning_pipeline")
+        .vertex_shader(vert)
+        .fragment_shader(frag)
+        .render_pass(graph.output("color"))
+        .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_skeletal_pso(pso,bgr);
 

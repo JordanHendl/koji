@@ -1,5 +1,8 @@
 use koji::material::*;
 use koji::renderer::*;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use dashi::*;
 
 use inline_spirv::include_spirv;
@@ -42,9 +45,32 @@ fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -
 pub fn run() {
     let device = DeviceSelector::new().unwrap().select(DeviceFilter::default().add_required_type(DeviceType::Dedicated)).unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo{ device }).unwrap();
-    let mut renderer = Renderer::new(320,240,"pbr", &mut ctx).expect("renderer");
 
-    let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(),0);
+    let canvas = CanvasBuilder::new()
+        .extent([320, 240])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(320, 240, &mut ctx, builder).expect("renderer");
+    renderer.add_canvas(canvas);
+
+    let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
+    let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
+    let mut pso = PipelineBuilder::new(&mut ctx, "pbr_pipeline")
+        .vertex_shader(vert)
+        .fragment_shader(frag)
+        .render_pass(graph.output("color"))
+        .depth_enable(true)
+        .cull_mode(CullMode::Back)
+        .build();
 
     // register textures before creating bind groups
     let white: [u8;4] = [255,255,255,255];
