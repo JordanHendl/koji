@@ -1,6 +1,9 @@
 use koji::material::*;
 use koji::renderer::*;
 use koji::texture_manager as texman;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use dashi::*;
 use dashi::gpu;
 use dashi::utils::Handle;
@@ -53,9 +56,32 @@ fn png_bytes(color: [u8; 4]) -> Vec<u8> {
 #[cfg(feature = "gpu_tests")]
 pub fn run() {
     let mut ctx = gpu::Context::headless(&Default::default()).unwrap();
-    let mut renderer = Renderer::new(64, 64, "pbr_tex", &mut ctx).unwrap();
 
-    let mut pso = build_pbr_pipeline(&mut ctx, renderer.render_pass(), 0);
+    let canvas = CanvasBuilder::new()
+        .extent([64, 64])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
+    renderer.add_canvas(canvas);
+
+    let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
+    let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
+    let mut pso = PipelineBuilder::new(&mut ctx, "pbr_pipeline")
+        .vertex_shader(vert)
+        .fragment_shader(frag)
+        .render_pass(graph.output("color"))
+        .depth_enable(true)
+        .cull_mode(CullMode::Back)
+        .build();
 
     let colors = [
         [255, 0, 0, 255],

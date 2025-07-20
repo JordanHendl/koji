@@ -1,4 +1,7 @@
 use koji::renderer::*;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use koji::material::ComputePipelineBuilder;
 use dashi::*;
 use inline_spirv::inline_spirv;
@@ -24,7 +27,22 @@ pub fn run() {
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
         .unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo { device }).unwrap();
-    let mut renderer = Renderer::new(64, 64, "compute_test", &mut ctx).unwrap();
+
+    let canvas = CanvasBuilder::new()
+        .extent([64, 64])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
+    renderer.add_canvas(canvas);
 
     let initial: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
     let buffer = ctx

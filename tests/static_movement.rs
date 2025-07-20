@@ -1,5 +1,8 @@
 use koji::material::*;
 use koji::renderer::*;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use dashi::*;
 
 use inline_spirv::inline_spirv;
@@ -31,12 +34,27 @@ pub fn run() {
         .select(DeviceFilter::default().add_required_type(DeviceType::Dedicated))
         .unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo{ device }).unwrap();
-    let mut renderer = Renderer::new(320,240,"move", &mut ctx).unwrap();
+
+    let canvas = CanvasBuilder::new()
+        .extent([320, 240])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(320, 240, &mut ctx, builder).unwrap();
+    renderer.add_canvas(canvas);
 
     let mut pso = PipelineBuilder::new(&mut ctx,"move_pso")
         .vertex_shader(&vert())
         .fragment_shader(&frag())
-        .render_pass((renderer.render_pass(), 0))
+        .render_pass(graph.output("color"))
         .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);

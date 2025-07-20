@@ -3,6 +3,9 @@
 use koji::material::pipeline_builder::PipelineBuilder;
 use koji::renderer::*;
 use koji::text::*;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use dashi::*;
 use inline_spirv::include_spirv;
 
@@ -56,7 +59,22 @@ fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
 pub fn run() {
     let device = DeviceSelector::new().unwrap().select(DeviceFilter::default().add_required_type(DeviceType::Dedicated)).unwrap_or_default();
     let mut ctx = Context::new(&ContextInfo { device }).unwrap();
-    let mut renderer = Renderer::new(320, 240, "text", &mut ctx).expect("renderer");
+
+    let canvas = CanvasBuilder::new()
+        .extent([320, 240])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(320, 240, &mut ctx, builder).expect("renderer");
+    renderer.add_canvas(canvas);
 
     let font_bytes = load_system_font();
     renderer.fonts_mut().register_font("default", &font_bytes);
@@ -71,7 +89,7 @@ pub fn run() {
     let mut pso = PipelineBuilder::new(&mut ctx, "text_pso")
         .vertex_shader(&vert_spv)
         .fragment_shader(&frag_spv)
-        .render_pass((renderer.render_pass(), 0))
+        .render_pass(graph.output("color"))
         .build_with_resources(renderer.resources())
         .unwrap();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
