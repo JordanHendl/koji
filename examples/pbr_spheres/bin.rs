@@ -4,6 +4,7 @@ use inline_spirv::include_spirv;
 use koji::material::*;
 use koji::renderer::*;
 use koji::render_pass::*;
+use koji::canvas::CanvasBuilder;
 use koji::texture_manager;
 use koji::utils::{ResourceManager, ResourceBinding};
 use glam::*;
@@ -165,7 +166,14 @@ pub fn run(ctx: &mut Context) {
     renderer.set_clear_depth(1.0);
     register_textures(ctx, renderer.resources());
 
-    let canvas = renderer.canvas(0).unwrap().clone();
+    let canvas = CanvasBuilder::new()
+        .extent([1920, 1080])
+        .color_attachment("color", Format::RGBA8)
+        .depth_attachment("depth", Format::D24S8)
+        .build(ctx)
+        .unwrap();
+    renderer.add_canvas(canvas.clone());
+
     let mut pso = build_pbr_pipeline(ctx, canvas.output("color"));
 
     let proj =
