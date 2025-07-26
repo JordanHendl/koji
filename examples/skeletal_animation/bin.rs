@@ -20,7 +20,8 @@ pub fn run(ctx: &mut Context) {
     let instance = SkeletalInstance::with_player(ctx, animator, player).unwrap();
     renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into());
 
-    let mut pso = build_skinning_pipeline(ctx, renderer.render_pass(), 0);
+    let canvas = renderer.canvas(0).unwrap().clone();
+    let mut pso = build_skinning_pipeline(ctx, canvas.output("color"));
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_skeletal_pso(pso, bgr);
 
