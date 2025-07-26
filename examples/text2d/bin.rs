@@ -98,6 +98,7 @@ pub fn run(ctx: &mut Context) {
     ));
     renderer.register_text_mesh(SharedDynamic(dynamic.clone()));
     text.register_textures(renderer.resources());
+    const MAX_CHARS: usize = 64;
     let mut input = String::new();
 
     let vert_spv = make_vert();
@@ -119,6 +120,9 @@ pub fn run(ctx: &mut Context) {
                 WindowEvent::ReceivedCharacter(c) => {
                     if !c.is_control() {
                         input.push(c);
+                        if input.chars().count() > MAX_CHARS {
+                            input = input.chars().take(MAX_CHARS).collect();
+                        }
                         changed = true;
                     }
                 }

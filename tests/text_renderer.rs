@@ -228,8 +228,7 @@ fn dynamic_text_update_empty_string_resets_counts() {
 
 #[test]
 #[serial]
-#[ignore]
-fn dynamic_text_update_over_capacity_panics() {
+fn dynamic_text_update_over_capacity_truncates() {
     let font_bytes = load_system_font();
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
@@ -238,14 +237,10 @@ fn dynamic_text_update_over_capacity_panics() {
     let mut res = ResourceManager::default();
     let info = DynamicTextCreateInfo { max_chars: 2, text: "hi", scale: 16.0, pos: [0.0, 0.0], key: "ovr", screen_size: [320.0, 240.0], color: [1.0; 4], bold: false, italic: false };
     let mut dt = DynamicText::new(&mut ctx, &mut text, &mut res, info).unwrap();
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        dt.update_text(&mut ctx, &mut res, &mut text, "toolong", 16.0, [0.0, 0.0])
-    }));
-    match result {
-        Ok(Err(_)) => {},
-        Err(_) => {},
-        _ => panic!("update should fail"),
-    }
+    dt.update_text(&mut ctx, &mut res, &mut text, "toolong", 16.0, [0.0, 0.0])
+        .unwrap();
+    assert_eq!(dt.vertex_count, 8);
+    assert_eq!(dt.index_count, 12);
     destroy_combined(&mut ctx, &res, "ovr");
     dt.destroy(&mut ctx);
     ctx.destroy();

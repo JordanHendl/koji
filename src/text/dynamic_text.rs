@@ -208,14 +208,21 @@ impl DynamicText {
         _scale: f32,
         pos: [f32; 2],
     ) -> Result<(), GPUError> {
-        assert!(text.len() <= self.max_chars);
+        let mut owned;
+        let text = if text.chars().count() > self.max_chars {
+            owned = text.chars().take(self.max_chars).collect::<String>();
+            &owned
+        } else {
+            text
+        };
         if text.is_empty() {
             self.vertex_count = 0;
             self.index_count = 0;
             return Ok(());
         }
-        let mut verts = Vec::with_capacity(text.len() * 4);
-        let mut inds = Vec::with_capacity(text.len() * 6);
+        let char_count = text.chars().count();
+        let mut verts = Vec::with_capacity(char_count * 4);
+        let mut inds = Vec::with_capacity(char_count * 6);
         let mut cursor = pos[0];
         let sx = self.screen_size[0];
         let sy = self.screen_size[1];
