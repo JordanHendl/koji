@@ -37,10 +37,11 @@ pub fn run(ctx: &mut Context) {
         .resources()
         .register_variable("ubo", ctx, 0.7f32);
 
+    let canvas = renderer.canvas(0).unwrap().clone();
     let mut pso = PipelineBuilder::new(ctx, "sample_pso")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass((renderer.render_pass(), 0))
+        .render_pass(canvas.output("color"))
         .build_with_resources(renderer.resources())
         .unwrap();
 

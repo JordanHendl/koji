@@ -102,10 +102,11 @@ pub fn run(ctx: &mut Context) {
 
     let vert_spv = make_vert();
     let frag_spv = make_frag();
+    let canvas = renderer.canvas(0).unwrap().clone();
     let mut pso = PipelineBuilder::new(ctx, "text_pso")
         .vertex_shader(&vert_spv)
         .fragment_shader(&frag_spv)
-        .render_pass((renderer.render_pass(), 0))
+        .render_pass(canvas.output("color"))
         .build_with_resources(renderer.resources())
         .unwrap();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();

@@ -11,13 +11,16 @@ use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCo
 #[cfg(feature = "gpu_tests")]
 use std::path::Path;
 
-fn build_pbr_pipeline(ctx: &mut Context, rp: Handle<RenderPass>, subpass: u32) -> PSO {
+fn build_pbr_pipeline(
+    ctx: &mut Context,
+    target: koji::canvas::CanvasOutput,
+) -> PSO {
     let vert: &[u32] = include_spirv!("assets/shaders/pbr_spheres.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("assets/shaders/pbr_spheres.frag", frag, glsl);
     PipelineBuilder::new(ctx, "pbr")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass((rp, subpass))
+        .render_pass(target)
         .depth_enable(true)
         .cull_mode(CullMode::Back)
         .build()
@@ -162,7 +165,8 @@ pub fn run(ctx: &mut Context) {
     renderer.set_clear_depth(1.0);
     register_textures(ctx, renderer.resources());
 
-    let mut pso = build_pbr_pipeline(ctx, renderer.render_pass(), 0);
+    let canvas = renderer.canvas(0).unwrap().clone();
+    let mut pso = build_pbr_pipeline(ctx, canvas.output("color"));
 
     let proj =
         Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
