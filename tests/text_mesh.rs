@@ -5,7 +5,11 @@ use koji::utils::{ResourceManager, ResourceBinding};
 use dashi::gpu;
 use serial_test::serial;
 
-fn load_system_font() -> Vec<u8> {
+fn load_system_font() -> Result<Vec<u8>, String> {
+    if let Ok(path) = std::env::var("KOJI_FONT_PATH") {
+        return std::fs::read(&path)
+            .map_err(|e| format!("Failed to read font at {}: {}", path, e));
+    }
     #[cfg(target_os = "windows")]
     const CANDIDATES: &[&str] = &[
         "C:/Windows/Fonts/arial.ttf",
@@ -19,10 +23,10 @@ fn load_system_font() -> Vec<u8> {
     ];
     for path in CANDIDATES {
         if let Ok(bytes) = std::fs::read(path) {
-            return bytes;
+            return Ok(bytes);
         }
     }
-    panic!("Could not locate a system font");
+    Err("Could not locate a system font".into())
 }
 
 fn setup_ctx() -> gpu::Context {
@@ -40,7 +44,11 @@ fn destroy_combined(ctx: &mut gpu::Context, res: &ResourceManager, key: &str) {
 #[test]
 #[serial]
 fn static_text_new_uploads_texture() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -69,7 +77,11 @@ fn static_text_new_uploads_texture() {
 #[serial]
 #[ignore]
 fn dynamic_text_update_respects_max_chars() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");

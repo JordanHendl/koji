@@ -9,7 +9,11 @@ use koji::render_pass::RenderPassBuilder;
 use dashi::*;
 use inline_spirv::include_spirv;
 
-fn load_system_font() -> Vec<u8> {
+fn load_system_font() -> Result<Vec<u8>, String> {
+    if let Ok(path) = std::env::var("KOJI_FONT_PATH") {
+        return std::fs::read(&path)
+            .map_err(|e| format!("Failed to read font at {}: {}", path, e));
+    }
     #[cfg(target_os = "windows")]
     const CANDIDATES: &[&str] = &[
         "C:/Windows/Fonts/arial.ttf",
@@ -23,10 +27,10 @@ fn load_system_font() -> Vec<u8> {
     ];
     for path in CANDIDATES {
         if let Ok(bytes) = std::fs::read(path) {
-            return bytes;
+            return Ok(bytes);
         }
     }
-    panic!("Could not locate a system font");
+    Err("Could not locate a system font".into())
 }
 
 fn make_vert() -> Vec<u32> {
@@ -76,7 +80,11 @@ pub fn run() {
     let mut renderer = Renderer::with_render_pass(320, 240, &mut ctx, builder).expect("renderer");
     renderer.add_canvas(canvas);
 
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     renderer.fonts_mut().register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(renderer.fonts(), "default");
     let info = StaticTextCreateInfo { text: "Hello", scale: 32.0, pos: [-0.5, 0.5], key: "glyph_tex", screen_size: [320.0, 240.0], color: [1.0; 4], bold: false, italic: false };

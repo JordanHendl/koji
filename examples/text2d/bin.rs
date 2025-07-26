@@ -10,7 +10,11 @@ use winit::event::{
     ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent,
 };
 
-fn load_system_font() -> Vec<u8> {
+fn load_system_font() -> Result<Vec<u8>, String> {
+    if let Ok(path) = std::env::var("KOJI_FONT_PATH") {
+        return std::fs::read(&path)
+            .map_err(|e| format!("Failed to read font at {}: {}", path, e));
+    }
     #[cfg(target_os = "windows")]
     const CANDIDATES: &[&str] = &["C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf"];
     #[cfg(target_os = "linux")]
@@ -21,10 +25,10 @@ fn load_system_font() -> Vec<u8> {
     ];
     for path in CANDIDATES {
         if let Ok(bytes) = std::fs::read(path) {
-            return bytes;
+            return Ok(bytes);
         }
     }
-    panic!("Could not locate a system font");
+    Err("Could not locate a system font".into())
 }
 
 fn make_vert() -> Vec<u32> {
@@ -55,7 +59,11 @@ impl TextRenderable for SharedDynamic {
 pub fn run(ctx: &mut Context) {
     let mut renderer = Renderer::new(320, 240, "text", ctx).expect("renderer");
 
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run this example.");
+        std::process::exit(1);
+    });
     renderer.fonts_mut().register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(renderer.fonts(), "default");
     // Static text shown at the top left

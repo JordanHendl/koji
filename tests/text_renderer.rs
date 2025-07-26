@@ -10,7 +10,11 @@ use dashi::gpu;
 use rusttype::{Font, Scale, point};
 use serial_test::serial;
 
-fn load_system_font() -> Vec<u8> {
+fn load_system_font() -> Result<Vec<u8>, String> {
+    if let Ok(path) = std::env::var("KOJI_FONT_PATH") {
+        return std::fs::read(&path)
+            .map_err(|e| format!("Failed to read font at {}: {}", path, e));
+    }
     #[cfg(target_os = "windows")]
     const CANDIDATES: &[&str] = &[
         "C:/Windows/Fonts/arial.ttf",
@@ -24,10 +28,10 @@ fn load_system_font() -> Vec<u8> {
     ];
     for path in CANDIDATES {
         if let Ok(bytes) = std::fs::read(path) {
-            return bytes;
+            return Ok(bytes);
         }
     }
-    panic!("Could not locate a system font");
+    Err("Could not locate a system font".into())
 }
 
 fn setup_ctx() -> gpu::Context {
@@ -61,7 +65,11 @@ fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
 #[test]
 #[serial]
 fn new_loads_font_bytes() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -78,7 +86,11 @@ fn new_loads_font_bytes() {
 #[test]
 #[serial]
 fn upload_registers_texture_with_expected_dims() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -102,7 +114,11 @@ fn upload_registers_texture_with_expected_dims() {
 
 #[test]
 fn make_quad_generates_correct_vertices() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -129,7 +145,11 @@ fn make_quad_generates_correct_vertices() {
 #[test]
 #[serial]
 fn upload_empty_string_zero_texture() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -152,7 +172,11 @@ fn upload_empty_string_zero_texture() {
 #[test]
 #[serial]
 fn static_text_preserves_gpu_buffers() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -179,7 +203,11 @@ fn static_text_preserves_gpu_buffers() {
 #[serial]
 #[ignore]
 fn dynamic_text_updates_vertices_and_respects_capacity() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -210,7 +238,11 @@ fn dynamic_text_updates_vertices_and_respects_capacity() {
 #[test]
 #[serial]
 fn dynamic_text_update_empty_string_resets_counts() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -230,7 +262,11 @@ fn dynamic_text_update_empty_string_resets_counts() {
 #[serial]
 #[ignore]
 fn dynamic_text_update_over_capacity_panics() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
@@ -254,7 +290,11 @@ fn dynamic_text_update_over_capacity_panics() {
 #[test]
 #[serial]
 fn dynamic_text_update_color_updates_vertex_data() {
-    let font_bytes = load_system_font();
+    let font_bytes = load_system_font().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        eprintln!("Set KOJI_FONT_PATH to a valid .ttf font to run text tests.");
+        panic!("font not found");
+    });
     let mut registry = FontRegistry::new();
     registry.register_font("default", &font_bytes);
     let mut text = TextRenderer2D::new(&registry, "default");
