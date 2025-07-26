@@ -578,12 +578,15 @@ impl Renderer {
                     list.end_drawing().unwrap();
                 }
 
-                if let Some((pso, bind_groups)) = self.stage_pipelines.get(&RenderStage::Text) {
-                    list.begin_drawing(&DrawBegin {
-                        viewport: Viewport {
-                            area: FRect2D {
-                                w: self.width as f32,
-                                h: self.height as f32,
+                if !self.text_drawables.is_empty() {
+                    if let Some((pso, bind_groups)) =
+                        self.stage_pipelines.get(&RenderStage::Text)
+                    {
+                        list.begin_drawing(&DrawBegin {
+                            viewport: Viewport {
+                                area: FRect2D {
+                                    w: self.width as f32,
+                                    h: self.height as f32,
                                 ..Default::default()
                             },
                             scissor: Rect2D {
@@ -636,7 +639,8 @@ impl Renderer {
                         list.append(draw);
                     }
 
-                    list.end_drawing().unwrap();
+                        list.end_drawing().unwrap();
+                    }
                 }
 
                 for (mesh, instances) in &mut self.skeletal_meshes {
