@@ -97,9 +97,8 @@ pub fn run() {
     let mut pso = PipelineBuilder::new(&mut ctx, "text_pso")
         .vertex_shader(&vert_spv)
         .fragment_shader(&frag_spv)
-        .render_pass(graph.output("color"))
-        .build_with_resources(renderer.resources())
-        .unwrap();
+        .render_pass(renderer.graph().output("color"))
+        .build();
     let bgr = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pso(RenderStage::Text, pso, bgr);
 

@@ -78,7 +78,7 @@ pub fn run() {
     let mut pso = PipelineBuilder::new(&mut ctx, "pbr_pipeline")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass(graph.output("color"))
+        .render_pass(renderer.graph().output("color"))
         .depth_enable(true)
         .cull_mode(CullMode::Back)
         .build();

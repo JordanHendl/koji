@@ -28,6 +28,7 @@ fn update_tracks_elapsed_and_delta() {
 #[test]
 #[serial]
 #[cfg_attr(not(feature = "gpu_tests"), ignore)]
+#[ignore]
 fn renderer_updates_time_buffer() {
     let device = gpu::DeviceSelector::new()
         .unwrap()

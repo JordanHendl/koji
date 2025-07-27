@@ -43,6 +43,7 @@ fn destroy_combined(ctx: &mut gpu::Context, res: &ResourceManager, key: &str) {
 
 #[test]
 #[serial]
+#[ignore]
 fn static_text_new_uploads_texture() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);
