@@ -1,7 +1,10 @@
 use dashi::*;
 use inline_spirv::inline_spirv;
-use koji::renderer::*;
+use koji::canvas::CanvasBuilder;
 use koji::material::ComputePipelineBuilder;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
+use koji::renderer::*;
 
 fn compute_spirv() -> Vec<u32> {
     inline_spirv!(
@@ -19,7 +22,27 @@ fn compute_spirv() -> Vec<u32> {
 
 #[cfg(feature = "gpu_tests")]
 pub fn run(ctx: &mut Context) {
-    let mut renderer = Renderer::new(64, 64, "compute", ctx).unwrap();
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .viewport(Viewport {
+            area: FRect2D { w: 64.0, h: 64.0, ..Default::default() },
+            scissor: Rect2D { w: 64, h: 64, ..Default::default() },
+            ..Default::default()
+        })
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(64, 64, ctx, builder).unwrap();
+
+    let canvas = CanvasBuilder::new()
+        .extent([64, 64])
+        .color_attachment("color", Format::RGBA8)
+        .build(ctx)
+        .unwrap();
+    renderer.add_canvas(canvas.clone());
+
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
 
     let input: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
     let buffer = ctx

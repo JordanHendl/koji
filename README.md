@@ -65,7 +65,9 @@ demonstrate a simple `geometry -> sky -> compose` pipeline.
 
 Example programs live under the `examples/` directory and can be run with
 `cargo run --example <name>`. These require a Vulkan-capable GPU and a working
-window system. Some of the demos are gated behind the `gpu_tests` feature flag.
+window system. Each example explicitly constructs a `RenderGraph` and a
+`Canvas` before creating pipelines. Some of the demos are gated behind the
+`gpu_tests` feature flag.
 
 Available examples:
 

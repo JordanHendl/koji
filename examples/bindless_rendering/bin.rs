@@ -1,5 +1,8 @@
 use inline_spirv::inline_spirv;
+use koji::canvas::CanvasBuilder;
 use koji::material::*;
+use koji::render_graph::RenderGraph;
+use koji::render_pass::RenderPassBuilder;
 use koji::renderer::*;
 use dashi::*;
 
@@ -25,15 +28,42 @@ fn simple_frag() -> Vec<u32> {
 
 #[cfg(feature = "gpu_tests")]
 pub fn run(ctx: &mut Context) {
-    let mut renderer = Renderer::new(320, 240, "bindless", ctx).unwrap();
+    let builder = RenderPassBuilder::new()
+        .debug_name("MainPass")
+        .viewport(Viewport {
+            area: FRect2D {
+                w: 320.0,
+                h: 240.0,
+                ..Default::default()
+            },
+            scissor: Rect2D {
+                w: 320,
+                h: 240,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .color_attachment("color", Format::RGBA8)
+        .subpass("main", ["color"], &[] as &[&str]);
+
+    let mut renderer = Renderer::with_render_pass(320, 240, ctx, builder).unwrap();
+
+    let canvas = CanvasBuilder::new()
+        .extent([320, 240])
+        .color_attachment("color", Format::RGBA8)
+        .build(ctx)
+        .unwrap();
+    renderer.add_canvas(canvas.clone());
+
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
 
     let vert = simple_vert();
     let frag = simple_frag();
-    let canvas = renderer.canvas(0).unwrap().clone();
     let mut pso = PipelineBuilder::new(ctx, "bindless")
         .vertex_shader(&vert)
         .fragment_shader(&frag)
-        .render_pass(canvas.output("color"))
+        .render_pass(graph.output("color"))
         .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);
