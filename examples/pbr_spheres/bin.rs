@@ -5,6 +5,7 @@ use koji::material::*;
 use koji::renderer::*;
 use koji::render_pass::*;
 use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
 use koji::texture_manager;
 use koji::utils::{ResourceManager, ResourceBinding};
 use glam::*;
@@ -14,7 +15,7 @@ use std::path::Path;
 
 fn build_pbr_pipeline(
     ctx: &mut Context,
-    target: koji::canvas::CanvasOutput,
+    target: koji::render_graph::GraphOutput,
 ) -> PSO {
     let vert: &[u32] = include_spirv!("assets/shaders/pbr_spheres.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("assets/shaders/pbr_spheres.frag", frag, glsl);
@@ -174,7 +175,10 @@ pub fn run(ctx: &mut Context) {
         .unwrap();
     renderer.add_canvas(canvas.clone());
 
-    let mut pso = build_pbr_pipeline(ctx, canvas.output("color"));
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
+    let mut pso = build_pbr_pipeline(ctx, graph.output("color"));
 
     let proj =
         Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
