@@ -3,12 +3,12 @@ pub use drawable::*;
 mod time_stats;
 pub use time_stats::*;
 
-use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, PSO, CPSO};
-use crate::render_pass::*;
-use crate::render_graph::{RenderGraph, RenderPassNode, ResourceDesc};
 use crate::canvas::CanvasBuilder;
-use crate::utils::{ResourceBinding, ResourceManager};
+use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, CPSO, PSO};
+use crate::render_graph::{RenderGraph, RenderPassNode, ResourceDesc};
+use crate::render_pass::*;
 use crate::text::{FontRegistry, TextRenderable};
+use crate::utils::{ResourceBinding, ResourceManager};
 use dashi::utils::*;
 use dashi::*;
 use glam::Mat4;
@@ -51,7 +51,7 @@ pub struct Renderer {
     fonts: FontRegistry,
     lights: BindlessLights,
     drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
-    text_drawables: Vec<Box<dyn TextRenderable>>, 
+    text_drawables: Vec<Box<dyn TextRenderable>>,
     skeletal_meshes: Vec<(SkeletalMesh, Vec<SkeletalInstance>)>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
@@ -465,6 +465,42 @@ impl Renderer {
         }
     }
 
+    /// Helper to build [`DrawBegin`] for a target/pipeline pair.
+    fn prepare_draw_begin<'a>(
+        width: u32,
+        height: u32,
+        target: &'a RenderTarget,
+        pipeline: Handle<GraphicsPipeline>,
+        attachments: &'a mut Vec<Attachment>,
+        include_depth: bool,
+    ) -> DrawBegin<'a> {
+        attachments.clear();
+        attachments.extend(target.colors.iter().map(|a| a.attachment));
+        if include_depth {
+            if let Some(depth) = &target.depth {
+                attachments.push(depth.attachment);
+            }
+        }
+
+        DrawBegin {
+            viewport: Viewport {
+                area: FRect2D {
+                    w: width as f32,
+                    h: height as f32,
+                    ..Default::default()
+                },
+                scissor: Rect2D {
+                    w: width,
+                    h: height,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            pipeline,
+            attachments,
+        }
+    }
+
     /// Present one frame to display (for tests or non-interactive draw)
     pub fn present_frame(&mut self) -> Result<(), GPUError> {
         let ctx = self.get_ctx();
@@ -479,6 +515,8 @@ impl Renderer {
         self.lights.upload_all(ctx);
         let (img, acquire_sem, _img_idx, _) = ctx.acquire_new_image(&mut self.display)?;
 
+        let width = self.width;
+        let height = self.height;
         self.command_list.record(|list| {
             for task in self.compute_queue.drain(..) {
                 if let Some((pso, bgr)) = self.compute_pipelines.get(&task.id) {
@@ -503,18 +541,7 @@ impl Renderer {
                 .chain(self.targets.iter())
                 .enumerate()
             {
-                // Collect attachments for drawing. Include depth if present.Add commentMore actions
-                let attachments: Vec<Attachment> = {
-                    let mut atts = target
-                        .colors
-                        .iter()
-                        .map(|a| a.attachment)
-                        .collect::<Vec<_>>();
-                    if let Some(depth) = &target.depth {
-                        atts.push(depth.attachment);
-                    }
-                    atts
-                };
+                let mut attachments = Vec::new();
 
                 for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
                     let (pso, bind_groups) =
@@ -525,24 +552,15 @@ impl Renderer {
                         } else {
                             continue;
                         };
-                    list.begin_drawing(&DrawBegin {
-                        viewport: Viewport {
-                            area: FRect2D {
-                                w: self.width as f32,
-                                h: self.height as f32,
-                                ..Default::default()
-                            },
-                            scissor: Rect2D {
-                                w: self.width,
-                                h: self.height,
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
-                        pipeline: pso.pipeline,
-                        attachments: &attachments,
-                    })
-                    .unwrap();
+                    let draw_begin = Self::prepare_draw_begin(
+                        width,
+                        height,
+                        &target,
+                        pso.pipeline,
+                        &mut attachments,
+                        true,
+                    );
+                    list.begin_drawing(&draw_begin).unwrap();
 
                     let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                     let ib = mesh.index_buffer;
@@ -579,65 +597,51 @@ impl Renderer {
                 }
 
                 if !self.text_drawables.is_empty() {
-                    if let Some((pso, bind_groups)) =
-                        self.stage_pipelines.get(&RenderStage::Text)
-                    {
-                        list.begin_drawing(&DrawBegin {
-                            viewport: Viewport {
-                                area: FRect2D {
-                                    w: self.width as f32,
-                                    h: self.height as f32,
-                                ..Default::default()
-                            },
-                            scissor: Rect2D {
-                                w: self.width,
-                                h: self.height,
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
-                        pipeline: pso.pipeline,
-                        attachments: &target
-                            .colors
-                            .iter()
-                            .map(|a| a.attachment)
-                            .collect::<Vec<_>>(),
-                    })
-                    .unwrap();
+                    if let Some((pso, bind_groups)) = self.stage_pipelines.get(&RenderStage::Text) {
+                        let mut attachments = Vec::new();
+                        let draw_begin = Self::prepare_draw_begin(
+                            width,
+                            height,
+                            &target,
+                            pso.pipeline,
+                            &mut attachments,
+                            false,
+                        );
+                        list.begin_drawing(&draw_begin).unwrap();
 
-                    for mesh in &self.text_drawables {
-                        let vb = mesh.vertex_buffer();
-                        let ib = mesh.index_buffer();
-                        let draw = if let Some(ib) = ib {
-                            Command::DrawIndexed(DrawIndexed {
-                                index_count: mesh.index_count() as u32,
-                                instance_count: 1,
-                                vertices: vb,
-                                indices: ib,
-                                bind_groups: [
-                                    bind_groups[0].as_ref().map(|b| b.bind_group),
-                                    bind_groups[1].as_ref().map(|b| b.bind_group),
-                                    bind_groups[2].as_ref().map(|b| b.bind_group),
-                                    bind_groups[3].as_ref().map(|b| b.bind_group),
-                                ],
-                                ..Default::default()
-                            })
-                        } else {
-                            Command::Draw(Draw {
-                                count: mesh.index_count() as u32,
-                                instance_count: 1,
-                                vertices: vb,
-                                bind_groups: [
-                                    bind_groups[0].as_ref().map(|b| b.bind_group),
-                                    bind_groups[1].as_ref().map(|b| b.bind_group),
-                                    bind_groups[2].as_ref().map(|b| b.bind_group),
-                                    bind_groups[3].as_ref().map(|b| b.bind_group),
-                                ],
-                                ..Default::default()
-                            })
-                        };
-                        list.append(draw);
-                    }
+                        for mesh in &self.text_drawables {
+                            let vb = mesh.vertex_buffer();
+                            let ib = mesh.index_buffer();
+                            let draw = if let Some(ib) = ib {
+                                Command::DrawIndexed(DrawIndexed {
+                                    index_count: mesh.index_count() as u32,
+                                    instance_count: 1,
+                                    vertices: vb,
+                                    indices: ib,
+                                    bind_groups: [
+                                        bind_groups[0].as_ref().map(|b| b.bind_group),
+                                        bind_groups[1].as_ref().map(|b| b.bind_group),
+                                        bind_groups[2].as_ref().map(|b| b.bind_group),
+                                        bind_groups[3].as_ref().map(|b| b.bind_group),
+                                    ],
+                                    ..Default::default()
+                                })
+                            } else {
+                                Command::Draw(Draw {
+                                    count: mesh.index_count() as u32,
+                                    instance_count: 1,
+                                    vertices: vb,
+                                    bind_groups: [
+                                        bind_groups[0].as_ref().map(|b| b.bind_group),
+                                        bind_groups[1].as_ref().map(|b| b.bind_group),
+                                        bind_groups[2].as_ref().map(|b| b.bind_group),
+                                        bind_groups[3].as_ref().map(|b| b.bind_group),
+                                    ],
+                                    ..Default::default()
+                                })
+                            };
+                            list.append(draw);
+                        }
 
                         list.end_drawing().unwrap();
                     }
@@ -667,28 +671,16 @@ impl Renderer {
                             })
                             .unwrap();
 
-                        list.begin_drawing(&DrawBegin {
-                            viewport: Viewport {
-                                area: FRect2D {
-                                    w: self.width as f32,
-                                    h: self.height as f32,
-                                    ..Default::default()
-                                },
-                                scissor: Rect2D {
-                                    w: self.width,
-                                    h: self.height,
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            },
-                            pipeline: pso.pipeline,
-                            attachments: &target
-                                .colors
-                                .iter()
-                                .map(|a| a.attachment)
-                                .collect::<Vec<_>>(),
-                        })
-                        .unwrap();
+                        let mut attachments = Vec::new();
+                        let draw_begin = Self::prepare_draw_begin(
+                            width,
+                            height,
+                            &target,
+                            pso.pipeline,
+                            &mut attachments,
+                            false,
+                        );
+                        list.begin_drawing(&draw_begin).unwrap();
 
                         let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                         let ib = mesh.index_buffer;

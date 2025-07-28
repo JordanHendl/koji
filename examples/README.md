@@ -6,6 +6,9 @@ These demos showcase different Koji features and can be executed with
 cargo run --example <name>
 ```
 
+Each example builds a small `RenderGraph` and creates a `Canvas` to render into
+before setting up pipelines. This replaces the older `Renderer::new` helper.
+
 Some programs require the `gpu_tests` feature to be enabled. Shaders usually
 pull from `assets/shaders/` and rely on the uniform block provided by
 `assets/shaders/timing.slang` when referencing `KOJI_time`.
