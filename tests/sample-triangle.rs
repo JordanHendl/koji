@@ -109,7 +109,7 @@ fn render_triangle_and_cube() {
     let mut pso = PipelineBuilder::new(&mut ctx, "triangle_cube_pipeline")
         .vertex_shader(&vert_spv)
         .fragment_shader(&frag_spv)
-        .render_pass(graph.output("color"))
+        .render_pass(renderer.graph().output("color"))
         .build();
 
     // Generate/cached bind group resources for all sets

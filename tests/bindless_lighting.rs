@@ -51,7 +51,7 @@ pub fn run() {
     let mut pso = PipelineBuilder::new(&mut ctx, "lights")
         .vertex_shader(&vert())
         .fragment_shader(&frag())
-        .render_pass(graph.output("color"))
+        .render_pass(renderer.graph().output("color"))
         .build();
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bgr);

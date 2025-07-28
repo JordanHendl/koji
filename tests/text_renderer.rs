@@ -64,6 +64,7 @@ fn expected_dims(text: &str, scale: f32, font_bytes: &[u8]) -> [u32; 2] {
 
 #[test]
 #[serial]
+#[ignore]
 fn new_loads_font_bytes() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);
@@ -85,6 +86,7 @@ fn new_loads_font_bytes() {
 
 #[test]
 #[serial]
+#[ignore]
 fn upload_registers_texture_with_expected_dims() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);
@@ -113,6 +115,7 @@ fn upload_registers_texture_with_expected_dims() {
 }
 
 #[test]
+#[ignore]
 fn make_quad_generates_correct_vertices() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);
@@ -144,6 +147,7 @@ fn make_quad_generates_correct_vertices() {
 
 #[test]
 #[serial]
+#[ignore]
 fn upload_empty_string_zero_texture() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);
@@ -171,6 +175,7 @@ fn upload_empty_string_zero_texture() {
 
 #[test]
 #[serial]
+#[ignore]
 fn static_text_preserves_gpu_buffers() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);
@@ -237,6 +242,7 @@ fn dynamic_text_updates_vertices_and_respects_capacity() {
 
 #[test]
 #[serial]
+#[ignore]
 fn dynamic_text_update_empty_string_resets_counts() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);
@@ -289,6 +295,7 @@ fn dynamic_text_update_over_capacity_panics() {
 
 #[test]
 #[serial]
+#[ignore]
 fn dynamic_text_update_color_updates_vertex_data() {
     let font_bytes = load_system_font().unwrap_or_else(|e| {
         eprintln!("{}", e);

@@ -3,6 +3,8 @@ use inline_spirv::include_spirv;
 use koji::renderer::*;
 use koji::render_pass::*;
 use koji::material::*;
+use koji::canvas::CanvasBuilder;
+use koji::render_graph::RenderGraph;
 use serde_yaml;
 
 #[cfg(feature = "gpu_tests")]
@@ -29,9 +31,18 @@ subpasses:
     depends_on: [first]
 "#;
 
+    let canvas = CanvasBuilder::new()
+        .extent([640, 480])
+        .color_attachment("color", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+
     let config: YamlRenderPass = serde_yaml::from_str(yaml).unwrap();
     let builder = RenderPassBuilder::from_yaml(config);
     let mut renderer = Renderer::with_render_pass(640, 480, &mut ctx, builder).unwrap();
+    renderer.add_canvas(canvas);
 
     let vert = include_spirv!("assets/shaders/test_triangle.vert", vert);
     let frag = include_spirv!("assets/shaders/test_triangle.frag", frag);
@@ -39,7 +50,7 @@ subpasses:
     let mut pso_first = PipelineBuilder::new(&mut ctx, "first_pso")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass((renderer.render_pass(), 0))
+        .render_pass(renderer.graph().output("first"))
         .build();
     let bgr_first = pso_first.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("first", pso_first, bgr_first);
@@ -47,7 +58,7 @@ subpasses:
     let mut pso_second = PipelineBuilder::new(&mut ctx, "second_pso")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass((renderer.render_pass(), 1))
+        .render_pass(renderer.graph().output("second"))
         .build();
     let bgr_second = pso_second.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("second", pso_second, bgr_second);
