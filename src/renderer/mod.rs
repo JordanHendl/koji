@@ -517,6 +517,8 @@ impl Renderer {
 
         let width = self.width;
         let height = self.height;
+        let use_canvas_blit = self.targets.is_empty() && !self.canvases.is_empty();
+
         self.command_list.record(|list| {
             for task in self.compute_queue.drain(..) {
                 if let Some((pso, bgr)) = self.compute_pipelines.get(&task.id) {
@@ -725,6 +727,17 @@ impl Renderer {
                         ..Default::default()
                     });
                 }
+            }
+
+            if use_canvas_blit {
+                let canvas = &self.canvases[0];
+                let tgt = canvas.target();
+                list.blit_image(ImageBlit {
+                    src: tgt.colors[0].attachment.img,
+                    dst: img,
+                    filter: Filter::Nearest,
+                    ..Default::default()
+                });
             }
         });
 
