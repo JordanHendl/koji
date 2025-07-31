@@ -16,6 +16,28 @@ use std::collections::HashMap;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::platform::run_return::EventLoopExtRunReturn;
+
+mod draw_log {
+    use once_cell::sync::Lazy;
+    use std::sync::Mutex;
+
+    pub static LOG: Lazy<Mutex<Vec<&'static str>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+    pub fn log(event: &'static str) {
+        LOG.lock().unwrap().push(event);
+    }
+
+    pub fn take() -> Vec<&'static str> {
+        LOG.lock().unwrap().drain(..).collect()
+    }
+}
+
+pub mod test_hooks {
+    /// Retrieve and clear recorded draw events.
+    pub fn take_draw_events() -> Vec<&'static str> {
+        super::draw_log::take()
+    }
+}
 /// Render pipeline stage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RenderStage {
@@ -544,6 +566,7 @@ impl Renderer {
                 .enumerate()
             {
                 let mut attachments = Vec::new();
+                let mut current_pipeline: Option<Handle<GraphicsPipeline>> = None;
 
                 for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
                     let (pso, bind_groups) =
@@ -554,15 +577,27 @@ impl Renderer {
                         } else {
                             continue;
                         };
-                    let draw_begin = Self::prepare_draw_begin(
-                        width,
-                        height,
-                        &target,
-                        pso.pipeline,
-                        &mut attachments,
-                        true,
-                    );
-                    list.begin_drawing(&draw_begin).unwrap();
+
+                    if Some(pso.pipeline) != current_pipeline {
+                        if current_pipeline.is_some() {
+                            list.end_drawing().unwrap();
+                            #[cfg(test)]
+                            draw_log::log("end_static");
+                            attachments.clear();
+                        }
+                        let draw_begin = Self::prepare_draw_begin(
+                            width,
+                            height,
+                            &target,
+                            pso.pipeline,
+                            &mut attachments,
+                            true,
+                        );
+                        list.begin_drawing(&draw_begin).unwrap();
+                        #[cfg(test)]
+                        draw_log::log("begin_static");
+                        current_pipeline = Some(pso.pipeline);
+                    }
 
                     let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                     let ib = mesh.index_buffer;
@@ -595,7 +630,11 @@ impl Renderer {
                         })
                     };
                     list.append(draw);
+                }
+                if current_pipeline.is_some() {
                     list.end_drawing().unwrap();
+                    #[cfg(test)]
+                    draw_log::log("end_static");
                 }
 
                 if !self.text_drawables.is_empty() {
@@ -659,6 +698,9 @@ impl Renderer {
                             continue;
                         };
                     let layout = pso.bind_group_layouts[0].expect("layout");
+                    let mut attachments = Vec::new();
+                    let mut started = false;
+
                     for inst in instances.iter_mut() {
                         inst.update_gpu(ctx).unwrap();
                         let inst_bg = ctx
@@ -673,16 +715,20 @@ impl Renderer {
                             })
                             .unwrap();
 
-                        let mut attachments = Vec::new();
-                        let draw_begin = Self::prepare_draw_begin(
-                            width,
-                            height,
-                            &target,
-                            pso.pipeline,
-                            &mut attachments,
-                            false,
-                        );
-                        list.begin_drawing(&draw_begin).unwrap();
+                        if !started {
+                            let draw_begin = Self::prepare_draw_begin(
+                                width,
+                                height,
+                                &target,
+                                pso.pipeline,
+                                &mut attachments,
+                                false,
+                            );
+                            list.begin_drawing(&draw_begin).unwrap();
+                            #[cfg(test)]
+                            draw_log::log("begin_skeletal");
+                            started = true;
+                        }
 
                         let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
                         let ib = mesh.index_buffer;
@@ -715,7 +761,11 @@ impl Renderer {
                             })
                         };
                         list.append(draw);
+                    }
+                    if started {
                         list.end_drawing().unwrap();
+                        #[cfg(test)]
+                        draw_log::log("end_skeletal");
                     }
                 }
 
