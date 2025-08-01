@@ -389,7 +389,7 @@ dependencies = [
 [[package]]
 name = "dashi"
 version = "0.1.0"
-source = "git+https://github.com/JordanHendl/dashi#50cd4813f537f4d0cc1cc61b073349b93806e801"
+source = "git+https://github.com/JordanHendl/dashi#6c2ac359f1072f8fd2d998d422777ff0f729fe7b"
 dependencies = [
  "ash",
  "ash-window",

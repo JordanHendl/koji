@@ -590,11 +590,23 @@ impl Renderer {
                                 true,
                             );
                             list.begin_drawing(&draw_begin).unwrap();
+                            list.set_viewport(draw_begin.viewport);
+                            list.set_scissor(draw_begin.viewport.scissor);
                             #[cfg(test)]
                             draw_log::log("begin_static");
                             started = true;
                         } else {
-                            list.bind_pipeline(pso.pipeline).unwrap();
+                            let draw_begin = Self::prepare_draw_begin(
+                                width,
+                                height,
+                                &target,
+                                pso.pipeline,
+                                &mut attachments,
+                                true,
+                            );
+                            list.begin_drawing(&draw_begin).unwrap();
+                            list.set_viewport(draw_begin.viewport);
+                            list.set_scissor(draw_begin.viewport.scissor);
                             #[cfg(test)]
                             draw_log::log("bind_static");
                         }
@@ -651,6 +663,8 @@ impl Renderer {
                             false,
                         );
                         list.begin_drawing(&draw_begin).unwrap();
+                        list.set_viewport(draw_begin.viewport);
+                        list.set_scissor(draw_begin.viewport.scissor);
 
                         for mesh in &self.text_drawables {
                             let vb = mesh.vertex_buffer();
@@ -727,6 +741,8 @@ impl Renderer {
                                 false,
                             );
                             list.begin_drawing(&draw_begin).unwrap();
+                            list.set_viewport(draw_begin.viewport);
+                            list.set_scissor(draw_begin.viewport.scissor);
                             #[cfg(test)]
                             draw_log::log("begin_skeletal");
                             started = true;
