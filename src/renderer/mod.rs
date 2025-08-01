@@ -567,6 +567,7 @@ impl Renderer {
             {
                 let mut attachments = Vec::new();
                 let mut current_pipeline: Option<Handle<GraphicsPipeline>> = None;
+                let mut started = false;
 
                 for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
                     let (pso, bind_groups) =
@@ -579,23 +580,24 @@ impl Renderer {
                         };
 
                     if Some(pso.pipeline) != current_pipeline {
-                        if current_pipeline.is_some() {
-                            list.end_drawing().unwrap();
+                        if !started {
+                            let draw_begin = Self::prepare_draw_begin(
+                                width,
+                                height,
+                                &target,
+                                pso.pipeline,
+                                &mut attachments,
+                                true,
+                            );
+                            list.begin_drawing(&draw_begin).unwrap();
                             #[cfg(test)]
-                            draw_log::log("end_static");
-                            attachments.clear();
+                            draw_log::log("begin_static");
+                            started = true;
+                        } else {
+                            list.bind_pipeline(pso.pipeline).unwrap();
+                            #[cfg(test)]
+                            draw_log::log("bind_static");
                         }
-                        let draw_begin = Self::prepare_draw_begin(
-                            width,
-                            height,
-                            &target,
-                            pso.pipeline,
-                            &mut attachments,
-                            true,
-                        );
-                        list.begin_drawing(&draw_begin).unwrap();
-                        #[cfg(test)]
-                        draw_log::log("begin_static");
                         current_pipeline = Some(pso.pipeline);
                     }
 
@@ -631,7 +633,7 @@ impl Renderer {
                     };
                     list.append(draw);
                 }
-                if current_pipeline.is_some() {
+                if started {
                     list.end_drawing().unwrap();
                     #[cfg(test)]
                     draw_log::log("end_static");
