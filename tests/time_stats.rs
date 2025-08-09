@@ -4,7 +4,6 @@ use koji::renderer::Renderer;
 use koji::utils::ResourceBinding;
 use koji::canvas::CanvasBuilder;
 use koji::render_graph::RenderGraph;
-use koji::render_pass::RenderPassBuilder;
 use dashi::gpu;
 use dashi::Format;
 use serial_test::serial;
@@ -44,13 +43,7 @@ fn renderer_updates_time_buffer() {
     let mut graph = RenderGraph::new();
     graph.add_canvas(&canvas);
 
-    let builder = RenderPassBuilder::new()
-        .debug_name("MainPass")
-        .color_attachment("color", Format::RGBA8)
-        .subpass("main", ["color"], &[] as &[&str]);
-
-    let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
-    renderer.add_canvas(canvas);
+    let mut renderer = Renderer::with_graph(64, 64, &mut ctx, graph).unwrap();
 
     renderer.present_frame().unwrap();
     std::thread::sleep(Duration::from_millis(5));

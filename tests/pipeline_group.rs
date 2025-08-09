@@ -1,6 +1,6 @@
 use koji::renderer::{Renderer, test_hooks, StaticMesh, Vertex, SkeletalMesh, SkeletalVertex, SkeletalInstance};
 use koji::material::pipeline_builder::PipelineBuilder;
-use koji::render_pass::RenderPassBuilder;
+use koji::canvas::CanvasBuilder;
 use koji::animation::{Skeleton, Bone, Animator};
 use dashi::gpu::{Context, ContextInfo};
 use dashi::{Format};
@@ -37,11 +37,12 @@ fn simple_skel_vertex(p: [f32;3]) -> SkeletalVertex {
 #[ignore]
 fn static_pipeline_groups_once() {
     let mut ctx = make_ctx();
-    let builder = RenderPassBuilder::new()
-        .debug_name("test")
+    let canvas = CanvasBuilder::new()
+        .extent([64, 64])
         .color_attachment("color", Format::RGBA8)
-        .subpass("main", ["color"], &[] as &[&str]);
-    let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
+        .build(&mut ctx)
+        .unwrap();
+    let mut renderer = Renderer::with_canvas(64, 64, &mut ctx, canvas).unwrap();
 
     let mut pso = PipelineBuilder::new(&mut ctx, "p")
         .vertex_shader(&simple_vert())
@@ -82,11 +83,12 @@ fn static_pipeline_groups_once() {
 #[ignore]
 fn skeletal_pipeline_groups_once() {
     let mut ctx = make_ctx();
-    let builder = RenderPassBuilder::new()
-        .debug_name("test")
+    let canvas = CanvasBuilder::new()
+        .extent([64, 64])
         .color_attachment("color", Format::RGBA8)
-        .subpass("main", ["color"], &[] as &[&str]);
-    let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
+        .build(&mut ctx)
+        .unwrap();
+    let mut renderer = Renderer::with_canvas(64, 64, &mut ctx, canvas).unwrap();
 
     let vert: &[u32] = include_spirv!("src/renderer/skinning.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("src/renderer/skinning.frag", frag, glsl);

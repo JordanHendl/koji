@@ -2,7 +2,6 @@ use koji::*;
 use koji::renderer::*;
 use koji::canvas::CanvasBuilder;
 use koji::render_graph::RenderGraph;
-use koji::render_pass::RenderPassBuilder;
 use dashi::*;
 use inline_spirv::include_spirv;
 use serial_test::serial;
@@ -93,13 +92,7 @@ fn render_triangle_and_cube() {
     let mut graph = RenderGraph::new();
     graph.add_canvas(&canvas);
 
-    let builder = RenderPassBuilder::new()
-        .debug_name("MainPass")
-        .color_attachment("color", Format::RGBA8)
-        .subpass("main", ["color"], &[] as &[&str]);
-
-    let mut renderer = Renderer::with_render_pass(640, 480, &mut ctx, builder).expect("Error making Renderer");
-    renderer.add_canvas(canvas);
+    let mut renderer = Renderer::with_graph(640, 480, &mut ctx, graph).expect("Error making Renderer");
 
     // Shaders
     let vert_spv = make_shader_vert();

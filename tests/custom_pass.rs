@@ -37,12 +37,11 @@ subpasses:
         .build(&mut ctx)
         .unwrap();
     let mut graph = RenderGraph::new();
+    let config: YamlRenderPass = serde_yaml::from_str(yaml).unwrap();
+    graph.add_node(RenderPassBuilder::from_yaml(config).into());
     graph.add_canvas(&canvas);
 
-    let config: YamlRenderPass = serde_yaml::from_str(yaml).unwrap();
-    let builder = RenderPassBuilder::from_yaml(config);
-    let mut renderer = Renderer::with_render_pass(640, 480, &mut ctx, builder).unwrap();
-    renderer.add_canvas(canvas);
+    let mut renderer = Renderer::with_graph(640, 480, &mut ctx, graph).unwrap();
 
     let vert = include_spirv!("assets/shaders/test_triangle.vert", vert);
     let frag = include_spirv!("assets/shaders/test_triangle.frag", frag);
