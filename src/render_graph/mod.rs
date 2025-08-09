@@ -273,6 +273,19 @@ impl RenderGraph {
         self.add_node(CanvasNode::from(canvas));
     }
 
+    /// Retrieve all canvases present in the graph.
+    pub fn canvases(&self) -> Vec<Canvas> {
+        self.graph
+            .node_indices()
+            .filter_map(|i| {
+                self.graph[i]
+                    .as_any()
+                    .downcast_ref::<CanvasNode>()
+                    .map(|cn| cn.canvas().clone())
+            })
+            .collect()
+    }
+
     pub fn render_pass_for_output(&self, output: &str) -> Option<(Handle<RenderPass>, Format)> {
         for idx in self.graph.node_indices() {
             let node = &self.graph[idx];
