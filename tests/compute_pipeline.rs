@@ -1,7 +1,6 @@
 use koji::renderer::*;
 use koji::canvas::CanvasBuilder;
 use koji::render_graph::RenderGraph;
-use koji::render_pass::RenderPassBuilder;
 use koji::material::ComputePipelineBuilder;
 use dashi::*;
 use inline_spirv::inline_spirv;
@@ -36,13 +35,7 @@ pub fn run() {
     let mut graph = RenderGraph::new();
     graph.add_canvas(&canvas);
 
-    let builder = RenderPassBuilder::new()
-        .debug_name("MainPass")
-        .color_attachment("color", Format::RGBA8)
-        .subpass("main", ["color"], &[] as &[&str]);
-
-    let mut renderer = Renderer::with_render_pass(64, 64, &mut ctx, builder).unwrap();
-    renderer.add_canvas(canvas);
+    let mut renderer = Renderer::with_graph(64, 64, &mut ctx, graph).unwrap();
 
     let initial: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
     let buffer = ctx
