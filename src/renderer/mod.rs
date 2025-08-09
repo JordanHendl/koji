@@ -179,21 +179,8 @@ impl Renderer {
         width: u32,
         height: u32,
         ctx: &mut Context,
-        builder: RenderPassBuilder,
-        mut canvas: crate::canvas::Canvas,
+        canvas: crate::canvas::Canvas,
     ) -> Result<Self, GPUError> {
-        let mut renderer = Self::with_render_pass(width, height, ctx, builder)?;
-
-        for att in &mut canvas.target_mut().colors {
-            att.attachment.clear = ClearValue::Color(renderer.clear_color);
-        }
-        if let Some(depth) = &mut canvas.target_mut().depth {
-            depth.attachment.clear = ClearValue::DepthStencil {
-                depth: renderer.clear_depth,
-                stencil: 0,
-            };
-        }
-
         let outputs = canvas
             .target()
             .colors
@@ -206,14 +193,17 @@ impl Renderer {
         let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
         let mut graph = RenderGraph::new();
         graph.add_node(node);
+        graph.add_canvas(&canvas);
 
-        renderer.canvases.push(canvas);
-        renderer.graph = graph;
-
-        Ok(renderer)
+        Self::with_graph(width, height, ctx, graph)
     }
 
-    pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
+    pub fn with_graph(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        graph: RenderGraph,
+    ) -> Result<Self, GPUError> {
         let builder = RenderPassBuilder::new()
             .debug_name("MainPass")
             .viewport(Viewport {
@@ -230,14 +220,36 @@ impl Renderer {
                 ..Default::default()
             })
             .color_attachment("color", Format::RGBA8)
-            .subpass("main", &["color"], &[] as &[&str]);
+            .depth_attachment("depth", Format::D24S8)
+            .subpass("main", ["color"], &[] as &[&str]);
+        let mut renderer = Self::with_render_pass(width, height, ctx, builder)?;
 
+        let mut canvases = graph.canvases();
+        for canvas in &mut canvases {
+            for att in &mut canvas.target_mut().colors {
+                att.attachment.clear = ClearValue::Color(renderer.clear_color);
+            }
+            if let Some(depth) = &mut canvas.target_mut().depth {
+                depth.attachment.clear = ClearValue::DepthStencil {
+                    depth: renderer.clear_depth,
+                    stencil: 0,
+                };
+            }
+        }
+
+        renderer.canvases = canvases;
+        renderer.graph = graph;
+
+        Ok(renderer)
+    }
+
+    pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
         let canvas = CanvasBuilder::new()
             .extent([width, height])
             .color_attachment("color", Format::RGBA8)
             .build(ctx)?;
 
-        Self::with_canvas(width, height, ctx, builder, canvas)
+        Self::with_canvas(width, height, ctx, canvas)
     }
 
     pub fn with_render_pass_yaml(
@@ -851,31 +863,13 @@ mod tests {
             .select(gpu::DeviceFilter::default().add_required_type(gpu::DeviceType::Dedicated))
             .unwrap_or_default();
         let mut ctx = gpu::Context::new(&gpu::ContextInfo { device }).unwrap();
-        let builder = RenderPassBuilder::new()
-            .debug_name("MainPass")
-            .viewport(Viewport {
-                area: FRect2D {
-                    w: 64.0,
-                    h: 64.0,
-                    ..Default::default()
-                },
-                scissor: Rect2D {
-                    w: 64,
-                    h: 64,
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .color_attachment("color", Format::RGBA8)
-            .subpass("main", ["color"], &[] as &[&str]);
         let canvas = CanvasBuilder::new()
             .extent([64, 64])
             .color_attachment("color", Format::RGBA8)
             .build(&mut ctx)
             .unwrap();
 
-        let mut renderer =
-            Renderer::with_canvas(64, 64, &mut ctx, builder, canvas).unwrap();
+        let mut renderer = Renderer::with_canvas(64, 64, &mut ctx, canvas).unwrap();
         renderer.set_clear_color([0.5, 0.5, 0.5, 1.0]);
 
         for target in &renderer.targets {
@@ -900,19 +894,13 @@ mod tests {
             .unwrap_or_default();
         let mut ctx = gpu::Context::new(&gpu::ContextInfo { device }).unwrap();
 
-        let builder = RenderPassBuilder::new()
-            .debug_name("clear_depth")
-            .color_attachment("color", Format::RGBA8)
-            .depth_attachment("depth", Format::D24S8)
-            .subpass("main", ["color"], &[] as &[&str]);
         let canvas = CanvasBuilder::new()
             .extent([64, 64])
             .color_attachment("color", Format::RGBA8)
             .build(&mut ctx)
             .unwrap();
 
-        let mut renderer =
-            Renderer::with_canvas(64, 64, &mut ctx, builder, canvas).unwrap();
+        let mut renderer = Renderer::with_canvas(64, 64, &mut ctx, canvas).unwrap();
         renderer.set_clear_depth(0.25);
 
         for target in &renderer.targets {
