@@ -42,7 +42,7 @@ fn static_pipeline_groups_once() {
         .color_attachment("color", Format::RGBA8)
         .build(&mut ctx)
         .unwrap();
-    let mut renderer = Renderer::with_canvas(64, 64, &mut ctx, canvas).unwrap();
+    let mut renderer = Renderer::with_canvas_headless(64, 64, &mut ctx, canvas).unwrap();
 
     let mut pso = PipelineBuilder::new(&mut ctx, "p")
         .vertex_shader(&simple_vert())
@@ -88,7 +88,7 @@ fn skeletal_pipeline_groups_once() {
         .color_attachment("color", Format::RGBA8)
         .build(&mut ctx)
         .unwrap();
-    let mut renderer = Renderer::with_canvas(64, 64, &mut ctx, canvas).unwrap();
+    let mut renderer = Renderer::with_canvas_headless(64, 64, &mut ctx, canvas).unwrap();
 
     let vert: &[u32] = include_spirv!("src/renderer/skinning.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("src/renderer/skinning.frag", frag, glsl);

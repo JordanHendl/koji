@@ -64,7 +64,7 @@ pub fn run() {
     let mut graph = RenderGraph::new();
     graph.add_canvas(&canvas);
 
-    let mut renderer = Renderer::with_graph(64, 64, &mut ctx, graph).unwrap();
+    let mut renderer = Renderer::with_graph_headless(64, 64, &mut ctx, graph).unwrap();
 
     let vert: &[u32] = include_spirv!("assets/shaders/pbr.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("assets/shaders/pbr.frag", frag, glsl);
