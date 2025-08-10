@@ -38,7 +38,7 @@ subpasses:
         .unwrap();
     let mut graph = RenderGraph::new();
     let config: YamlRenderPass = serde_yaml::from_str(yaml).unwrap();
-    graph.add_node(RenderPassBuilder::from_yaml(config).into());
+    graph.add_node::<RenderPassBuilderNode>(RenderPassBuilder::from_yaml(config).into());
     graph.add_canvas(&canvas);
 
     let mut renderer = Renderer::with_graph(640, 480, &mut ctx, graph).unwrap();
