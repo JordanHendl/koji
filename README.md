@@ -30,6 +30,19 @@ cargo build
 cargo test
 ```
 
+## Headless Rendering and Frame Comparison
+
+`Renderer` can run without a display, making it suitable for image-based
+testing. Capture the contents of a color attachment with
+`Renderer::read_color_target("color")` and compare it against a reference
+frame using `utils::diff_rgba8` or the convenience method
+`Renderer::frame_difference`:
+
+```rust
+let diff = renderer.frame_difference(&reference_frame);
+assert!(diff < 0.01);
+```
+
 ## Frame Timing
 
 Shaders that reference the `KOJI_time` uniform automatically receive a timing

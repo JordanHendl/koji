@@ -8,7 +8,7 @@ use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, CPSO, PS
 use crate::render_graph::{RenderGraph, RenderPassNode, ResourceDesc};
 use crate::render_pass::*;
 use crate::text::{FontRegistry, TextRenderable};
-use crate::utils::{ResourceBinding, ResourceManager};
+use crate::utils::{diff_rgba8, ResourceBinding, ResourceManager};
 use dashi::utils::*;
 use dashi::*;
 use glam::Mat4;
@@ -951,6 +951,18 @@ impl Renderer {
         ctx.destroy_fence(fence);
 
         data
+    }
+
+    /// Compute the mean absolute per-channel difference between the current
+    /// `"color"` attachment and a reference frame.
+    ///
+    /// The reference slice must contain `width * height * 4` RGBA8 bytes. This
+    /// is primarily intended for headless testing where rendered frames are
+    /// compared against known-good outputs. The returned value is normalized to
+    /// `0.0..=1.0`.
+    pub fn frame_difference(&mut self, reference: &[u8]) -> f32 {
+        let current = self.read_color_target("color");
+        diff_rgba8(&current, reference)
     }
 }
 
