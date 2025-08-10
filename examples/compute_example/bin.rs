@@ -1,5 +1,6 @@
 use dashi::*;
 use inline_spirv::inline_spirv;
+use koji::canvas::CanvasBuilder;
 use koji::material::ComputePipelineBuilder;
 use koji::renderer::*;
 
@@ -19,7 +20,13 @@ fn compute_spirv() -> Vec<u32> {
 
 #[cfg(feature = "gpu_tests")]
 pub fn run(ctx: &mut Context) {
-    let mut renderer = Renderer::new(64, 64, "", ctx).unwrap();
+    let canvas = CanvasBuilder::new()
+        .extent([64, 64])
+        .color_attachment("color", Format::RGBA8)
+        .build(ctx)
+        .unwrap();
+
+    let mut renderer = Renderer::with_canvas(64, 64, ctx, canvas).unwrap();
 
     let input: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
     let buffer = ctx
