@@ -33,8 +33,10 @@ impl From<BufferUsage> for DashiBufferUsage {
 
 pub mod allocator;
 pub mod resource_list;
+pub mod frame_diff;
 pub use allocator::*;
 pub use resource_list::*;
+pub use frame_diff::diff_rgba8;
 
 pub struct TextureInfo {
     pub image: Handle<Image>,
