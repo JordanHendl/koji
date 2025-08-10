@@ -59,7 +59,7 @@ pub struct ComputeTask {
 
 pub struct Renderer {
     ctx: *mut Context,
-    display: Display,
+    display: Option<Display>,
     render_pass: Handle<RenderPass>,
     targets: Vec<RenderTarget>,
     canvases: Vec<crate::canvas::Canvas>,
@@ -93,48 +93,30 @@ impl Renderer {
         unsafe { &mut *self.ctx }
     }
 
-    pub fn with_canvas(
-        width: u32,
-        height: u32,
-        ctx: &mut Context,
-        canvas: crate::canvas::Canvas,
-    ) -> Result<Self, GPUError> {
-        let outputs = canvas
-            .target()
-            .colors
-            .iter()
-            .map(|a| ResourceDesc {
-                name: a.name.clone(),
-                format: a.format,
-            })
-            .collect();
-        let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
-        let mut graph = RenderGraph::new();
-        graph.add_node(node);
-        graph.add_canvas(&canvas);
-
-        Self::with_graph(width, height, ctx, graph)
-    }
-
-    pub fn with_graph(
+    fn with_graph_internal(
         width: u32,
         height: u32,
         ctx: &mut Context,
         graph: RenderGraph,
+        headless: bool,
     ) -> Result<Self, GPUError> {
         let clear_color = [0.1, 0.2, 0.3, 1.0];
         let clear_depth = 1.0_f32;
 
         let ptr: *mut Context = ctx;
         let mut ctx: &mut Context = unsafe { &mut *ptr };
-        let display = ctx.make_display(&DisplayInfo {
-            window: WindowInfo {
-                title: "KOJI-Renderer".to_string(),
-                size: [width, height],
+        let display = if headless {
+            None
+        } else {
+            Some(ctx.make_display(&DisplayInfo {
+                window: WindowInfo {
+                    title: "KOJI-Renderer".to_string(),
+                    size: [width, height],
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        })?;
+            })?)
+        };
 
         let builder = RenderPassBuilder::new()
             .debug_name("MainPass")
@@ -232,6 +214,70 @@ impl Renderer {
         Ok(renderer)
     }
 
+    pub fn with_canvas(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        canvas: crate::canvas::Canvas,
+    ) -> Result<Self, GPUError> {
+        let outputs = canvas
+            .target()
+            .colors
+            .iter()
+            .map(|a| ResourceDesc {
+                name: a.name.clone(),
+                format: a.format,
+            })
+            .collect();
+        let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
+        let mut graph = RenderGraph::new();
+        graph.add_node(node);
+        graph.add_canvas(&canvas);
+
+        Self::with_graph_internal(width, height, ctx, graph, false)
+    }
+
+    pub fn with_canvas_headless(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        canvas: crate::canvas::Canvas,
+    ) -> Result<Self, GPUError> {
+        let outputs = canvas
+            .target()
+            .colors
+            .iter()
+            .map(|a| ResourceDesc {
+                name: a.name.clone(),
+                format: a.format,
+            })
+            .collect();
+        let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
+        let mut graph = RenderGraph::new();
+        graph.add_node(node);
+        graph.add_canvas(&canvas);
+
+        Self::with_graph_internal(width, height, ctx, graph, true)
+    }
+
+    pub fn with_graph(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        graph: RenderGraph,
+    ) -> Result<Self, GPUError> {
+        Self::with_graph_internal(width, height, ctx, graph, false)
+    }
+
+    pub fn with_graph_headless(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        graph: RenderGraph,
+    ) -> Result<Self, GPUError> {
+        Self::with_graph_internal(width, height, ctx, graph, true)
+    }
+
     pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
         let canvas = CanvasBuilder::new()
             .extent([width, height])
@@ -239,6 +285,20 @@ impl Renderer {
             .build(ctx)?;
 
         Self::with_canvas(width, height, ctx, canvas)
+    }
+
+    pub fn new_headless(
+        width: u32,
+        height: u32,
+        _title: &str,
+        ctx: &mut Context,
+    ) -> Result<Self, GPUError> {
+        let canvas = CanvasBuilder::new()
+            .extent([width, height])
+            .color_attachment("color", Format::RGBA8)
+            .build(ctx)?;
+
+        Self::with_canvas_headless(width, height, ctx, canvas)
     }
 
     pub fn render_pass(&self) -> Handle<RenderPass> {
@@ -417,11 +477,17 @@ impl Renderer {
     where
         for<'a> F: FnMut(&mut Renderer, Event<'a, ()>),
     {
+        if self.display.is_none() {
+            draw_fn(self, Event::MainEventsCleared);
+            self.present_frame().unwrap();
+            return;
+        }
+
         'running: loop {
             let mut should_exit = false;
             let mut events: Vec<Event<'static, ()>> = Vec::new();
             {
-                let event_loop = self.display.winit_event_loop();
+                let event_loop = self.display.as_mut().unwrap().winit_event_loop();
                 event_loop.run_return(|event, _, control_flow| {
                     *control_flow = ControlFlow::Exit;
                     if let Event::WindowEvent {
@@ -541,11 +607,18 @@ impl Renderer {
             ctx.unmap_buffer(buf)?;
         }
         self.lights.upload_all(ctx);
-        let (img, acquire_sem, _img_idx, _) = ctx.acquire_new_image(&mut self.display)?;
+        let (img, acquire_sem) = if let Some(display) = self.display.as_mut() {
+            let (img, sem, _img_idx, _) = ctx.acquire_new_image(display)?;
+            (Some(img), Some(sem))
+        } else {
+            (None, None)
+        };
 
         let width = self.width;
         let height = self.height;
-        let use_canvas_blit = self.targets.is_empty() && !self.canvases.is_empty();
+        let use_canvas_blit = self.display.is_some()
+            && self.targets.is_empty()
+            && !self.canvases.is_empty();
 
         self.command_list.record(|list| {
             for task in self.compute_queue.drain(..) {
@@ -793,36 +866,91 @@ impl Renderer {
                     }
                 }
 
-                if idx >= canvas_len {
+                if let Some(img) = img {
+                    if idx >= canvas_len {
+                        list.blit_image(ImageBlit {
+                            src: target.colors[0].attachment.img,
+                            dst: img,
+                            filter: Filter::Nearest,
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+
+            if use_canvas_blit {
+                if let Some(img) = img {
+                    let canvas = &self.canvases[0];
+                    let tgt = canvas.target();
                     list.blit_image(ImageBlit {
-                        src: target.colors[0].attachment.img,
+                        src: tgt.colors[0].attachment.img,
                         dst: img,
                         filter: Filter::Nearest,
                         ..Default::default()
                     });
                 }
             }
-
-            if use_canvas_blit {
-                let canvas = &self.canvases[0];
-                let tgt = canvas.target();
-                list.blit_image(ImageBlit {
-                    src: tgt.colors[0].attachment.img,
-                    dst: img,
-                    filter: Filter::Nearest,
-                    ..Default::default()
-                });
-            }
         });
 
+        let mut wait_sems = Vec::new();
+        if let Some(sem) = acquire_sem {
+            wait_sems.push(sem);
+        }
         self.command_list.submit(&SubmitInfo {
-            wait_sems: &[acquire_sem],
+            wait_sems: &wait_sems,
             signal_sems: &self.semaphores,
         });
 
-        self.get_ctx()
-            .present_display(&self.display, &self.semaphores)?;
+        if let Some(display) = self.display.as_ref() {
+            ctx.present_display(display, &self.semaphores)?;
+        }
         Ok(())
+    }
+
+    /// Read back the specified color attachment into a CPU-accessible RGBA8 buffer.
+    pub fn read_color_target(&mut self, name: &str) -> Vec<u8> {
+        let ctx = self.get_ctx();
+        let attachment = self
+            .canvases
+            .iter()
+            .map(|c| c.target())
+            .chain(self.targets.iter())
+            .find_map(|t| t.colors.iter().find(|a| a.name == name))
+            .expect("color attachment not found");
+
+        let view = attachment.attachment.img;
+        let byte_size = (self.width * self.height * 4) as u32;
+        let buffer = ctx
+            .make_buffer(&BufferInfo {
+                debug_name: "readback",
+                byte_size,
+                visibility: MemoryVisibility::CpuAndGpu,
+                ..Default::default()
+            })
+            .expect("readback buffer");
+
+        let mut list = ctx
+            .begin_command_list(&CommandListInfo {
+                debug_name: "readback_copy",
+                ..Default::default()
+            })
+            .expect("command list");
+        list.copy_image_to_buffer(ImageBufferCopy {
+            src: view,
+            dst: buffer,
+            dst_offset: 0,
+        });
+        let fence = ctx.submit(&mut list, &SubmitInfo::default()).expect("submit");
+        ctx.wait(fence).expect("wait");
+
+        let data = ctx.map_buffer::<u8>(buffer).expect("map").to_vec();
+        ctx.unmap_buffer(buffer).expect("unmap");
+
+        ctx.destroy_cmd_list(list);
+        ctx.destroy_buffer(buffer);
+        ctx.destroy_fence(fence);
+
+        data
     }
 }
 
