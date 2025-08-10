@@ -48,12 +48,9 @@ pub fn run(ctx: &mut Context) {
         .vertex_shader(vert)
         .fragment_shader(frag)
         .render_pass(renderer.graph().output("color"))
-        .build_with_resources(renderer.resources())
-        .unwrap();
+        .build();
 
-    let bind_groups = pso
-        .create_bind_groups(renderer.resources())
-        .unwrap();
+    let bind_groups = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bind_groups);
 
     let mesh = StaticMesh {
