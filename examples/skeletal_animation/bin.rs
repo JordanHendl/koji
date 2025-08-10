@@ -4,33 +4,17 @@ use koji::animation::Animator;
 use koji::canvas::CanvasBuilder;
 use koji::gltf::{load_scene, MeshData};
 use koji::material::*;
-use koji::render_graph::RenderGraph;
-use koji::render_pass::RenderPassBuilder;
 use koji::renderer::*;
 
 #[cfg(feature = "gpu_tests")]
 pub fn run(ctx: &mut Context) {
-    let builder = RenderPassBuilder::new()
-        .debug_name("MainPass")
-        .viewport(Viewport {
-            area: FRect2D { w: 320.0, h: 240.0, ..Default::default() },
-            scissor: Rect2D { w: 320, h: 240, ..Default::default() },
-            ..Default::default()
-        })
-        .color_attachment("color", Format::RGBA8)
-        .subpass("main", ["color"], &[] as &[&str]);
-
-    let mut renderer = Renderer::with_render_pass(320, 240, ctx, builder).unwrap();
-
     let canvas = CanvasBuilder::new()
         .extent([320, 240])
         .color_attachment("color", Format::RGBA8)
         .build(ctx)
         .unwrap();
-    renderer.add_canvas(canvas.clone());
 
-    let mut graph = RenderGraph::new();
-    graph.add_canvas(&canvas);
+    let mut renderer = Renderer::with_canvas(320, 240, ctx, canvas).unwrap();
 
     let scene = load_scene("assets/data/simple_skin.gltf").expect("load");
     let mesh = match &scene.meshes[0].mesh {

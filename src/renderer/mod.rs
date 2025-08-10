@@ -93,11 +93,34 @@ impl Renderer {
         unsafe { &mut *self.ctx }
     }
 
-    pub fn with_render_pass(
+    pub fn with_canvas(
         width: u32,
         height: u32,
         ctx: &mut Context,
-        builder: RenderPassBuilder,
+        canvas: crate::canvas::Canvas,
+    ) -> Result<Self, GPUError> {
+        let outputs = canvas
+            .target()
+            .colors
+            .iter()
+            .map(|a| ResourceDesc {
+                name: a.name.clone(),
+                format: a.format,
+            })
+            .collect();
+        let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
+        let mut graph = RenderGraph::new();
+        graph.add_node(node);
+        graph.add_canvas(&canvas);
+
+        Self::with_graph(width, height, ctx, graph)
+    }
+
+    pub fn with_graph(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        graph: RenderGraph,
     ) -> Result<Self, GPUError> {
         let clear_color = [0.1, 0.2, 0.3, 1.0];
         let clear_depth = 1.0_f32;
@@ -113,7 +136,25 @@ impl Renderer {
             ..Default::default()
         })?;
 
-        let builder = builder.extent([width, height]);
+        let builder = RenderPassBuilder::new()
+            .debug_name("MainPass")
+            .viewport(Viewport {
+                area: FRect2D {
+                    w: width as f32,
+                    h: height as f32,
+                    ..Default::default()
+                },
+                scissor: Rect2D {
+                    w: width,
+                    h: height,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .color_attachment("color", Format::RGBA8)
+            .depth_attachment("depth", Format::D24S8)
+            .subpass("main", ["color"], &[] as &[&str])
+            .extent([width, height]);
         let (render_pass, targets, _attachments) = builder.build_with_images(&mut ctx)?;
 
         assert!(render_pass.valid());
@@ -172,58 +213,6 @@ impl Renderer {
             }
         }
 
-        Ok(renderer)
-    }
-
-    pub fn with_canvas(
-        width: u32,
-        height: u32,
-        ctx: &mut Context,
-        canvas: crate::canvas::Canvas,
-    ) -> Result<Self, GPUError> {
-        let outputs = canvas
-            .target()
-            .colors
-            .iter()
-            .map(|a| ResourceDesc {
-                name: a.name.clone(),
-                format: a.format,
-            })
-            .collect();
-        let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
-        let mut graph = RenderGraph::new();
-        graph.add_node(node);
-        graph.add_canvas(&canvas);
-
-        Self::with_graph(width, height, ctx, graph)
-    }
-
-    pub fn with_graph(
-        width: u32,
-        height: u32,
-        ctx: &mut Context,
-        graph: RenderGraph,
-    ) -> Result<Self, GPUError> {
-        let builder = RenderPassBuilder::new()
-            .debug_name("MainPass")
-            .viewport(Viewport {
-                area: FRect2D {
-                    w: width as f32,
-                    h: height as f32,
-                    ..Default::default()
-                },
-                scissor: Rect2D {
-                    w: width,
-                    h: height,
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .color_attachment("color", Format::RGBA8)
-            .depth_attachment("depth", Format::D24S8)
-            .subpass("main", ["color"], &[] as &[&str]);
-        let mut renderer = Self::with_render_pass(width, height, ctx, builder)?;
-
         let mut canvases = graph.canvases();
         for canvas in &mut canvases {
             for att in &mut canvas.target_mut().colors {
@@ -252,16 +241,6 @@ impl Renderer {
         Self::with_canvas(width, height, ctx, canvas)
     }
 
-    pub fn with_render_pass_yaml(
-        width: u32,
-        height: u32,
-        ctx: &mut Context,
-        path: &str,
-    ) -> Result<Self, GPUError> {
-        let builder =
-            RenderPassBuilder::from_yaml_file(path).map_err(|_| GPUError::LibraryError())?;
-        Self::with_render_pass(width, height, ctx, builder)
-    }
     pub fn render_pass(&self) -> Handle<RenderPass> {
         self.render_pass
     }
