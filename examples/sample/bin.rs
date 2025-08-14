@@ -2,41 +2,17 @@ use dashi::*;
 use inline_spirv::include_spirv;
 use koji::canvas::CanvasBuilder;
 use koji::material::PipelineBuilder;
-use koji::render_graph::RenderGraph;
-use koji::render_pass::RenderPassBuilder;
 use koji::renderer::*;
 
 pub fn run(ctx: &mut Context) {
-    let builder = RenderPassBuilder::new()
-        .debug_name("MainPass")
-        .viewport(Viewport {
-            area: FRect2D {
-                w: 640.0,
-                h: 480.0,
-                ..Default::default()
-            },
-            scissor: Rect2D {
-                w: 640,
-                h: 480,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .color_attachment("color", Format::RGBA8)
-        .subpass("main", ["color"], &[] as &[&str]);
-
-    let mut renderer = Renderer::with_render_pass(640, 480, ctx, builder).unwrap();
-    renderer.set_clear_depth(1.0);
-
     let canvas = CanvasBuilder::new()
         .extent([640, 480])
         .color_attachment("color", Format::RGBA8)
         .build(ctx)
         .unwrap();
-    renderer.add_canvas(canvas.clone());
 
-    let mut graph = RenderGraph::new();
-    graph.add_canvas(&canvas);
+    let mut renderer = Renderer::with_canvas(640, 480, ctx, canvas).unwrap();
+    renderer.set_clear_depth(1.0);
 
     let vert: &[u32] = include_spirv!("assets/shaders/sample.vert", vert);
     let frag: &[u32] = include_spirv!("assets/shaders/sample.frag", frag);
@@ -71,13 +47,10 @@ pub fn run(ctx: &mut Context) {
     let mut pso = PipelineBuilder::new(ctx, "sample_pso")
         .vertex_shader(vert)
         .fragment_shader(frag)
-        .render_pass(graph.output("color"))
-        .build_with_resources(renderer.resources())
-        .unwrap();
+        .render_pass(renderer.graph().output("color"))
+        .build();
 
-    let bind_groups = pso
-        .create_bind_groups(renderer.resources())
-        .unwrap();
+    let bind_groups = pso.create_bind_groups(renderer.resources()).unwrap();
     renderer.register_pipeline_for_pass("main", pso, bind_groups);
 
     let mesh = StaticMesh {
