@@ -247,7 +247,7 @@ impl RenderPassBuilder {
                 layer: 0,
                 mip_level: 0,
                 aspect: if att.format == Format::D24S8 {
-                    AspectMask::Depth
+                    AspectMask::Depth | AspectMask::Stencil
                 } else {
                     Default::default()
                 }
