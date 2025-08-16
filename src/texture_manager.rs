@@ -3,6 +3,11 @@ use dashi::utils::Handle;
 use dashi::{Context, Format, ImageInfo, ImageViewInfo};
 use image::GenericImageView;
 
+fn calculate_mip_levels(width: u32, height: u32) -> u32 {
+    let max_dim = width.max(height).max(1);
+    u32::BITS - max_dim.leading_zeros()
+}
+
 /// Load a PNG texture from memory and register it with the [`ResourceManager`].
 /// Returns a handle into `ResourceManager::textures`.
 pub fn load_from_bytes(
@@ -22,7 +27,7 @@ pub fn load_from_bytes(
             dim: [w, h, 1],
             layers: 1,
             format: fmt,
-            mip_levels: 12,
+            mip_levels: calculate_mip_levels(w, h),
             initial_data: Some(&rgba),
         })
         .unwrap();
@@ -71,7 +76,7 @@ pub fn create_solid_color(
             dim: [1, 1, 1],
             layers: 1,
             format: Format::RGBA8,
-            mip_levels: 12,
+            mip_levels: calculate_mip_levels(1, 1),
             initial_data: Some(&color),
         })
         .unwrap();
