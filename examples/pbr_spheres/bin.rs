@@ -5,7 +5,7 @@ use koji::material::*;
 use koji::renderer::*;
 use koji::canvas::CanvasBuilder;
 use koji::texture_manager;
-use koji::utils::{ResourceManager, ResourceBinding};
+use koji::utils::ResourceManager;
 use glam::*;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
 #[cfg(feature = "gpu_tests")]
@@ -135,11 +135,6 @@ fn register_textures(ctx: &mut Context, res: &mut ResourceManager) {
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-struct CameraUniform {
-    view_proj: Mat4,
-    cam_pos: [f32; 3],
-    _pad: f32,
-}
 
 pub fn run(ctx: &mut Context) {
     let canvas = CanvasBuilder::new()
@@ -159,14 +154,7 @@ pub fn run(ctx: &mut Context) {
         Mat4::perspective_rh_gl(45.0_f32.to_radians(), 1920.0 / 1080.0, 0.1, 100.0);
     let cam_pos = Vec3::new(0.0, 0.0, 5.0);
     let view = Mat4::look_at_rh(cam_pos, Vec3::ZERO, Vec3::Y);
-    let camera = CameraUniform {
-        view_proj: proj * view,
-        cam_pos: cam_pos.into(),
-        _pad: 0.0,
-    };
-    renderer
-        .resources()
-        .register_variable("Camera", ctx, camera);
+    renderer.set_camera(0, proj * view, cam_pos);
 
     let mut light_pos = Vec3::new(0.0, 0.0, 5.0);
     let mut light = LightDesc {
@@ -228,17 +216,7 @@ pub fn run(ctx: &mut Context) {
                 let eye = Vec3::new(angle.cos() * radius, -2.0, angle.sin() * radius);
                 let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
                 let view_proj = proj * view;
-                if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("Camera") {
-                    let camera = CameraUniform {
-                        view_proj,
-                        cam_pos: eye.into(),
-                        _pad: 0.0,
-                    };
-                    let slice = ctx.map_buffer_mut(*buf).unwrap();
-                    let bytes = bytemuck::bytes_of(&camera);
-                    slice[..bytes.len()].copy_from_slice(bytes);
-                    ctx.unmap_buffer(*buf).unwrap();
-                }
+                r.set_camera(0, view_proj, eye);
 
                 if let Some(ResourceBinding::Uniform(buf)) = r.resources().get("SceneLight") {
                     light.position = light_pos.into();

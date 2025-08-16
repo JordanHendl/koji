@@ -5,9 +5,13 @@ use std::collections::HashMap;
 /// Internal defaults for auto-registered resources
 enum DefaultResource {
     Time,
+    Cameras,
 }
 
-const DEFAULT_RESOURCES: &[(&str, DefaultResource)] = &[("KOJI_time", DefaultResource::Time)];
+const DEFAULT_RESOURCES: &[(&str, DefaultResource)] = &[
+    ("KOJI_time", DefaultResource::Time),
+    ("KOJI_cameras", DefaultResource::Cameras),
+];
 
 pub struct CPSO {
     pub pipeline: Handle<ComputePipeline>,
@@ -197,6 +201,15 @@ impl<'a> ComputePipelineBuilder<'a> {
                         if res.get("KOJI_time").is_none() && res.get("time").is_none() {
                             res.register_time_buffers(ctx);
                             if let Some(ResourceBinding::Uniform(h)) = res.get("time") {
+                                let handle = *h;
+                                res.bindings.insert((*name).to_string(), ResourceBinding::Uniform(handle));
+                            }
+                        }
+                    }
+                    DefaultResource::Cameras => {
+                        if res.get("KOJI_cameras").is_none() && res.get("cameras").is_none() {
+                            res.register_camera_buffers(ctx);
+                            if let Some(ResourceBinding::Uniform(h)) = res.get("cameras") {
                                 let handle = *h;
                                 res.bindings.insert((*name).to_string(), ResourceBinding::Uniform(handle));
                             }

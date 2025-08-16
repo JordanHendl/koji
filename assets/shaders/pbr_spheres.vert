@@ -1,8 +1,5 @@
 #version 450
-layout(set = 0, binding = 4) uniform CameraBlock {
-    mat4 view_proj;
-    vec3 cam_pos;
-} Camera;
+#include "camera.slang"
 
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inNormal;
@@ -20,5 +17,5 @@ void main() {
     vWorldPos = world.xyz;
     vNormal = mat3(model) * inNormal;
     vUV = inUV;
-    gl_Position = Camera.view_proj * world;
+    gl_Position = KOJI_cameras[0].view_proj * world;
 }

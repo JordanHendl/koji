@@ -11,7 +11,9 @@ use crate::text::{FontRegistry, TextRenderable};
 use crate::utils::{diff_rgba8, ResourceBinding, ResourceManager};
 use dashi::utils::*;
 use dashi::*;
-use glam::Mat4;
+use glam::{Mat4, Vec3};
+use bytemuck::{Pod, Zeroable};
+use crate::utils::{CAMERA_ELEMENT_SIZE, MAX_CAMERAS};
 use std::collections::HashMap;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
@@ -57,6 +59,13 @@ pub struct ComputeTask {
     pub groups: [u32; 3],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct CameraData {
+    view_proj: [[f32; 4]; 4],
+    cam_pos: [f32; 4],
+}
+
 pub struct Renderer {
     ctx: *mut Context,
     display: Option<Display>,
@@ -81,6 +90,7 @@ pub struct Renderer {
     time_stats: TimeStats,
     /// Handle to the GPU uniform buffer storing [`TimeStats`] data.
     time_buffer: Option<Handle<Buffer>>,
+    camera_buffer: Option<Handle<Buffer>>,
     clear_color: [f32; 4],
     clear_depth: f32,
     graph: crate::render_graph::RenderGraph,
@@ -148,7 +158,12 @@ impl Renderer {
         let lights = BindlessLights::new();
         lights.register(&mut resource_manager);
         resource_manager.register_time_buffers(&mut ctx);
+        resource_manager.register_camera_buffers(&mut ctx);
         let time_buffer = match resource_manager.get("time") {
+            Some(ResourceBinding::Uniform(h)) => Some(*h),
+            _ => None,
+        };
+        let camera_buffer = match resource_manager.get("cameras") {
             Some(ResourceBinding::Uniform(h)) => Some(*h),
             _ => None,
         };
@@ -175,6 +190,7 @@ impl Renderer {
             semaphores,
             time_stats: TimeStats::new(),
             time_buffer,
+            camera_buffer,
             graph: crate::render_graph::RenderGraph::new(),
             width,
             height,
@@ -334,6 +350,24 @@ impl Renderer {
             if let Some(ref mut att) = canvas.target_mut().depth {
                 att.attachment.clear = ClearValue::DepthStencil { depth, stencil: 0 };
             }
+        }
+    }
+
+    pub fn set_camera(&mut self, index: usize, view_proj: Mat4, cam_pos: Vec3) {
+        if index >= MAX_CAMERAS {
+            return;
+        }
+        if let Some(buf) = self.camera_buffer {
+            let ctx = self.get_ctx();
+            let data = CameraData {
+                view_proj: view_proj.to_cols_array_2d(),
+                cam_pos: cam_pos.extend(0.0).to_array(),
+            };
+            let offset = index * CAMERA_ELEMENT_SIZE;
+            let slice = ctx.map_buffer_mut(buf).unwrap();
+            let bytes = bytemuck::bytes_of(&data);
+            slice[offset..offset + bytes.len()].copy_from_slice(bytes);
+            ctx.unmap_buffer(buf).unwrap();
         }
     }
 
