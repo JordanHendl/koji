@@ -800,6 +800,7 @@ dependencies = [
 name = "koji"
 version = "0.1.0"
 dependencies = [
+ "ash",
  "bytemuck",
  "dashi",
  "glam",
