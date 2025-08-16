@@ -1,26 +1,26 @@
 use dashi::{utils::Handle, *};
 use std::collections::HashMap;
-pub mod shader_reflection;
-pub mod pipeline_builder;
-pub mod compute_pipeline_builder;
 pub mod bindless;
 pub mod bindless_lighting;
+pub mod compute_pipeline_builder;
+pub mod pipeline_builder;
+pub mod shader_reflection;
 pub mod skin_pipeline;
 
+#[cfg(test)]
+mod material_yaml_tests;
 #[cfg(all(test, feature = "gpu_tests"))]
 mod pipeline_builder_tests;
 #[cfg(test)]
 mod shader_reflection_tests;
-#[cfg(test)]
-mod material_yaml_tests;
 
-pub use pipeline_builder::*;
-pub use compute_pipeline_builder::*;
-pub use shader_reflection::*;
+use crate::utils::ResourceManager;
 pub use bindless::*;
 pub use bindless_lighting::*;
+pub use compute_pipeline_builder::*;
+pub use pipeline_builder::*;
+pub use shader_reflection::*;
 pub use skin_pipeline::build_skinning_pipeline;
-use crate::utils::ResourceManager;
 
 pub struct MaterialPipeline {
     pub name: String,
@@ -82,11 +82,31 @@ impl MaterialPipeline {
 
         let vertex_info = VertexDescriptionInfo {
             entries: &[
-                VertexEntryInfo { format: ShaderPrimitiveType::Vec3, location: 0, offset: 0 },
-                VertexEntryInfo { format: ShaderPrimitiveType::Vec3, location: 1, offset: 12 },
-                VertexEntryInfo { format: ShaderPrimitiveType::Vec4, location: 2, offset: 24 },
-                VertexEntryInfo { format: ShaderPrimitiveType::Vec2, location: 3, offset: 40 },
-                VertexEntryInfo { format: ShaderPrimitiveType::Vec4, location: 4, offset: 48 },
+                VertexEntryInfo {
+                    format: ShaderPrimitiveType::Vec3,
+                    location: 0,
+                    offset: 0,
+                },
+                VertexEntryInfo {
+                    format: ShaderPrimitiveType::Vec3,
+                    location: 1,
+                    offset: 12,
+                },
+                VertexEntryInfo {
+                    format: ShaderPrimitiveType::Vec4,
+                    location: 2,
+                    offset: 24,
+                },
+                VertexEntryInfo {
+                    format: ShaderPrimitiveType::Vec2,
+                    location: 3,
+                    offset: 40,
+                },
+                VertexEntryInfo {
+                    format: ShaderPrimitiveType::Vec4,
+                    location: 4,
+                    offset: 48,
+                },
             ],
             stride: 64,
             rate: VertexRate::Vertex,
@@ -132,14 +152,19 @@ impl MaterialPipeline {
             bg_layouts[*set as usize] = Some(ctx.make_bind_group_layout(&info)?);
         }
 
-        let shader_infos: Vec<PipelineShaderInfo> = owned_shaders.iter().map(|s| s.as_info()).collect();
+        let shader_infos: Vec<PipelineShaderInfo> =
+            owned_shaders.iter().map(|s| s.as_info()).collect();
         let layout = ctx.make_graphics_pipeline_layout(&GraphicsPipelineLayoutInfo {
             debug_name: name,
             vertex_info: vertex_info.clone(),
             shaders: &shader_infos,
             bg_layouts,
             details: GraphicsPipelineDetails {
-                depth_test: Some(DepthInfo { should_test: true, should_write: true }),
+                depth_test: Some(DepthInfo {
+                    should_test: true,
+                    should_write: true,
+                }),
+                dynamic_states: vec![DynamicState::Viewport, DynamicState::Scissor],
                 ..Default::default()
             },
         })?;
@@ -161,5 +186,3 @@ impl MaterialPipeline {
         })
     }
 }
-
-
