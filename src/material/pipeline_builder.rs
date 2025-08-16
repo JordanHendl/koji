@@ -3,7 +3,7 @@ use crate::material::*;
 use crate::render_graph::RenderGraph;
 use crate::utils::{ResourceBinding, ResourceManager, Texture};
 use bytemuck::Pod;
-use dashi::Format;
+use dashi::{DynamicState, Format};
 use std::collections::HashMap;
 
 use spirv_reflect::types::ReflectFormat;
@@ -254,6 +254,7 @@ pub struct PipelineBuilder<'a> {
     depth_enable: bool,
     cull_mode: CullMode,
     subpass: u32,
+    dynamic_viewport_scissor: bool,
 }
 
 /// A pipeline state object (PSO) that holds the GPU pipeline handle,
@@ -435,6 +436,7 @@ impl<'a> PipelineBuilder<'a> {
             subpass: 0,
             depth_enable: false,
             cull_mode: CullMode::None,
+            dynamic_viewport_scissor: true,
         }
     }
 
@@ -445,6 +447,16 @@ impl<'a> PipelineBuilder<'a> {
 
     pub fn cull_mode(mut self, mode: CullMode) -> Self {
         self.cull_mode = mode;
+        self
+    }
+
+    /// Enable or disable dynamic viewport and scissor state.
+    ///
+    /// When enabled (default), the pipeline expects the viewport and scissor to be set
+    /// dynamically with [`CommandList::set_viewport`] and [`CommandList::set_scissor`].
+    /// Setting this to `false` will bake these states into the pipeline.
+    pub fn dynamic_viewport_scissor(mut self, enable: bool) -> Self {
+        self.dynamic_viewport_scissor = enable;
         self
     }
     /// Set the vertex SPIR-V bytecode
@@ -661,6 +673,11 @@ impl<'a> PipelineBuilder<'a> {
                     })
                 } else {
                     None
+                },
+                dynamic_states: if self.dynamic_viewport_scissor {
+                    vec![DynamicState::Viewport, DynamicState::Scissor]
+                } else {
+                    Vec::new()
                 },
                 ..Default::default()
             },
