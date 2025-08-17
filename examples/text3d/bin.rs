@@ -62,7 +62,7 @@ pub fn run(ctx: &mut Context) {
     let view = Mat4::look_at_rh(Vec3::new(0.0, 0.0, 2.0), Vec3::ZERO, Vec3::Y);
     let mat = proj * view * Mat4::IDENTITY;
     let mesh = text.make_quad_3d(dim, mat, _idx, [1.0; 4], true);
-    renderer.register_text_mesh(mesh);
+    renderer.register_text_mesh(mesh, "canvas");
     text.register_textures(renderer.resources());
     let mesh_idx = 0usize;
 
@@ -84,7 +84,7 @@ pub fn run(ctx: &mut Context) {
                 * view
                 * Mat4::from_rotation_y(angle);
             let mesh2 = text.make_quad_3d(dim, mat, _idx, [1.0; 4], true);
-            r.update_text_mesh(mesh_idx, mesh2);
+            r.update_text_mesh("canvas", mesh_idx, mesh2);
         }
     });
 }

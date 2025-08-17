@@ -75,7 +75,7 @@ pub fn run() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh,None,"bindless".into());
+    renderer.register_static_mesh(mesh,None,"bindless".into(), "canvas");
     renderer.present_frame().unwrap();
     ctx.destroy();
 }

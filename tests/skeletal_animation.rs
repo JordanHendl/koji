@@ -31,7 +31,7 @@ pub fn run() {
     let player = AnimationPlayer::new(clip);
     let animator = Animator::new(mesh.skeleton.clone());
     let instance = SkeletalInstance::with_player(&mut ctx, animator, player).unwrap();
-    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into());
+    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into(), "canvas");
 
     let vert: &[u32] = include_spirv!("src/renderer/skinning.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("src/renderer/skinning.frag", frag, glsl);
@@ -43,7 +43,7 @@ pub fn run() {
     let bgr = pso.create_bind_groups(&renderer.resources()).unwrap();
     renderer.register_skeletal_pso(pso,bgr);
 
-    renderer.play_animation(0,0,0.5);
+    renderer.play_animation("canvas",0,0,0.5);
     renderer.present_frame().unwrap();
     ctx.destroy();
 }

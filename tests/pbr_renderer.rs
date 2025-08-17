@@ -86,7 +86,7 @@ pub fn run() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh,None,"pbr".into());
+    renderer.register_static_mesh(mesh,None,"pbr".into(), "canvas");
 
 
     renderer.present_frame().unwrap();

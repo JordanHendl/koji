@@ -64,7 +64,7 @@ pub fn run() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh,None,"default".into());
+    renderer.register_static_mesh(mesh,None,"default".into(), "canvas");
 
     // move vertices slightly
     let new_verts = vec![
@@ -72,7 +72,7 @@ pub fn run() {
         make_vertex([0.75,-0.25,0.0]),
         make_vertex([0.25,0.75,0.0]),
     ];
-    renderer.update_static_mesh(0,&new_verts);
+    renderer.update_static_mesh("canvas",0,&new_verts);
 
     renderer.present_frame().unwrap();
     ctx.destroy();

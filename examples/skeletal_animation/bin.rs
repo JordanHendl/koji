@@ -25,7 +25,7 @@ pub fn run(ctx: &mut Context) {
     let player = AnimationPlayer::new(clip);
     let animator = Animator::new(mesh.skeleton.clone());
     let instance = SkeletalInstance::with_player(ctx, animator, player).unwrap();
-    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into());
+    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into(), "canvas");
 
     let mut pso = build_skinning_pipeline(ctx, renderer.graph().output("color"));
 

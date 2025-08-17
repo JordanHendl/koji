@@ -120,7 +120,6 @@ fn render_triangle_and_cube() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(triangle_mesh, None, "color".into());
 
     // Register cube
     let cube_mesh = StaticMesh {
@@ -131,7 +130,8 @@ fn render_triangle_and_cube() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(cube_mesh, None, "color".into());
+    renderer.register_static_mesh(triangle_mesh, None, "color".into(), "canvas");
+    renderer.register_static_mesh(cube_mesh, None, "color".into(), "canvas");
 
     // Main loop: just draw both objects with same pipeline/PSO/bind group
     renderer.render_loop(|_r, _event| {

@@ -89,7 +89,7 @@ pub fn run(ctx: &mut Context) {
             italic: true,
         },
     ).unwrap();
-    renderer.register_text_mesh(static_text);
+    renderer.register_text_mesh(static_text, "canvas");
 
     // Dynamic text that updates with user input
     let dynamic = Rc::new(RefCell::new(
@@ -111,7 +111,7 @@ pub fn run(ctx: &mut Context) {
         )
         .expect("failed to create DynamicText"),
     ));
-    renderer.register_text_mesh(SharedDynamic(dynamic.clone()));
+    renderer.register_text_mesh(SharedDynamic(dynamic.clone()), "canvas");
     text.register_textures(renderer.resources());
     let mut input = String::new();
 

@@ -82,7 +82,7 @@ pub fn run() {
     let mut text = TextRenderer2D::new(renderer.fonts(), "default");
     let info = StaticTextCreateInfo { text: "Hello", scale: 32.0, pos: [-0.5, 0.5], key: "glyph_tex", screen_size: [320.0, 240.0], color: [1.0; 4], bold: false, italic: false };
     let mesh = StaticText::new(&mut ctx, renderer.resources(), &mut text, info).unwrap();
-    renderer.register_text_mesh(mesh);
+    renderer.register_text_mesh(mesh, "canvas");
     text.register_textures(renderer.resources());
 
     let vert_spv = make_vert();

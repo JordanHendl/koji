@@ -59,6 +59,42 @@ pub struct ComputeTask {
     pub groups: [u32; 3],
 }
 
+/// Helper enum allowing registration of drawables by node name or graph output.
+pub enum DrawableNode<'a> {
+    Name(String),
+    Output(crate::render_graph::GraphOutput<'a>),
+}
+
+impl<'a> From<&'a str> for DrawableNode<'a> {
+    fn from(name: &'a str) -> Self {
+        DrawableNode::Name(name.to_string())
+    }
+}
+
+impl<'a> From<String> for DrawableNode<'a> {
+    fn from(name: String) -> Self {
+        DrawableNode::Name(name)
+    }
+}
+
+impl<'a> From<crate::render_graph::GraphOutput<'a>> for DrawableNode<'a> {
+    fn from(out: crate::render_graph::GraphOutput<'a>) -> Self {
+        DrawableNode::Output(out)
+    }
+}
+
+impl<'a> DrawableNode<'a> {
+    fn resolve(self) -> String {
+        match self {
+            DrawableNode::Name(n) => n,
+            DrawableNode::Output(out) => out
+                .graph
+                .node_name_for_output(out.name)
+                .expect("output not found in graph"),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct CameraData {
@@ -81,9 +117,9 @@ pub struct Renderer {
     resource_manager: ResourceManager,
     fonts: FontRegistry,
     lights: BindlessLights,
-    drawables: Vec<(StaticMesh, Option<DynamicBuffer>)>,
-    text_drawables: Vec<Box<dyn TextRenderable>>,
-    skeletal_meshes: Vec<(SkeletalMesh, Vec<SkeletalInstance>)>,
+    drawables: HashMap<String, Vec<(StaticMesh, Option<DynamicBuffer>)>>,
+    text_drawables: HashMap<String, Vec<Box<dyn TextRenderable>>>,
+    skeletal_meshes: HashMap<String, Vec<(SkeletalMesh, Vec<SkeletalInstance>)>>,
     command_list: FramedCommandList,
     semaphores: Vec<Handle<Semaphore>>,
     /// Tracks frame timing statistics for the renderer.
@@ -172,9 +208,9 @@ impl Renderer {
             skeletal_pipeline: None,
             compute_pipelines: HashMap::new(),
             compute_queue: Vec::new(),
-            drawables: Vec::new(),
-            text_drawables: Vec::new(),
-            skeletal_meshes: Vec::new(),
+            drawables: HashMap::new(),
+            text_drawables: HashMap::new(),
+            skeletal_meshes: HashMap::new(),
             resource_manager,
             fonts: FontRegistry::new(),
             lights,
@@ -411,43 +447,71 @@ impl Renderer {
         self.canvases.get(index)
     }
 
-    pub fn register_static_mesh(
+    pub fn register_static_mesh<'a, N: Into<DrawableNode<'a>>>(
         &mut self,
         mut mesh: StaticMesh,
         dynamic_buffers: Option<DynamicBuffer>,
         material_id: String,
+        node: N,
     ) {
         mesh.material_id = material_id;
-        mesh.upload(self.get_ctx())
+        mesh
+            .upload(self.get_ctx())
             .expect("Failed to upload mesh to GPU");
-        self.drawables.push((mesh, dynamic_buffers));
+        let name = node.into().resolve();
+        self.drawables
+            .entry(name)
+            .or_default()
+            .push((mesh, dynamic_buffers));
     }
 
-    pub fn register_text_mesh<T: TextRenderable + 'static>(&mut self, mesh: T) {
-        self.text_drawables.push(Box::new(mesh));
+    pub fn register_text_mesh<'a, T: TextRenderable + 'static, N: Into<DrawableNode<'a>>>(
+        &mut self,
+        mesh: T,
+        node: N,
+    ) {
+        let name = node.into().resolve();
+        self.text_drawables
+            .entry(name)
+            .or_default()
+            .push(Box::new(mesh));
     }
 
-    pub fn update_text_mesh<T: TextRenderable + 'static>(&mut self, idx: usize, mesh: T) {
-        if let Some(slot) = self.text_drawables.get_mut(idx) {
-            *slot = Box::new(mesh);
+    pub fn update_text_mesh<'a, T: TextRenderable + 'static, N: Into<DrawableNode<'a>>>(
+        &mut self,
+        node: N,
+        idx: usize,
+        mesh: T,
+    ) {
+        let name = node.into().resolve();
+        if let Some(vec) = self.text_drawables.get_mut(&name) {
+            if let Some(slot) = vec.get_mut(idx) {
+                *slot = Box::new(mesh);
+            }
         }
     }
 
     /// Upload a skeletal mesh and its instances.
-    pub fn register_skeletal_mesh(
+    pub fn register_skeletal_mesh<'a, N: Into<DrawableNode<'a>>>(
         &mut self,
         mut mesh: SkeletalMesh,
         instances: Vec<SkeletalInstance>,
         material_id: String,
+        node: N,
     ) {
         mesh.material_id = material_id;
-        mesh.upload(self.get_ctx())
+        mesh
+            .upload(self.get_ctx())
             .expect("Failed to upload skeletal mesh to GPU");
         for inst in &instances {
             self.resource_manager
                 .register_storage("bone_buf", inst.bone_buffer);
         }
-        self.skeletal_meshes.push((mesh, instances));
+        let name = node.into().resolve();
+        self.skeletal_meshes
+            .entry(name)
+            .or_default()
+            .push((mesh, instances));
     }
 
     pub fn add_light(&mut self, light: LightDesc) -> u32 {
@@ -528,35 +592,61 @@ impl Renderer {
             self.present_frame().unwrap();
         }
     }
-    pub fn update_static_mesh(&mut self, idx: usize, vertices: &[Vertex]) {
-        if let Some(mesh) = self.drawables.get_mut(idx) {
-            mesh.0.vertices = vertices.to_vec();
-            mesh.0
-                .upload(unsafe { &mut *self.ctx })
-                .expect("Failed to update mesh to GPU");
+    pub fn update_static_mesh<'a, N: Into<DrawableNode<'a>>>(
+        &mut self,
+        node: N,
+        idx: usize,
+        vertices: &[Vertex],
+    ) {
+        let name = node.into().resolve();
+        if let Some(list) = self.drawables.get_mut(&name) {
+            if let Some(mesh) = list.get_mut(idx) {
+                mesh.0.vertices = vertices.to_vec();
+                mesh.0
+                    .upload(unsafe { &mut *self.ctx })
+                    .expect("Failed to update mesh to GPU");
+            }
         }
     }
 
     /// Update bone matrices for a specific skeletal instance.
-    pub fn update_skeletal_bones(&mut self, mesh_idx: usize, inst_idx: usize, matrices: &[Mat4]) {
+    pub fn update_skeletal_bones<'a, N: Into<DrawableNode<'a>>>(
+        &mut self,
+        node: N,
+        mesh_idx: usize,
+        inst_idx: usize,
+        matrices: &[Mat4],
+    ) {
         let ctx = self.get_ctx();
-        if let Some((_mesh, instances)) = self.skeletal_meshes.get_mut(mesh_idx) {
-            if let Some(inst) = instances.get_mut(inst_idx) {
-                inst.animator.matrices.clone_from_slice(matrices);
-                let _ = inst.update_gpu(ctx);
+        let name = node.into().resolve();
+        if let Some(meshes) = self.skeletal_meshes.get_mut(&name) {
+            if let Some((_mesh, instances)) = meshes.get_mut(mesh_idx) {
+                if let Some(inst) = instances.get_mut(inst_idx) {
+                    inst.animator.matrices.clone_from_slice(matrices);
+                    let _ = inst.update_gpu(ctx);
+                }
             }
         }
     }
 
     /// Advance an animation player and upload the new bone matrices.
-    pub fn play_animation(&mut self, mesh_idx: usize, inst_idx: usize, dt: f32) {
+    pub fn play_animation<'a, N: Into<DrawableNode<'a>>>(
+        &mut self,
+        node: N,
+        mesh_idx: usize,
+        inst_idx: usize,
+        dt: f32,
+    ) {
         let ctx = self.get_ctx();
-        if let Some((_mesh, instances)) = self.skeletal_meshes.get_mut(mesh_idx) {
-            if let Some(inst) = instances.get_mut(inst_idx) {
-                if let Some(player) = inst.player.as_mut() {
-                    let local = player.advance(dt);
-                    inst.animator.update_from_nodes(&local);
-                    let _ = inst.update_gpu(ctx);
+        let name = node.into().resolve();
+        if let Some(meshes) = self.skeletal_meshes.get_mut(&name) {
+            if let Some((_mesh, instances)) = meshes.get_mut(mesh_idx) {
+                if let Some(inst) = instances.get_mut(inst_idx) {
+                    if let Some(player) = inst.player.as_mut() {
+                        let local = player.advance(dt);
+                        inst.animator.update_from_nodes(&local);
+                        let _ = inst.update_gpu(ctx);
+                    }
                 }
             }
         }
@@ -640,249 +730,222 @@ impl Renderer {
                 }
             }
             for idx in self.graph.topo_indices() {
-                if let Some(canvas_node) =
-                    self.graph.node(idx).as_any().downcast_ref::<CanvasNode>()
-                {
-                    let canvas = canvas_node.canvas().clone();
-                    let target = canvas.target();
+    if let Some(canvas_node) = self.graph.node(idx).as_any().downcast_ref::<CanvasNode>() {
+        let node_name = self.graph.node(idx).name().to_string();
+        let canvas = canvas_node.canvas().clone();
+        let target = canvas.target();
+        let mut attachments = Vec::new();
+        let mut current_pipeline: Option<Handle<GraphicsPipeline>> = None;
+        let mut started = false;
+
+        if let Some(draw_list) = self.drawables.get(&node_name) {
+            for (_idx, (mesh, _dynamic_buffers)) in draw_list.iter().enumerate() {
+                let (pso, bind_groups) =
+                    if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
+                        entry
+                    } else if let Some(entry) = self.pipelines.get(&target.name) {
+                        entry
+                    } else {
+                        continue;
+                    };
+
+                if Some(pso.pipeline) != current_pipeline {
+                    let draw_begin = Self::prepare_draw_begin(
+                        width,
+                        height,
+                        &target,
+                        pso.pipeline,
+                        &mut attachments,
+                        true,
+                    );
+                    list.begin_drawing(&draw_begin).unwrap();
+                    list.set_viewport(draw_begin.viewport);
+                    list.set_scissor(draw_begin.viewport.scissor);
+                    #[cfg(test)]
+                    draw_log::log(if started { "bind_static" } else { "begin_static" });
+                    started = true;
+                    current_pipeline = Some(pso.pipeline);
+                }
+
+                let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                let ib = mesh.index_buffer;
+                let draw: dashi::Command = if let Some(ib) = ib {
+                    Command::DrawIndexed(DrawIndexed {
+                        index_count: mesh.index_count as u32,
+                        instance_count: 1,
+                        vertices: vb,
+                        indices: ib,
+                        bind_groups: [
+                            bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                            bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                            bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                            bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                        ],
+                        ..Default::default()
+                    })
+                } else {
+                    Command::Draw(Draw {
+                        count: mesh.index_count as u32,
+                        instance_count: 1,
+                        vertices: vb,
+                        bind_groups: [
+                            bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
+                            bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                            bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                            bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                        ],
+                        ..Default::default()
+                    })
+                };
+                list.append(draw);
+            }
+        }
+        if started {
+            list.end_drawing().unwrap();
+            #[cfg(test)]
+            draw_log::log("end_static");
+        }
+
+        if let Some(text_list) = self.text_drawables.get(&node_name) {
+            if let Some((pso, bind_groups)) = self.stage_pipelines.get(&RenderStage::Text) {
+                if !text_list.is_empty() {
                     let mut attachments = Vec::new();
-                    let mut current_pipeline: Option<Handle<GraphicsPipeline>> = None;
-                    let mut started = false;
+                    let draw_begin = Self::prepare_draw_begin(
+                        width,
+                        height,
+                        &target,
+                        pso.pipeline,
+                        &mut attachments,
+                        false,
+                    );
+                    list.begin_drawing(&draw_begin).unwrap();
+                    list.set_viewport(draw_begin.viewport);
+                    list.set_scissor(draw_begin.viewport.scissor);
 
-                    for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
-                        let (pso, bind_groups) =
-                            if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
-                                entry
-                            } else if let Some(entry) = self.pipelines.get(&target.name) {
-                                entry
-                            } else {
-                                continue;
-                            };
-
-                        if Some(pso.pipeline) != current_pipeline {
-                            let draw_begin = Self::prepare_draw_begin(
-                                width,
-                                height,
-                                &target,
-                                pso.pipeline,
-                                &mut attachments,
-                                true,
-                            );
-                            list.begin_drawing(&draw_begin).unwrap();
-                            list.set_viewport(draw_begin.viewport);
-                            list.set_scissor(draw_begin.viewport.scissor);
-                            #[cfg(test)]
-                            draw_log::log(if started { "bind_static" } else { "begin_static" });
-                            started = true;
-                            current_pipeline = Some(pso.pipeline);
-                        }
-
-                        let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
-                        let ib = mesh.index_buffer;
-                        let draw: dashi::Command = if let Some(ib) = ib {
+                    for mesh in text_list {
+                        let vb = mesh.vertex_buffer();
+                        let ib = mesh.index_buffer();
+                        let draw = if let Some(ib) = ib {
                             Command::DrawIndexed(DrawIndexed {
-                                index_count: mesh.index_count as u32,
+                                index_count: mesh.index_count() as u32,
                                 instance_count: 1,
                                 vertices: vb,
                                 indices: ib,
                                 bind_groups: [
-                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[0].as_ref().map(|b| b.bind_group),
+                                    bind_groups[1].as_ref().map(|b| b.bind_group),
+                                    bind_groups[2].as_ref().map(|b| b.bind_group),
+                                    bind_groups[3].as_ref().map(|b| b.bind_group),
                                 ],
                                 ..Default::default()
                             })
                         } else {
                             Command::Draw(Draw {
-                                count: mesh.index_count as u32,
+                                count: mesh.index_count() as u32,
                                 instance_count: 1,
                                 vertices: vb,
                                 bind_groups: [
-                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                    bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                                    bind_groups[0].as_ref().map(|b| b.bind_group),
+                                    bind_groups[1].as_ref().map(|b| b.bind_group),
+                                    bind_groups[2].as_ref().map(|b| b.bind_group),
+                                    bind_groups[3].as_ref().map(|b| b.bind_group),
                                 ],
                                 ..Default::default()
                             })
                         };
                         list.append(draw);
                     }
-                    if started {
-                        list.end_drawing().unwrap();
+
+                    list.end_drawing().unwrap();
+                }
+            }
+        }
+
+        if let Some(skel_list) = self.skeletal_meshes.get_mut(&node_name) {
+            for (mesh, instances) in skel_list {
+                let (pso, bind_groups) =
+                    if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
+                        entry
+                    } else if let Some(entry) = &self.skeletal_pipeline {
+                        entry
+                    } else {
+                        continue;
+                    };
+                let layout = pso.bind_group_layouts[0].expect("layout");
+                let mut attachments = Vec::new();
+                let mut started = false;
+
+                for inst in instances.iter_mut() {
+                    inst.update_gpu(ctx).unwrap();
+                    let inst_bg = ctx
+                        .make_bind_group(&BindGroupInfo {
+                            debug_name: "skel_instance_bg",
+                            layout,
+                            set: 0,
+                            bindings: &[BindingInfo {
+                                binding: 0,
+                                resource: ShaderResource::StorageBuffer(inst.bone_buffer),
+                            }],
+                        })
+                        .unwrap();
+
+                    if !started {
+                        let draw_begin = Self::prepare_draw_begin(
+                            width,
+                            height,
+                            &target,
+                            pso.pipeline,
+                            &mut attachments,
+                            false,
+                        );
+                        list.begin_drawing(&draw_begin).unwrap();
+                        list.set_viewport(draw_begin.viewport);
+                        list.set_scissor(draw_begin.viewport.scissor);
                         #[cfg(test)]
-                        draw_log::log("end_static");
+                        draw_log::log("begin_skeletal");
+                        started = true;
                     }
 
-                    if !self.text_drawables.is_empty() {
-                        if let Some((pso, bind_groups)) =
-                            self.stage_pipelines.get(&RenderStage::Text)
-                        {
-                            let mut attachments = Vec::new();
-                            let draw_begin = Self::prepare_draw_begin(
-                                width,
-                                height,
-                                &target,
-                                pso.pipeline,
-                                &mut attachments,
-                                false,
-                            );
-                            list.begin_drawing(&draw_begin).unwrap();
-                            list.set_viewport(draw_begin.viewport);
-                            list.set_scissor(draw_begin.viewport.scissor);
-
-                            for mesh in &self.text_drawables {
-                                let vb = mesh.vertex_buffer();
-                                let ib = mesh.index_buffer();
-                                let draw = if let Some(ib) = ib {
-                                    Command::DrawIndexed(DrawIndexed {
-                                        index_count: mesh.index_count() as u32,
-                                        instance_count: 1,
-                                        vertices: vb,
-                                        indices: ib,
-                                        bind_groups: [
-                                            bind_groups[0]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                            bind_groups[1]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                            bind_groups[2]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                            bind_groups[3]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                        ],
-                                        ..Default::default()
-                                    })
-                                } else {
-                                    Command::Draw(Draw {
-                                        count: mesh.index_count() as u32,
-                                        instance_count: 1,
-                                        vertices: vb,
-                                        bind_groups: [
-                                            bind_groups[0]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                            bind_groups[1]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                            bind_groups[2]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                            bind_groups[3]
-                                                .as_ref()
-                                                .map(|b| b.bind_group),
-                                        ],
-                                        ..Default::default()
-                                    })
-                                };
-                                list.append(draw);
-                            }
-
-                            list.end_drawing().unwrap();
-                        }
-                    }
-
-                    for (mesh, instances) in &mut self.skeletal_meshes {
-                        let (pso, bind_groups) =
-                            if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
-                                entry
-                            } else if let Some(entry) = &self.skeletal_pipeline {
-                                entry
-                            } else {
-                                continue;
-                            };
-                        let layout = pso.bind_group_layouts[0].expect("layout");
-                        let mut attachments = Vec::new();
-                        let mut started = false;
-
-                        for inst in instances.iter_mut() {
-                            inst.update_gpu(ctx).unwrap();
-                            let inst_bg = ctx
-                                .make_bind_group(&BindGroupInfo {
-                                    debug_name: "skel_instance_bg",
-                                    layout,
-                                    set: 0,
-                                    bindings: &[BindingInfo {
-                                        binding: 0,
-                                        resource: ShaderResource::StorageBuffer(
-                                            inst.bone_buffer,
-                                        ),
-                                    }],
-                                })
-                                .unwrap();
-
-                            if !started {
-                                let draw_begin = Self::prepare_draw_begin(
-                                    width,
-                                    height,
-                                    &target,
-                                    pso.pipeline,
-                                    &mut attachments,
-                                    false,
-                                );
-                                list.begin_drawing(&draw_begin).unwrap();
-                                list.set_viewport(draw_begin.viewport);
-                                list.set_scissor(draw_begin.viewport.scissor);
-                                #[cfg(test)]
-                                draw_log::log("begin_skeletal");
-                                started = true;
-                            }
-
-                            let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
-                            let ib = mesh.index_buffer;
-                            let draw: dashi::Command = if let Some(ib) = ib {
-                                Command::DrawIndexed(DrawIndexed {
-                                    index_count: mesh.index_count as u32,
-                                    instance_count: 1,
-                                    vertices: vb,
-                                    indices: ib,
-                                    bind_groups: [
-                                        Some(inst_bg),
-                                        bind_groups[1]
-                                            .as_ref()
-                                            .map(|bgr| bgr.bind_group),
-                                        bind_groups[2]
-                                            .as_ref()
-                                            .map(|bgr| bgr.bind_group),
-                                        bind_groups[3]
-                                            .as_ref()
-                                            .map(|bgr| bgr.bind_group),
-                                    ],
-                                    ..Default::default()
-                                })
-                            } else {
-                                Command::Draw(Draw {
-                                    count: mesh.index_count as u32,
-                                    instance_count: 1,
-                                    vertices: vb,
-                                    bind_groups: [
-                                        Some(inst_bg),
-                                        bind_groups[1]
-                                            .as_ref()
-                                            .map(|bgr| bgr.bind_group),
-                                        bind_groups[2]
-                                            .as_ref()
-                                            .map(|bgr| bgr.bind_group),
-                                        bind_groups[3]
-                                            .as_ref()
-                                            .map(|bgr| bgr.bind_group),
-                                    ],
-                                    ..Default::default()
-                                })
-                            };
-                            list.append(draw);
-                        }
-                        if started {
-                            list.end_drawing().unwrap();
-                            #[cfg(test)]
-                            draw_log::log("end_skeletal");
-                        }
-                    }
-                } else if self
+                    let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                    let ib = mesh.index_buffer;
+                    let draw: dashi::Command = if let Some(ib) = ib {
+                        Command::DrawIndexed(DrawIndexed {
+                            index_count: mesh.index_count as u32,
+                            instance_count: 1,
+                            vertices: vb,
+                            indices: ib,
+                            bind_groups: [
+                                Some(inst_bg),
+                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                            ],
+                            ..Default::default()
+                        })
+                    } else {
+                        Command::Draw(Draw {
+                            count: mesh.index_count as u32,
+                            instance_count: 1,
+                            vertices: vb,
+                            bind_groups: [
+                                Some(inst_bg),
+                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
+                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
+                            ],
+                            ..Default::default()
+                        })
+                    };
+                    list.append(draw);
+                }
+                if started {
+                    list.end_drawing().unwrap();
+                    #[cfg(test)]
+                    draw_log::log("end_skeletal");
+                }
+            }
+        }
+    } else if self
                     .graph
                     .node(idx)
                     .as_any()

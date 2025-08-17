@@ -66,7 +66,8 @@ pub fn run() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh,None,"lighting".into());
+    let out = renderer.graph().output("color");
+    renderer.register_static_mesh(mesh,None,"lighting".into(), out);
 
     renderer.present_frame().unwrap();
     ctx.destroy();
