@@ -5,6 +5,13 @@ It provides helpers for building render pipelines, loading `glTF` assets and dra
 SPIR-V shaders are compiled at build time via `inline-spirv` and winit is used for windowing.
 
 
+## Rendering Workflow
+
+See [docs/rendering_workflow.md](docs/rendering_workflow.md) for a guide to
+device creation, texture setup, pipeline configuration, synchronization, proper
+resource destruction, and how to drive these steps using Koji's `Renderer` and
+`RenderGraph` APIs when building your own engine.
+
 ## Dependencies
 
 Key dependencies include:
