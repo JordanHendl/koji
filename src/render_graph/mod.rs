@@ -13,8 +13,9 @@
 use dashi::utils::*;
 use dashi::*;
 use petgraph::algo::is_cyclic_directed;
-use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::graph::DiGraph;
 use petgraph::visit::{EdgeRef, Topo};
+pub use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
 
 use crate::canvas::Canvas;
@@ -284,6 +285,26 @@ impl RenderGraph {
                     .map(|cn| cn.canvas().clone())
             })
             .collect()
+    }
+
+    /// Return node indices in topological order.
+    pub fn topo_indices(&self) -> Vec<NodeIndex> {
+        let mut topo = Topo::new(&self.graph);
+        let mut order = Vec::new();
+        while let Some(i) = topo.next(&self.graph) {
+            order.push(i);
+        }
+        order
+    }
+
+    /// Immutable access to a node by index.
+    pub fn node(&self, idx: NodeIndex) -> &dyn GraphNode {
+        self.graph[idx].as_ref()
+    }
+
+    /// Mutable access to a node by index.
+    pub fn node_mut(&mut self, idx: NodeIndex) -> &mut dyn GraphNode {
+        self.graph.node_weight_mut(idx).unwrap().as_mut()
     }
 
     pub fn render_pass_for_output(&self, output: &str) -> Option<(Handle<RenderPass>, Format)> {

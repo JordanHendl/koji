@@ -5,7 +5,7 @@ pub use time_stats::*;
 
 use crate::canvas::CanvasBuilder;
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, CPSO, PSO};
-use crate::render_graph::RenderGraph;
+use crate::render_graph::{CanvasNode, CompositionNode, RenderGraph};
 use crate::render_pass::*;
 use crate::text::{FontRegistry, TextRenderable};
 use crate::utils::{diff_rgba8, ResourceBinding, ResourceManager};
@@ -639,195 +639,42 @@ impl Renderer {
                     });
                 }
             }
-            let canvas_len = self.canvases.len();
-            for (idx, target) in self
-                .canvases
-                .iter()
-                .map(|c| c.target())
-                .chain(self.targets.iter())
-                .enumerate()
-            {
-                let mut attachments = Vec::new();
-                let mut current_pipeline: Option<Handle<GraphicsPipeline>> = None;
-                let mut started = false;
-
-                for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
-                    let (pso, bind_groups) =
-                        if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
-                            entry
-                        } else if let Some(entry) = self.pipelines.get(&target.name) {
-                            entry
-                        } else {
-                            continue;
-                        };
-
-                    if Some(pso.pipeline) != current_pipeline {
-                        if !started {
-                            let draw_begin = Self::prepare_draw_begin(
-                                width,
-                                height,
-                                &target,
-                                pso.pipeline,
-                                &mut attachments,
-                                true,
-                            );
-                            list.begin_drawing(&draw_begin).unwrap();
-                            list.set_viewport(draw_begin.viewport);
-                            list.set_scissor(draw_begin.viewport.scissor);
-                            #[cfg(test)]
-                            draw_log::log("begin_static");
-                            started = true;
-                        } else {
-                            let draw_begin = Self::prepare_draw_begin(
-                                width,
-                                height,
-                                &target,
-                                pso.pipeline,
-                                &mut attachments,
-                                true,
-                            );
-                            list.begin_drawing(&draw_begin).unwrap();
-                            list.set_viewport(draw_begin.viewport);
-                            list.set_scissor(draw_begin.viewport.scissor);
-                            #[cfg(test)]
-                            draw_log::log("bind_static");
-                        }
-                        current_pipeline = Some(pso.pipeline);
-                    }
-
-                    let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
-                    let ib = mesh.index_buffer;
-                    let draw: dashi::Command = if let Some(ib) = ib {
-                        Command::DrawIndexed(DrawIndexed {
-                            index_count: mesh.index_count as u32,
-                            instance_count: 1,
-                            vertices: vb,
-                            indices: ib,
-                            bind_groups: [
-                                bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
-                            ],
-                            ..Default::default()
-                        })
-                    } else {
-                        Command::Draw(Draw {
-                            count: mesh.index_count as u32,
-                            instance_count: 1,
-                            vertices: vb,
-                            bind_groups: [
-                                bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
-                                bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
-                            ],
-                            ..Default::default()
-                        })
-                    };
-                    list.append(draw);
-                }
-                if started {
-                    list.end_drawing().unwrap();
-                    #[cfg(test)]
-                    draw_log::log("end_static");
-                }
-
-                if !self.text_drawables.is_empty() {
-                    if let Some((pso, bind_groups)) = self.stage_pipelines.get(&RenderStage::Text) {
-                        let mut attachments = Vec::new();
-                        let draw_begin = Self::prepare_draw_begin(
-                            width,
-                            height,
-                            &target,
-                            pso.pipeline,
-                            &mut attachments,
-                            false,
-                        );
-                        list.begin_drawing(&draw_begin).unwrap();
-                        list.set_viewport(draw_begin.viewport);
-                        list.set_scissor(draw_begin.viewport.scissor);
-
-                        for mesh in &self.text_drawables {
-                            let vb = mesh.vertex_buffer();
-                            let ib = mesh.index_buffer();
-                            let draw = if let Some(ib) = ib {
-                                Command::DrawIndexed(DrawIndexed {
-                                    index_count: mesh.index_count() as u32,
-                                    instance_count: 1,
-                                    vertices: vb,
-                                    indices: ib,
-                                    bind_groups: [
-                                        bind_groups[0].as_ref().map(|b| b.bind_group),
-                                        bind_groups[1].as_ref().map(|b| b.bind_group),
-                                        bind_groups[2].as_ref().map(|b| b.bind_group),
-                                        bind_groups[3].as_ref().map(|b| b.bind_group),
-                                    ],
-                                    ..Default::default()
-                                })
-                            } else {
-                                Command::Draw(Draw {
-                                    count: mesh.index_count() as u32,
-                                    instance_count: 1,
-                                    vertices: vb,
-                                    bind_groups: [
-                                        bind_groups[0].as_ref().map(|b| b.bind_group),
-                                        bind_groups[1].as_ref().map(|b| b.bind_group),
-                                        bind_groups[2].as_ref().map(|b| b.bind_group),
-                                        bind_groups[3].as_ref().map(|b| b.bind_group),
-                                    ],
-                                    ..Default::default()
-                                })
-                            };
-                            list.append(draw);
-                        }
-
-                        list.end_drawing().unwrap();
-                    }
-                }
-
-                for (mesh, instances) in &mut self.skeletal_meshes {
-                    let (pso, bind_groups) =
-                        if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
-                            entry
-                        } else if let Some(entry) = &self.skeletal_pipeline {
-                            entry
-                        } else {
-                            continue;
-                        };
-                    let layout = pso.bind_group_layouts[0].expect("layout");
+            for idx in self.graph.topo_indices() {
+                if let Some(canvas_node) =
+                    self.graph.node(idx).as_any().downcast_ref::<CanvasNode>()
+                {
+                    let canvas = canvas_node.canvas().clone();
+                    let target = canvas.target();
                     let mut attachments = Vec::new();
+                    let mut current_pipeline: Option<Handle<GraphicsPipeline>> = None;
                     let mut started = false;
 
-                    for inst in instances.iter_mut() {
-                        inst.update_gpu(ctx).unwrap();
-                        let inst_bg = ctx
-                            .make_bind_group(&BindGroupInfo {
-                                debug_name: "skel_instance_bg",
-                                layout,
-                                set: 0,
-                                bindings: &[BindingInfo {
-                                    binding: 0,
-                                    resource: ShaderResource::StorageBuffer(inst.bone_buffer),
-                                }],
-                            })
-                            .unwrap();
+                    for (_idx, (mesh, _dynamic_buffers)) in self.drawables.iter().enumerate() {
+                        let (pso, bind_groups) =
+                            if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
+                                entry
+                            } else if let Some(entry) = self.pipelines.get(&target.name) {
+                                entry
+                            } else {
+                                continue;
+                            };
 
-                        if !started {
+                        if Some(pso.pipeline) != current_pipeline {
                             let draw_begin = Self::prepare_draw_begin(
                                 width,
                                 height,
                                 &target,
                                 pso.pipeline,
                                 &mut attachments,
-                                false,
+                                true,
                             );
                             list.begin_drawing(&draw_begin).unwrap();
                             list.set_viewport(draw_begin.viewport);
                             list.set_scissor(draw_begin.viewport.scissor);
                             #[cfg(test)]
-                            draw_log::log("begin_skeletal");
+                            draw_log::log(if started { "bind_static" } else { "begin_static" });
                             started = true;
+                            current_pipeline = Some(pso.pipeline);
                         }
 
                         let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
@@ -839,7 +686,7 @@ impl Renderer {
                                 vertices: vb,
                                 indices: ib,
                                 bind_groups: [
-                                    Some(inst_bg),
+                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
                                     bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
                                     bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
                                     bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
@@ -852,7 +699,7 @@ impl Renderer {
                                 instance_count: 1,
                                 vertices: vb,
                                 bind_groups: [
-                                    Some(inst_bg),
+                                    bind_groups[0].as_ref().map(|bgr| bgr.bind_group),
                                     bind_groups[1].as_ref().map(|bgr| bgr.bind_group),
                                     bind_groups[2].as_ref().map(|bgr| bgr.bind_group),
                                     bind_groups[3].as_ref().map(|bgr| bgr.bind_group),
@@ -865,19 +712,205 @@ impl Renderer {
                     if started {
                         list.end_drawing().unwrap();
                         #[cfg(test)]
-                        draw_log::log("end_skeletal");
+                        draw_log::log("end_static");
                     }
-                }
 
-                if let Some(img) = img {
-                    if idx >= canvas_len {
-                        list.blit_image(ImageBlit {
-                            src: target.colors[0].attachment.img,
-                            dst: img,
-                            filter: Filter::Nearest,
-                            ..Default::default()
-                        });
+                    if !self.text_drawables.is_empty() {
+                        if let Some((pso, bind_groups)) =
+                            self.stage_pipelines.get(&RenderStage::Text)
+                        {
+                            let mut attachments = Vec::new();
+                            let draw_begin = Self::prepare_draw_begin(
+                                width,
+                                height,
+                                &target,
+                                pso.pipeline,
+                                &mut attachments,
+                                false,
+                            );
+                            list.begin_drawing(&draw_begin).unwrap();
+                            list.set_viewport(draw_begin.viewport);
+                            list.set_scissor(draw_begin.viewport.scissor);
+
+                            for mesh in &self.text_drawables {
+                                let vb = mesh.vertex_buffer();
+                                let ib = mesh.index_buffer();
+                                let draw = if let Some(ib) = ib {
+                                    Command::DrawIndexed(DrawIndexed {
+                                        index_count: mesh.index_count() as u32,
+                                        instance_count: 1,
+                                        vertices: vb,
+                                        indices: ib,
+                                        bind_groups: [
+                                            bind_groups[0]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                            bind_groups[1]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                            bind_groups[2]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                            bind_groups[3]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                        ],
+                                        ..Default::default()
+                                    })
+                                } else {
+                                    Command::Draw(Draw {
+                                        count: mesh.index_count() as u32,
+                                        instance_count: 1,
+                                        vertices: vb,
+                                        bind_groups: [
+                                            bind_groups[0]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                            bind_groups[1]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                            bind_groups[2]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                            bind_groups[3]
+                                                .as_ref()
+                                                .map(|b| b.bind_group),
+                                        ],
+                                        ..Default::default()
+                                    })
+                                };
+                                list.append(draw);
+                            }
+
+                            list.end_drawing().unwrap();
+                        }
                     }
+
+                    for (mesh, instances) in &mut self.skeletal_meshes {
+                        let (pso, bind_groups) =
+                            if let Some(entry) = self.material_pipelines.get(&mesh.material_id) {
+                                entry
+                            } else if let Some(entry) = &self.skeletal_pipeline {
+                                entry
+                            } else {
+                                continue;
+                            };
+                        let layout = pso.bind_group_layouts[0].expect("layout");
+                        let mut attachments = Vec::new();
+                        let mut started = false;
+
+                        for inst in instances.iter_mut() {
+                            inst.update_gpu(ctx).unwrap();
+                            let inst_bg = ctx
+                                .make_bind_group(&BindGroupInfo {
+                                    debug_name: "skel_instance_bg",
+                                    layout,
+                                    set: 0,
+                                    bindings: &[BindingInfo {
+                                        binding: 0,
+                                        resource: ShaderResource::StorageBuffer(
+                                            inst.bone_buffer,
+                                        ),
+                                    }],
+                                })
+                                .unwrap();
+
+                            if !started {
+                                let draw_begin = Self::prepare_draw_begin(
+                                    width,
+                                    height,
+                                    &target,
+                                    pso.pipeline,
+                                    &mut attachments,
+                                    false,
+                                );
+                                list.begin_drawing(&draw_begin).unwrap();
+                                list.set_viewport(draw_begin.viewport);
+                                list.set_scissor(draw_begin.viewport.scissor);
+                                #[cfg(test)]
+                                draw_log::log("begin_skeletal");
+                                started = true;
+                            }
+
+                            let vb = mesh.vertex_buffer.expect("Vertex buffer missing");
+                            let ib = mesh.index_buffer;
+                            let draw: dashi::Command = if let Some(ib) = ib {
+                                Command::DrawIndexed(DrawIndexed {
+                                    index_count: mesh.index_count as u32,
+                                    instance_count: 1,
+                                    vertices: vb,
+                                    indices: ib,
+                                    bind_groups: [
+                                        Some(inst_bg),
+                                        bind_groups[1]
+                                            .as_ref()
+                                            .map(|bgr| bgr.bind_group),
+                                        bind_groups[2]
+                                            .as_ref()
+                                            .map(|bgr| bgr.bind_group),
+                                        bind_groups[3]
+                                            .as_ref()
+                                            .map(|bgr| bgr.bind_group),
+                                    ],
+                                    ..Default::default()
+                                })
+                            } else {
+                                Command::Draw(Draw {
+                                    count: mesh.index_count as u32,
+                                    instance_count: 1,
+                                    vertices: vb,
+                                    bind_groups: [
+                                        Some(inst_bg),
+                                        bind_groups[1]
+                                            .as_ref()
+                                            .map(|bgr| bgr.bind_group),
+                                        bind_groups[2]
+                                            .as_ref()
+                                            .map(|bgr| bgr.bind_group),
+                                        bind_groups[3]
+                                            .as_ref()
+                                            .map(|bgr| bgr.bind_group),
+                                    ],
+                                    ..Default::default()
+                                })
+                            };
+                            list.append(draw);
+                        }
+                        if started {
+                            list.end_drawing().unwrap();
+                            #[cfg(test)]
+                            draw_log::log("end_skeletal");
+                        }
+                    }
+                } else if self
+                    .graph
+                    .node(idx)
+                    .as_any()
+                    .downcast_ref::<CompositionNode>()
+                    .is_some()
+                {
+                    let inputs = self.graph.node(idx).inputs();
+                    if let (Some(img), Some(first)) = (img, inputs.first()) {
+                        if let Some(src) = self
+                            .canvases
+                            .iter()
+                            .map(|c| c.target())
+                            .flat_map(|t| t.colors.iter())
+                            .find(|a| a.name == first.name)
+                        {
+                            list.blit_image(ImageBlit {
+                                src: src.attachment.img,
+                                dst: img,
+                                filter: Filter::Nearest,
+                                ..Default::default()
+                            });
+                        }
+                    }
+                    // execute any additional node behavior
+                    self.graph.node_mut(idx).execute(ctx).unwrap();
+                } else {
+                    // For other node types just execute
+                    self.graph.node_mut(idx).execute(ctx).unwrap();
                 }
             }
 
