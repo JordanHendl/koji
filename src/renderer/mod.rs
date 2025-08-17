@@ -23,20 +23,20 @@ mod draw_log {
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
 
-    pub static LOG: Lazy<Mutex<Vec<&'static str>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    pub static LOG: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
-    pub fn log(event: &'static str) {
-        LOG.lock().unwrap().push(event);
+    pub fn log(event: impl Into<String>) {
+        LOG.lock().unwrap().push(event.into());
     }
 
-    pub fn take() -> Vec<&'static str> {
+    pub fn take() -> Vec<String> {
         LOG.lock().unwrap().drain(..).collect()
     }
 }
 
 pub mod test_hooks {
     /// Retrieve and clear recorded draw events.
-    pub fn take_draw_events() -> Vec<&'static str> {
+    pub fn take_draw_events() -> Vec<String> {
         super::draw_log::take()
     }
 }
@@ -732,6 +732,8 @@ impl Renderer {
             for idx in self.graph.topo_indices() {
     if let Some(canvas_node) = self.graph.node(idx).as_any().downcast_ref::<CanvasNode>() {
         let node_name = self.graph.node(idx).name().to_string();
+        #[cfg(test)]
+        draw_log::log(format!("pass:{}", node_name));
         let canvas = canvas_node.canvas().clone();
         let target = canvas.target();
         let mut attachments = Vec::new();
