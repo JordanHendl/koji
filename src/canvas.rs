@@ -21,6 +21,7 @@ pub struct Canvas {
     render_pass: Handle<RenderPass>,
     target: RenderTarget,
     attachments: IndexMap<String, RenderAttachment>,
+    extent: [u32; 2],
 }
 
 /// Helper to reference a specific canvas attachment when creating a pipeline.
@@ -29,15 +30,36 @@ pub struct CanvasOutput<'a> {
     pub name: &'a str,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AttachmentDesc {
+    pub name: String,
+    pub format: Format,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CanvasDesc {
-    pub attachments: Vec<String>,
+    pub extent: [u32; 2],
+    pub attachments: Vec<AttachmentDesc>,
 }
 
 impl From<&Canvas> for CanvasDesc {
     fn from(c: &Canvas) -> Self {
+        let mut attachments = Vec::new();
+        for att in c.target.colors.iter() {
+            attachments.push(AttachmentDesc {
+                name: att.name.clone(),
+                format: att.format,
+            });
+        }
+        if let Some(depth) = &c.target.depth {
+            attachments.push(AttachmentDesc {
+                name: depth.name.clone(),
+                format: depth.format,
+            });
+        }
         Self {
-            attachments: c.attachments.keys().cloned().collect(),
+            extent: c.extent,
+            attachments,
         }
     }
 }
@@ -67,12 +89,29 @@ impl Canvas {
     pub fn output<'a>(&'a self, name: &'a str) -> CanvasOutput<'a> {
         CanvasOutput { canvas: self, name }
     }
+
+    pub fn extent(&self) -> [u32; 2] {
+        self.extent
+    }
+
+    pub fn from_desc(ctx: &mut Context, desc: &CanvasDesc) -> Result<Self, GPUError> {
+        let mut builder = CanvasBuilder::new().extent(desc.extent);
+        for att in &desc.attachments {
+            if matches!(att.format, Format::D24S8) {
+                builder = builder.depth_attachment(att.name.clone(), att.format);
+            } else {
+                builder = builder.color_attachment(att.name.clone(), att.format);
+            }
+        }
+        builder.build(ctx)
+    }
 }
 
 #[derive(Default)]
 pub struct CanvasBuilder {
     builder: RenderPassBuilder,
     color_names: Vec<String>,
+    extent: [u32; 2],
 }
 
 impl CanvasBuilder {
@@ -87,6 +126,7 @@ impl CanvasBuilder {
 
     pub fn extent(mut self, extent: [u32; 2]) -> Self {
         self.builder = self.builder.extent(extent);
+        self.extent = extent;
         self
     }
 
@@ -121,6 +161,7 @@ impl CanvasBuilder {
             render_pass: rp,
             target,
             attachments,
+            extent: self.extent,
         })
     }
 }
