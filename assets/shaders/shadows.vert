@@ -12,5 +12,5 @@ void main() {
     vec4 world = model * vec4(inPosition, 1.0);
     worldPos = world.xyz;
     normal = mat3(model) * inNormal;
-    gl_Position = KOJI_cameras[0].view_proj * world;
+    gl_Position = KOJI_cameras.cameras[0].view_proj * world;
 }

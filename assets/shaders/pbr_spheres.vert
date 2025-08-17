@@ -17,5 +17,5 @@ void main() {
     vWorldPos = world.xyz;
     vNormal = mat3(model) * inNormal;
     vUV = inUV;
-    gl_Position = KOJI_cameras[0].view_proj * world;
+    gl_Position = KOJI_cameras.cameras[0].view_proj * world;
 }

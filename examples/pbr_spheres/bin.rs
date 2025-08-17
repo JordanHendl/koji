@@ -6,6 +6,7 @@ use koji::renderer::*;
 use koji::canvas::CanvasBuilder;
 use koji::texture_manager;
 use koji::utils::ResourceManager;
+use koji::ResourceBinding;
 use glam::*;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
 #[cfg(feature = "gpu_tests")]
@@ -132,9 +133,6 @@ fn register_textures(ctx: &mut Context, res: &mut ResourceManager) {
         }
     }
 }
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 
 pub fn run(ctx: &mut Context) {
     let canvas = CanvasBuilder::new()
