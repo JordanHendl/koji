@@ -1,4 +1,5 @@
 #version 450
+#include "camera.slang"
 
 layout(location = 0) in vec3 vWorldPos;
 layout(location = 1) in vec3 vNormal;
@@ -8,11 +9,6 @@ layout(set = 0, binding = 0) uniform sampler2D albedo_map;
 layout(set = 0, binding = 1) uniform sampler2D normal_map;
 layout(set = 0, binding = 2) uniform sampler2D metallic_map;
 layout(set = 0, binding = 3) uniform sampler2D roughness_map;
-
-layout(set = 0, binding = 4) uniform CameraBlock {
-    mat4 view_proj;
-    vec3 cam_pos;
-} Camera;
 
 struct Light {
     vec3 position;
@@ -57,7 +53,7 @@ void main() {
 
     vec3 normal = texture(normal_map, vUV).xyz;
     vec3 N = normalize(normal);
-    vec3 V = normalize(Camera.cam_pos - vWorldPos);
+    vec3 V = normalize(KOJI_cameras.cameras[0].cam_pos.xyz - vWorldPos);
     vec3 L = normalize(SceneLight.light.position - vWorldPos);
     vec3 H = normalize(V + L);
 

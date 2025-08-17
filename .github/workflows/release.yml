@@ -40,7 +40,12 @@ jobs:
           cp -r target/release artifacts/
           tar -czf artifacts.tar.gz -C artifacts .
 
+      - name: Package shader headers
+        run: zip -j shader-headers.zip assets/shaders/*.slang
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts.tar.gz
+          files: |
+            artifacts.tar.gz
+            shader-headers.zip

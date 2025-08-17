@@ -38,6 +38,9 @@ pub use allocator::*;
 pub use resource_list::*;
 pub use frame_diff::diff_rgba8;
 
+pub const CAMERA_ELEMENT_SIZE: usize = 20 * std::mem::size_of::<f32>();
+pub const MAX_CAMERAS: usize = 4;
+
 pub struct TextureInfo {
     pub image: Handle<Image>,
     pub view: Handle<ImageView>,
@@ -224,6 +227,17 @@ impl ResourceManager {
             .insert("time".into(), ResourceBinding::Uniform(buf.handle));
         self.bindings
             .insert("KOJI_time".into(), ResourceBinding::Uniform(buf.handle));
+    }
+
+    pub fn register_camera_buffers(&mut self, ctx: &mut Context) {
+        let data = vec![0u8; CAMERA_ELEMENT_SIZE * MAX_CAMERAS];
+        let dh = DHObject::new_from_bytes(ctx, &mut self.allocator, &data).unwrap();
+        let buf = ResourceBuffer::from(dh);
+        self.buffers.push(buf.clone());
+        self.bindings
+            .insert("cameras".into(), ResourceBinding::Uniform(buf.handle));
+        self.bindings
+            .insert("KOJI_cameras".into(), ResourceBinding::Uniform(buf.handle));
     }
 
       pub fn register_ubo(&mut self, key: impl Into<String>, handle: Handle<Buffer>) {
@@ -425,6 +439,28 @@ mod tests {
         manager.register_time_buffers(&mut ctx);
 
         let handle = match manager.get("time") {
+            Some(ResourceBinding::Uniform(h)) => *h,
+            _ => panic!("Expected uniform binding"),
+        };
+
+        assert_eq!(manager.buffers.entries.len(), 1);
+        let stored_handle = manager
+            .buffers
+            .get_ref(manager.buffers.entries[0])
+            .handle;
+        assert_eq!(stored_handle, handle);
+        ctx.destroy();
+    }
+
+    #[test]
+    #[serial]
+    fn register_camera_buffers_binding() {
+        let mut ctx = setup_ctx();
+        let mut manager = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+        manager.register_camera_buffers(&mut ctx);
+
+        let handle = match manager.get("cameras") {
             Some(ResourceBinding::Uniform(h)) => *h,
             _ => panic!("Expected uniform binding"),
         };

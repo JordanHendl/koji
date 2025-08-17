@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use dashi::builders::RenderPassBuilder;
-use inline_spirv::inline_spirv;
+use inline_spirv::{inline_spirv, include_spirv};
 use serial_test::serial;
 use spirv_reflect::types::ReflectFormat;
 
@@ -683,6 +683,43 @@ fn auto_register_time_resource() {
     assert!(group.bind_group.valid());
     assert!(res.get("time").is_some());
     assert!(res.get("KOJI_time").is_some());
+
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn auto_register_camera_resource() {
+    let mut ctx = make_ctx();
+    let rp = RenderPassBuilder::new("rp", Viewport::default())
+        .add_subpass(&[AttachmentDescription::default()], None, &[])
+        .build(&mut ctx)
+        .unwrap();
+
+    let vert = inline_spirv!(
+        r#"
+        #version 450
+        layout(location=0) in vec2 pos;
+        void main(){ gl_Position = vec4(pos,0,1); }
+        "#,
+        vert
+    )
+    .to_vec();
+
+    let frag: &[u32] = include_spirv!("tests/data/test_camera.frag", frag, glsl);
+
+    let mut res = ResourceManager::new(&mut ctx, 1024).unwrap();
+
+    let mut pso = PipelineBuilder::new(&mut ctx, "camera_test")
+        .vertex_shader(&vert)
+        .fragment_shader(frag)
+        .render_pass((rp, 0))
+        .build_with_resources(&mut res)
+        .unwrap();
+
+    let group = pso.create_bind_group(0, &res).unwrap();
+    assert!(group.bind_group.valid());
+    assert!(res.get("KOJI_cameras").is_some());
 
     ctx.destroy();
 }
