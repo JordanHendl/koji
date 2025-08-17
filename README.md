@@ -76,6 +76,11 @@ Render passes can now be described with a [`RenderGraph`](src/render_graph/mod.r
 `#[deprecated]`. Prefer constructing graph nodes and connecting them
 to form the frame pipeline.
 
+Graphs may be constructed directly in code or loaded from configuration files.
+Use `render_graph::to_yaml`/`to_json` to serialize an existing graph and
+`render_graph::from_yaml`/`from_json` to rebuild it, including all `Canvas`
+descriptors, from YAML or JSON.
+
 Example descriptions of a lightweight graph can be found in
 [examples/graph_basic.yaml](examples/graph_basic.yaml) and
 [examples/graph_basic.json](examples/graph_basic.json). These files

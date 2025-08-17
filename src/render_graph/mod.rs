@@ -18,7 +18,7 @@ use petgraph::visit::{EdgeRef, Topo};
 pub use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
 
-use crate::canvas::Canvas;
+use crate::canvas::{Canvas, CanvasDesc};
 use dashi::gpu::RenderPass;
 use serde::{Deserialize, Serialize};
 
@@ -202,8 +202,16 @@ pub struct GraphNodeDesc {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CanvasNodeDesc {
+    pub name: String,
+    pub canvas: CanvasDesc,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SerializableRenderGraph {
     pub nodes: Vec<GraphNodeDesc>,
+    #[serde(default)]
+    pub canvases: Vec<CanvasNodeDesc>,
     pub edges: Vec<(String, String)>,
 }
 
@@ -423,19 +431,47 @@ impl From<&RenderGraph> for SerializableRenderGraph {
                 (a, b)
             })
             .collect();
-        Self { nodes, edges }
+        let canvases = g
+            .graph
+            .node_indices()
+            .filter_map(|i| {
+                let node = &g.graph[i];
+                node
+                    .as_any()
+                    .downcast_ref::<CanvasNode>()
+                    .map(|cn| CanvasNodeDesc {
+                        name: node.name().to_string(),
+                        canvas: CanvasDesc::from(cn.canvas()),
+                    })
+            })
+            .collect();
+        Self {
+            nodes,
+            canvases,
+            edges,
+        }
     }
 }
 
-impl From<SerializableRenderGraph> for RenderGraph {
-    fn from(desc: SerializableRenderGraph) -> Self {
+impl RenderGraph {
+    pub fn from_desc(
+        desc: SerializableRenderGraph,
+        ctx: &mut Context,
+    ) -> Result<Self, GPUError> {
         let mut g = RenderGraph::new();
+        let mut canvas_map: HashMap<String, CanvasDesc> =
+            desc.canvases.into_iter().map(|c| (c.name, c.canvas)).collect();
         for n in desc.nodes {
-            g.add_node(SimpleNode::from(n));
+            if let Some(cdesc) = canvas_map.remove(&n.name) {
+                let canvas = Canvas::from_desc(ctx, &cdesc)?;
+                g.add_node(CanvasNode::new(n.name, canvas));
+            } else {
+                g.add_node(SimpleNode::from(n));
+            }
         }
         for (a, b) in desc.edges {
             g.connect(&a, &b);
         }
-        g
+        Ok(g)
     }
 }

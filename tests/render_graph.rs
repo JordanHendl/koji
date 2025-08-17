@@ -44,12 +44,38 @@ fn render_graph_executes_with_composition() {
 }
 
 #[test]
+#[serial]
 fn graph_yaml_roundtrip() {
+    let mut ctx = setup_ctx();
+    let canvas = CanvasBuilder::new()
+        .extent([1, 1])
+        .color_attachment("img", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
     let mut graph = RenderGraph::new();
-    graph.register_external_image("img", Format::RGBA8);
+    graph.add_canvas(&canvas);
     let yaml = koji::render_graph::to_yaml(&graph).unwrap();
-    let loaded = koji::render_graph::from_yaml(&yaml).unwrap();
+    let loaded = koji::render_graph::from_yaml(&mut ctx, &yaml).unwrap();
     assert_eq!(graph.node_names(), loaded.node_names());
+    assert_eq!(loaded.output_images(), vec!["img".to_string()]);
+    ctx.destroy();
+}
+
+#[test]
+#[serial]
+fn graph_json_roundtrip() {
+    let mut ctx = setup_ctx();
+    let canvas = CanvasBuilder::new()
+        .extent([1, 1])
+        .color_attachment("img", Format::RGBA8)
+        .build(&mut ctx)
+        .unwrap();
+    let mut graph = RenderGraph::new();
+    graph.add_canvas(&canvas);
+    let json = koji::render_graph::to_json(&graph).unwrap();
+    let loaded = koji::render_graph::from_json(&mut ctx, &json).unwrap();
+    assert_eq!(loaded.output_images(), vec!["img".to_string()]);
+    ctx.destroy();
 }
 
 #[test]
