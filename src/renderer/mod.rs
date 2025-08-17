@@ -5,7 +5,7 @@ pub use time_stats::*;
 
 use crate::canvas::CanvasBuilder;
 use crate::material::{BindlessLights, LightDesc, PSOBindGroupResources, CPSO, PSO};
-use crate::render_graph::{RenderGraph, RenderPassNode, ResourceDesc};
+use crate::render_graph::RenderGraph;
 use crate::render_pass::*;
 use crate::text::{FontRegistry, TextRenderable};
 use crate::utils::{diff_rgba8, ResourceBinding, ResourceManager};
@@ -128,28 +128,20 @@ impl Renderer {
             })?)
         };
 
-        let builder = RenderPassBuilder::new()
-            .debug_name("MainPass")
-            .viewport(Viewport {
-                area: FRect2D {
-                    w: width as f32,
-                    h: height as f32,
-                    ..Default::default()
-                },
-                scissor: Rect2D {
-                    w: width,
-                    h: height,
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .color_attachment("color", Format::RGBA8)
-            .depth_attachment("depth", Format::D24S8)
-            .subpass("main", ["color"], &[] as &[&str])
-            .extent([width, height]);
-        let (render_pass, targets, _attachments) = builder.build_with_images(&mut ctx)?;
-
-        assert!(render_pass.valid());
+        let mut canvases = graph.canvases();
+        let mut render_pass = Handle::<RenderPass>::default();
+        if let Some(first_canvas) = canvases.first() {
+            if let Some(first_att) = first_canvas.target().colors.first() {
+                if let Some((rp, _)) = graph.render_pass_for_output(&first_att.name) {
+                    render_pass = rp;
+                } else {
+                    render_pass = first_canvas.render_pass();
+                }
+            } else {
+                render_pass = first_canvas.render_pass();
+            }
+        }
+        let targets: Vec<RenderTarget> = Vec::new();
 
         let command_list = FramedCommandList::new(&mut ctx, "RendererCmdList", 2);
         let semaphores = ctx.make_semaphores(2)?;
@@ -211,7 +203,6 @@ impl Renderer {
             }
         }
 
-        let mut canvases = graph.canvases();
         for canvas in &mut canvases {
             for att in &mut canvas.target_mut().colors {
                 att.attachment.clear = ClearValue::Color(renderer.clear_color);
@@ -236,21 +227,10 @@ impl Renderer {
         ctx: &mut Context,
         canvas: crate::canvas::Canvas,
     ) -> Result<Self, GPUError> {
-        let outputs = canvas
-            .target()
-            .colors
-            .iter()
-            .map(|a| ResourceDesc {
-                name: a.name.clone(),
-                format: a.format,
-            })
-            .collect();
-        let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
         let mut graph = RenderGraph::new();
-        graph.add_node(node);
         graph.add_canvas(&canvas);
 
-        Self::with_graph_internal(width, height, ctx, graph, false)
+        Self::with_graph(width, height, ctx, graph)
     }
 
     pub fn with_canvas_headless(
@@ -259,21 +239,10 @@ impl Renderer {
         ctx: &mut Context,
         canvas: crate::canvas::Canvas,
     ) -> Result<Self, GPUError> {
-        let outputs = canvas
-            .target()
-            .colors
-            .iter()
-            .map(|a| ResourceDesc {
-                name: a.name.clone(),
-                format: a.format,
-            })
-            .collect();
-        let node = RenderPassNode::new("main", canvas.render_pass(), Vec::new(), outputs);
         let mut graph = RenderGraph::new();
-        graph.add_node(node);
         graph.add_canvas(&canvas);
 
-        Self::with_graph_internal(width, height, ctx, graph, true)
+        Self::with_graph_headless(width, height, ctx, graph)
     }
 
     pub fn with_graph(
