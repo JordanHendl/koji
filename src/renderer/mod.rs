@@ -239,18 +239,6 @@ impl Renderer {
             }
         }
 
-        for canvas in &mut canvases {
-            for att in &mut canvas.target_mut().colors {
-                att.attachment.clear = ClearValue::Color(renderer.clear_color);
-            }
-            if let Some(depth) = &mut canvas.target_mut().depth {
-                depth.attachment.clear = ClearValue::DepthStencil {
-                    depth: renderer.clear_depth,
-                    stencil: 0,
-                };
-            }
-        }
-
         renderer.canvases = canvases;
         renderer.graph = graph;
 
