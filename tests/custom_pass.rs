@@ -74,7 +74,7 @@ subpasses:
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh, None, "color".into());
+    renderer.register_static_mesh(mesh, None, "color".into(), "canvas");
 
     renderer.present_frame().unwrap();
     ctx.destroy();

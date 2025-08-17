@@ -183,7 +183,7 @@ pub fn run(ctx: &mut Context) {
             index_buffer: None,
             index_count: 0,
         };
-        renderer.register_static_mesh(mesh, None, "pbr".into());
+        renderer.register_static_mesh(mesh, None, "pbr".into(), "canvas");
     }
 
     let mut angle: f32 = 0.0;

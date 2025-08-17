@@ -325,6 +325,19 @@ impl RenderGraph {
         None
     }
 
+    /// Retrieve the name of the node that produces the specified output resource.
+    pub fn node_name_for_output(&self, output: &str) -> Option<String> {
+        for idx in self.graph.node_indices() {
+            let node = &self.graph[idx];
+            for out in node.outputs() {
+                if out.name == output {
+                    return Some(node.name().to_string());
+                }
+            }
+        }
+        None
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if is_cyclic_directed(&self.graph) {
             return Err("Render graph contains cycles".to_string());

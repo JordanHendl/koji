@@ -33,7 +33,7 @@ pub fn run_simple_skeleton() {
     };
     let bone_count = mesh.skeleton.bone_count();
     let instance = SkeletalInstance::new(&mut ctx, Animator::new(mesh.skeleton.clone())).unwrap();
-    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into());
+    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into(), "canvas");
 
     let vert: &[u32] = include_spirv!("src/renderer/skinning.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("src/renderer/skinning.frag", frag, glsl);
@@ -46,7 +46,7 @@ pub fn run_simple_skeleton() {
     renderer.register_skeletal_pso(pso, bgr);
 
     let mats = vec![Mat4::IDENTITY; bone_count];
-    renderer.update_skeletal_bones(0, 0, &mats);
+    renderer.update_skeletal_bones("canvas", 0, 0, &mats);
     renderer.present_frame().unwrap();
     ctx.destroy();
 }
@@ -75,7 +75,7 @@ pub fn run_update_bones_twice() {
     };
     let bone_count = mesh.skeleton.bone_count();
     let instance = SkeletalInstance::new(&mut ctx, Animator::new(mesh.skeleton.clone())).unwrap();
-    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into());
+    renderer.register_skeletal_mesh(mesh, vec![instance], "skin".into(), "canvas");
 
     let vert: &[u32] = include_spirv!("src/renderer/skinning.vert", vert, glsl);
     let frag: &[u32] = include_spirv!("src/renderer/skinning.frag", frag, glsl);
@@ -88,8 +88,8 @@ pub fn run_update_bones_twice() {
     renderer.register_skeletal_pso(pso, bgr);
 
     let mats = vec![Mat4::IDENTITY; bone_count];
-    renderer.update_skeletal_bones(0, 0, &mats);
-    renderer.update_skeletal_bones(0, 0, &mats);
+    renderer.update_skeletal_bones("canvas", 0, 0, &mats);
+    renderer.update_skeletal_bones("canvas", 0, 0, &mats);
     renderer.present_frame().unwrap();
     ctx.destroy();
 }

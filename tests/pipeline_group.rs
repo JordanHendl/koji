@@ -68,8 +68,8 @@ fn static_pipeline_groups_once() {
         index_buffer: None,
         index_count: 0,
     };
-    renderer.register_static_mesh(mesh1, None, "p".into());
-    renderer.register_static_mesh(mesh2, None, "p".into());
+    renderer.register_static_mesh(mesh1, None, "p".into(), "canvas");
+    renderer.register_static_mesh(mesh2, None, "p".into(), "canvas");
 
     renderer.present_frame().unwrap();
     let events = test_hooks::take_draw_events();
@@ -113,7 +113,7 @@ fn skeletal_pipeline_groups_once() {
     };
     let inst1 = SkeletalInstance::new(&mut ctx, Animator::new(skeleton.clone())).unwrap();
     let inst2 = SkeletalInstance::new(&mut ctx, Animator::new(skeleton)).unwrap();
-    renderer.register_skeletal_mesh(mesh, vec![inst1, inst2], "skel".into());
+    renderer.register_skeletal_mesh(mesh, vec![inst1, inst2], "skel".into(), "canvas");
 
     renderer.present_frame().unwrap();
     let events = test_hooks::take_draw_events();
