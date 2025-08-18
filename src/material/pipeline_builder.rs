@@ -19,6 +19,11 @@ const DEFAULT_RESOURCES: &[(&str, DefaultResource)] = &[
     ("KOJI_cameras", DefaultResource::Cameras),
 ];
 
+/// Fallback size for runtime descriptor arrays when no resource information is
+/// available during pipeline creation. This should be large enough to cover
+/// typical use cases while staying within reasonable descriptor limits.
+const DEFAULT_DESCRIPTOR_ARRAY_CAPACITY: u32 = 64;
+
 /// Map SPIR-V reflect format to shader primitive enum
 pub(crate) fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPrimitiveType {
     use ReflectFormat::*;
@@ -333,9 +338,7 @@ impl PSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
                         all_indexed_data.push(data);
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
                     }
@@ -349,9 +352,7 @@ impl PSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
 
                         all_indexed_data.push(data);
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
@@ -366,9 +367,7 @@ impl PSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
 
                         all_indexed_data.push(data);
 
@@ -608,7 +607,11 @@ impl<'a> PipelineBuilder<'a> {
                 }
 
                 if count == 0 {
-                    count = 1;
+                    count = if res.is_some() {
+                        1
+                    } else {
+                        DEFAULT_DESCRIPTOR_ARRAY_CAPACITY
+                    };
                 }
 
                 vars.push(BindGroupVariable {

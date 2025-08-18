@@ -13,6 +13,10 @@ const DEFAULT_RESOURCES: &[(&str, DefaultResource)] = &[
     ("KOJI_cameras", DefaultResource::Cameras),
 ];
 
+/// Default size used for runtime descriptor arrays when no resource data is
+/// available at pipeline creation time.
+const DEFAULT_DESCRIPTOR_ARRAY_CAPACITY: u32 = 64;
+
 pub struct CPSO {
     pub pipeline: Handle<ComputePipeline>,
     pub layout: Handle<ComputePipelineLayout>,
@@ -81,9 +85,7 @@ impl CPSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
                         all_indexed_data.push(data);
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
                     }
@@ -97,9 +99,7 @@ impl CPSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
                         all_indexed_data.push(data);
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
                     }
@@ -113,9 +113,7 @@ impl CPSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
                         all_indexed_data.push(data);
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
                     }
@@ -267,7 +265,11 @@ impl<'a> ComputePipelineBuilder<'a> {
                 }
 
                 if count == 0 {
-                    count = 1;
+                    count = if res.is_some() {
+                        1
+                    } else {
+                        DEFAULT_DESCRIPTOR_ARRAY_CAPACITY
+                    };
                 }
 
                 vars.push(BindGroupVariable {
