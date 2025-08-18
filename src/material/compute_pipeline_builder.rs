@@ -248,21 +248,28 @@ impl<'a> ComputePipelineBuilder<'a> {
 
                 let var_type = descriptor_to_var_type(b.ty);
                 let mut count = b.count;
-                if count == 0 {
-                    if let Some(ref mut r) = res {
-                        if let Some(binding_entry) = r.get(&b.name) {
-                            count = match binding_entry {
-                                ResourceBinding::TextureArray(arr) => arr.len() as u32,
-                                ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
-                                ResourceBinding::BufferArray(arr) => arr.lock().unwrap().len() as u32,
-                                _ => 0,
-                            };
+
+                // Similar to the graphics pipeline builder, account for unsized
+                // descriptor arrays by using the number of resources registered with
+                // the ResourceManager when it is larger than the reflected count.
+                if let Some(ref mut r) = res {
+                    if let Some(binding_entry) = r.get(&b.name) {
+                        let array_len = match binding_entry {
+                            ResourceBinding::TextureArray(arr) => arr.len() as u32,
+                            ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
+                            ResourceBinding::BufferArray(arr) => arr.lock().unwrap().len() as u32,
+                            _ => 0,
+                        };
+                        if array_len > count {
+                            count = array_len;
                         }
                     }
-                    if count == 0 {
-                        count = 1;
-                    }
                 }
+
+                if count == 0 {
+                    count = 1;
+                }
+
                 vars.push(BindGroupVariable {
                     var_type,
                     binding: b.binding,

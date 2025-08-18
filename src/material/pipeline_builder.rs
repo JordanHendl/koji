@@ -585,23 +585,32 @@ impl<'a> PipelineBuilder<'a> {
 
                 let var_type = descriptor_to_var_type(b.ty);
                 let mut count = b.count;
-                if count == 0 {
-                    if let Some(ref mut r) = res {
-                        if let Some(binding_entry) = r.get(&b.name) {
-                            count = match binding_entry {
-                                ResourceBinding::TextureArray(arr) => arr.len() as u32,
-                                ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
-                                ResourceBinding::BufferArray(arr) => {
-                                    arr.lock().unwrap().len() as u32
-                                }
-                                _ => 0,
-                            };
+
+                // For descriptor arrays, the number of elements is dictated by the
+                // resources registered with the ResourceManager.  Unsized arrays are
+                // reported with a count of 0 or 1 by the reflection data, so we need
+                // to expand the count based on the actual array length to avoid
+                // creating descriptor sets that are too small.
+                if let Some(ref mut r) = res {
+                    if let Some(binding_entry) = r.get(&b.name) {
+                        let array_len = match binding_entry {
+                            ResourceBinding::TextureArray(arr) => arr.len() as u32,
+                            ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
+                            ResourceBinding::BufferArray(arr) => {
+                                arr.lock().unwrap().len() as u32
+                            }
+                            _ => 0,
+                        };
+                        if array_len > count {
+                            count = array_len;
                         }
                     }
-                    if count == 0 {
-                        count = 1;
-                    }
                 }
+
+                if count == 0 {
+                    count = 1;
+                }
+
                 vars.push(BindGroupVariable {
                     var_type,
                     binding: b.binding,
