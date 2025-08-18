@@ -19,6 +19,11 @@ const DEFAULT_RESOURCES: &[(&str, DefaultResource)] = &[
     ("KOJI_cameras", DefaultResource::Cameras),
 ];
 
+/// Fallback size for runtime descriptor arrays when no resource information is
+/// available during pipeline creation. This should be large enough to cover
+/// typical use cases while staying within reasonable descriptor limits.
+const DEFAULT_DESCRIPTOR_ARRAY_CAPACITY: u32 = 64;
+
 /// Map SPIR-V reflect format to shader primitive enum
 pub(crate) fn reflect_format_to_shader_primitive(fmt: ReflectFormat) -> ShaderPrimitiveType {
     use ReflectFormat::*;
@@ -333,9 +338,7 @@ impl PSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
                         all_indexed_data.push(data);
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
                     }
@@ -349,9 +352,7 @@ impl PSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
 
                         all_indexed_data.push(data);
                         which_binding.push((all_indexed_data.len() - 1, *binding as usize));
@@ -366,9 +367,7 @@ impl PSO {
                                 slot: i as u32,
                             })
                             .collect();
-                        if *count > 1 {
-                            data.truncate(*count as usize);
-                        }
+                        data.truncate(*count as usize);
 
                         all_indexed_data.push(data);
 
@@ -585,23 +584,36 @@ impl<'a> PipelineBuilder<'a> {
 
                 let var_type = descriptor_to_var_type(b.ty);
                 let mut count = b.count;
-                if count == 0 {
-                    if let Some(ref mut r) = res {
-                        if let Some(binding_entry) = r.get(&b.name) {
-                            count = match binding_entry {
-                                ResourceBinding::TextureArray(arr) => arr.len() as u32,
-                                ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
-                                ResourceBinding::BufferArray(arr) => {
-                                    arr.lock().unwrap().len() as u32
-                                }
-                                _ => 0,
-                            };
+
+                // For descriptor arrays, the number of elements is dictated by the
+                // resources registered with the ResourceManager.  Unsized arrays are
+                // reported with a count of 0 or 1 by the reflection data, so we need
+                // to expand the count based on the actual array length to avoid
+                // creating descriptor sets that are too small.
+                if let Some(ref mut r) = res {
+                    if let Some(binding_entry) = r.get(&b.name) {
+                        let array_len = match binding_entry {
+                            ResourceBinding::TextureArray(arr) => arr.len() as u32,
+                            ResourceBinding::CombinedTextureArray(arr) => arr.len() as u32,
+                            ResourceBinding::BufferArray(arr) => {
+                                arr.lock().unwrap().len() as u32
+                            }
+                            _ => 0,
+                        };
+                        if array_len > count {
+                            count = array_len;
                         }
                     }
-                    if count == 0 {
-                        count = 1;
-                    }
                 }
+
+                if count == 0 {
+                    count = if res.is_some() {
+                        1
+                    } else {
+                        DEFAULT_DESCRIPTOR_ARRAY_CAPACITY
+                    };
+                }
+
                 vars.push(BindGroupVariable {
                     var_type,
                     binding: b.binding,
