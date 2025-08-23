@@ -76,7 +76,34 @@ Render passes can now be described with a [`RenderGraph`](src/render_graph/mod.r
 `#[deprecated]`. Prefer constructing graph nodes and connecting them
 to form the frame pipeline.
 
-Graphs may be constructed directly in code or loaded from configuration files.
+[`RenderGraphBuilder`](src/render_graph/builder.rs) offers a fluent API for
+assembling graphs in code:
+
+```rust
+use koji::render_graph::RenderGraphBuilder;
+use koji::canvas::CanvasBuilder;
+use dashi::gpu::Format;
+
+let canvas = CanvasBuilder::new()
+    .extent([800, 600])
+    .color_attachment("color", Format::RGBA8)
+    .build(&mut ctx)?;
+let mut builder = RenderGraphBuilder::new();
+builder.add_canvas(&canvas);
+let graph = builder.build();
+```
+
+Graphs may also be loaded from configuration files.
+`Renderer::with_graph_from_yaml` and `Renderer::with_graph_from_json`
+create a renderer directly from serialized graphs:
+
+```rust
+use koji::renderer::Renderer;
+
+let data = std::fs::read_to_string("graph_basic.yaml")?;
+let mut renderer = Renderer::with_graph_from_yaml(800, 600, &mut ctx, &data)?;
+```
+
 Use `render_graph::to_yaml`/`to_json` to serialize an existing graph and
 `render_graph::from_yaml`/`from_json` to rebuild it, including all `Canvas`
 descriptors, from YAML or JSON.

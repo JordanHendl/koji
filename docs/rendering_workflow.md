@@ -24,8 +24,17 @@ cleanup when building your own renderer on top of Koji.
 ```rust
 let device = gpu::DeviceSelector::new()?.select(gpu::DeviceFilter::default())?;
 let mut ctx = gpu::Context::new(&gpu::ContextInfo { device })?;
-let graph = RenderGraph::new(); // or build from YAML/JSON
+let canvas = CanvasBuilder::new()
+    .extent([800, 600])
+    .color_attachment("color", Format::RGBA8)
+    .build(&mut ctx)?;
+let graph = RenderGraphBuilder::new()
+    .add_canvas(&canvas)
+    .build();
 let mut renderer = Renderer::with_graph(800, 600, &mut ctx, graph)?;
+// or load directly from configuration:
+// let yaml = std::fs::read_to_string("graph_basic.yaml")?;
+// let mut renderer = Renderer::with_graph_from_yaml(800, 600, &mut ctx, &yaml)?;
 ```
 
 ## Texture Creation
