@@ -287,6 +287,44 @@ impl Renderer {
         Self::with_graph_internal(width, height, ctx, graph, true)
     }
 
+    /// Construct a [`Renderer`] from a render graph described in YAML.
+    ///
+    /// ```no_run
+    /// # use koji::renderer::Renderer;
+    /// # use dashi::gpu::Context;
+    /// # fn build(ctx: &mut Context, yaml: &str) -> Result<(), String> {
+    /// let renderer = Renderer::with_graph_from_yaml(800, 600, ctx, yaml)?;
+    /// # Ok(()) }
+    /// ```
+    pub fn with_graph_from_yaml(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        data: &str,
+    ) -> Result<Self, String> {
+        let graph = crate::render_graph::from_yaml(ctx, data)?;
+        Self::with_graph(width, height, ctx, graph).map_err(|e| format!("{:?}", e))
+    }
+
+    /// Construct a [`Renderer`] from a render graph described in JSON.
+    ///
+    /// ```no_run
+    /// # use koji::renderer::Renderer;
+    /// # use dashi::gpu::Context;
+    /// # fn build(ctx: &mut Context, json: &str) -> Result<(), String> {
+    /// let renderer = Renderer::with_graph_from_json(800, 600, ctx, json)?;
+    /// # Ok(()) }
+    /// ```
+    pub fn with_graph_from_json(
+        width: u32,
+        height: u32,
+        ctx: &mut Context,
+        data: &str,
+    ) -> Result<Self, String> {
+        let graph = crate::render_graph::from_json(ctx, data)?;
+        Self::with_graph(width, height, ctx, graph).map_err(|e| format!("{:?}", e))
+    }
+
     pub fn new(width: u32, height: u32, _title: &str, ctx: &mut Context) -> Result<Self, GPUError> {
         let canvas = CanvasBuilder::new()
             .extent([width, height])

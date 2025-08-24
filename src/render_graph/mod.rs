@@ -26,6 +26,8 @@ mod composition;
 pub use composition::*;
 pub mod io;
 pub use io::*;
+pub mod builder;
+pub use builder::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResourceDesc {
